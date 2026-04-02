@@ -1,0 +1,13 @@
+.claude/worktrees/
+.DS_Store
+*.log
+dist/
+build/
+node_modules/
+.idea/
+.vscode/
+.env
+.env.*
+*.cache
+cypress/videos/
+cypress/screenshots/

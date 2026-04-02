@@ -1,0 +1,52 @@
+/* Layout Styles */
+.layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  padding-top: 64px; /* 考虑 header 的高度 */
+  transition: opacity 0.3s ease-out;
+}
+
+.footer {
+  padding: 1.5rem 0;
+  background-color: rgba(18, 20, 34, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid color-mix(in srgb, var(--primary-color) 15%, transparent);
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  transition: opacity 0.3s ease-out, background-color 0.3s ease;
+}
+
+html[data-theme-mode="light"] .footer,
+:root[data-theme-mode="light"] .footer {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.footer .container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* 语言切换时的过渡效果 */
+.layout.language-changing .main-content,
+.layout.language-changing .footer {
+  opacity: 0.5;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .main-content {
+    padding-top: 56px;
+  }
+}
+
+/* Theme-aware styling is handled via CSS custom properties in src/index.css.
+ * prefers-color-scheme overrides were removed so the in-app theme toggle
+ * actually works regardless of the OS setting. */
