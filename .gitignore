@@ -12,3 +12,5 @@ node_modules/
 cypress/videos/
 cypress/screenshots/
 .vercel
+.harness/
+test-results/

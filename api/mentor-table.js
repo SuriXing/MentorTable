@@ -1355,7 +1355,14 @@ mentorTableHandler.__test__ = {
   compactConversationHistory,
   formatConversationHistoryForPrompt,
   buildUserPrompt,
-  buildMentorDirectiveBlock
+  buildMentorDirectiveBlock,
+  tryParseJson,
+  normalizeProviderPayload,
+  pickReplyForMentor,
+  riskLevelScore,
+  detectLanguageFromText,
+  resolveEffectiveLanguage,
+  normalizeRiskLevel,
 };
 
 module.exports = mentorTableHandler;
