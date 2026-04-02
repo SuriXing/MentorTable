@@ -1,0 +1,10 @@
+{
+  "buildCommand": "vite build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/api/mentor-table", "destination": "/api/mentor-table" },
+    { "source": "/api/mentor-image", "destination": "/api/mentor-image" },
+    { "source": "/api/mentor-debug-prompt", "destination": "/api/mentor-debug-prompt" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
