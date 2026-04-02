@@ -34,6 +34,7 @@ export default defineConfig(({ mode }) => {
     test: {
       globals: true,
       environment: 'jsdom',
+      exclude: ['e2e/**', 'node_modules/**', 'cypress/**'],
       coverage: {
         provider: 'c8',
         reporter: ['text', 'text-summary'],
