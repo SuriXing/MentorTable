@@ -31,5 +31,24 @@ export default defineConfig(({ mode }) => {
       sourcemap: true,
       target: 'es2015',
     },
+    test: {
+      globals: true,
+      environment: 'jsdom',
+      coverage: {
+        provider: 'c8',
+        reporter: ['text', 'text-summary'],
+        include: [
+          'src/features/**/*.ts',
+          'src/utils/**/*.ts',
+          'src/hooks/**/*.ts',
+          'api/**/*.js',
+        ],
+        exclude: [
+          '**/*.d.ts',
+          '**/*.test.*',
+          '**/index.ts',
+        ],
+      },
+    },
   };
 });
