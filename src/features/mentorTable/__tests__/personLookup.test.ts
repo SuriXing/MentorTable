@@ -66,9 +66,12 @@ describe('personLookup', () => {
 
     const image = await fetchPersonImage('Completely Unknown Person ZZZZZ');
 
-    // Should fall back to a name avatar (data:image/svg or ui-avatars)
+    // Should fall back to a name avatar (data URI or ui-avatars)
     expect(image).toBeTruthy();
     expect(typeof image).toBe('string');
+    expect(
+      image.startsWith('data:image/svg') || image.includes('ui-avatars.com') || image.includes('dicebear.com')
+    ).toBe(true);
   });
 
   it('fetchPersonImage uses Wikipedia title lookup when available', async () => {
@@ -246,7 +249,7 @@ describe('personLookup', () => {
 
     const placeholder = getVerifiedPlaceholderImage();
     expect(typeof placeholder).toBe('string');
-    expect(placeholder.length).toBeGreaterThan(0);
+    expect(placeholder).toMatch(/^data:image\/svg/);
   });
 
   it('fetchPersonImageCandidates returns combined array for verified person', async () => {
@@ -263,9 +266,9 @@ describe('personLookup', () => {
     const { getChineseDisplayName } = await import('../personLookup');
 
     const zhName = getChineseDisplayName('Bill Gates');
-    // Should return Chinese alias if available, otherwise canonical
+    // Should return Chinese alias — Bill Gates has '比尔·盖茨' or '比尔盖茨' as alias
     expect(typeof zhName).toBe('string');
-    expect(zhName.length).toBeGreaterThan(0);
+    expect(zhName).not.toBe('Bill Gates'); // must return Chinese, not passthrough
   });
 
   it('getChineseDisplayName returns input name for unknown person', async () => {

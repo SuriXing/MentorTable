@@ -67,6 +67,11 @@ app.get('/api/mentor-image', async (req, res) => {
   await mentorImageHandler(req, res);
 });
 
-app.listen(port, host, () => {
-  console.log(`Mentor API listening on http://${host}:${port}`);
-});
+if (require.main === module) {
+  app.listen(port, host, () => {
+    console.log(`Mentor API listening on http://${host}:${port}`);
+  });
+}
+
+module.exports = app;
+module.exports.__test__ = { stripWrappingQuotes, loadDotEnvFile };

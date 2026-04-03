@@ -1,39 +1,18 @@
 /**
  * Tests for server.js — Express app integration tests.
  *
- * Starts the Express app on a random port and makes real HTTP requests.
- * Tests CORS, health endpoint, and OPTIONS handling.
+ * Uses the real exported app from server.js (not a recreation).
  */
 
 const http = require('http');
-const express = require('express');
 
-// We cannot require server.js directly because it calls app.listen().
-// Instead, we reconstruct the relevant middleware and routes inline to test
-// the Express configuration behavior (CORS, health, OPTIONS).
+// server.js now exports the app (listen() only runs when require.main === module)
+const app = require('../../server.js');
+const { stripWrappingQuotes } = app.__test__;
 
-function buildApp() {
-  const app = express();
-  app.use(express.json({ limit: '1mb' }));
-  app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    if (req.method === 'OPTIONS') {
-      res.status(204).end();
-      return;
-    }
-    next();
-  });
-  app.get('/api/health', (_req, res) => {
-    res.json({ ok: true, service: 'mentor-api' });
-  });
-  return app;
-}
-
-function startServer(app) {
+function startServer(expressApp) {
   return new Promise((resolve) => {
-    const server = app.listen(0, '127.0.0.1', () => {
+    const server = expressApp.listen(0, '127.0.0.1', () => {
       const { port } = server.address();
       resolve({ server, port });
     });
@@ -63,12 +42,11 @@ function request(port, options) {
   });
 }
 
-describe('Express server', () => {
+describe('Express server (real app)', () => {
   let server;
   let port;
 
   beforeAll(async () => {
-    const app = buildApp();
     const result = await startServer(app);
     server = result.server;
     port = result.port;
@@ -107,20 +85,9 @@ describe('Express server', () => {
 });
 
 // ---------------------------------------------------------------------------
-// stripWrappingQuotes & loadDotEnvFile logic (unit-level via behavior)
+// stripWrappingQuotes — testing the REAL exported function from server.js
 // ---------------------------------------------------------------------------
-describe('stripWrappingQuotes (inline recreation)', () => {
-  // Recreate since it's not exported
-  function stripWrappingQuotes(value) {
-    if (typeof value !== 'string' || value.length < 2) return value;
-    const first = value[0];
-    const last = value[value.length - 1];
-    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
-      return value.slice(1, -1);
-    }
-    return value;
-  }
-
+describe('stripWrappingQuotes (real export)', () => {
   it('strips double quotes', () => {
     expect(stripWrappingQuotes('"hello"')).toBe('hello');
   });
