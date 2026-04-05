@@ -551,11 +551,20 @@ describe('fetchBuffer redirect following', () => {
       return { on() {}, destroy() {} };
     });
 
-    const resultPromise = handler(mockReq({ query: { name: 'Rate Limited' } }), mockRes());
+    const res = mockRes();
+    const resultPromise = handler(mockReq({ query: { name: 'Rate Limited' } }), res);
     await vi.runAllTimersAsync();
     await resultPromise;
 
     vi.useRealTimers();
+
+    // Verify the retry actually happened: callIndex should reach 3
+    // (summary lookup → 429 → retry success)
+    expect(callIndex).toBeGreaterThanOrEqual(3);
+    // Verify the eventual successful response was served
+    expect(res._headers['Content-Type']).toBe('image/jpeg');
+    expect(res._body).toBeTruthy();
+    expect(res._body.length).toBeGreaterThan(100);
   });
 
   it('returns null (404) for non-200 status codes', async () => {

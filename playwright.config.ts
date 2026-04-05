@@ -2,8 +2,11 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
-  timeout: 30000,
+  timeout: 60000,
   retries: 0,
+  // Use single worker when collecting coverage so that the coverage fixture
+  // writes sequentially to .nyc_output without races.
+  workers: process.env.COLLECT_UI_COVERAGE === '1' ? 1 : undefined,
   use: {
     baseURL: 'http://localhost:3001',
     headless: true,
@@ -15,9 +18,13 @@ export default defineConfig({
       reuseExistingServer: true,
     },
     {
-      command: 'npx vite --port 3001',
+      // When COLLECT_UI_COVERAGE=1, start Vite with istanbul instrumentation
+      command:
+        process.env.COLLECT_UI_COVERAGE === '1'
+          ? 'VITE_COVERAGE=1 npx vite --port 3001 --force'
+          : 'npx vite --port 3001',
       port: 3001,
-      reuseExistingServer: true,
+      reuseExistingServer: !process.env.COLLECT_UI_COVERAGE,
     },
   ],
 });

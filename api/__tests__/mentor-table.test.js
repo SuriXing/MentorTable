@@ -1056,13 +1056,15 @@ describe('mentor-table LLM integration', () => {
     expect(result.estimatedTokens).toBeGreaterThan(100);
   });
 
-  it('falls back to deterministic when LLM compression fails', async () => {
+  it('takes compression branch but uses deterministic middle summary when LLM call fails', async () => {
+    // Build 80 entries (>4 rounds) with enough text to exceed tokenThreshold
     const entries = Array.from({ length: 80 }, (_, i) => ({
       role: i % 2 === 0 ? 'user' : 'mentor',
       speaker: i % 2 === 0 ? 'User' : 'Mentor',
       text: `Message ${i}: ${'a'.repeat(2000)}`,
     }));
 
+    // Simulate LLM API failure
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 500,
@@ -1081,8 +1083,20 @@ describe('mentor-table LLM integration', () => {
       compressTimeoutMs: 5000,
     });
 
+    // The function took the LLM-compression BRANCH (preserves first 2 + last 2 rounds)
+    // and set usedLlmCompression: true to signal that branch was taken, even though
+    // the LLM itself failed and we fell back to a deterministic middle summary.
     expect(result.usedLlmCompression).toBe(true);
-    expect(result.summary).toBeTruthy();
+    // Verify the fallback actually happened: fetch was called (and failed)
+    expect(globalThis.fetch).toHaveBeenCalled();
+    // The summary must still be produced via deterministic fallback — it should
+    // contain the marker from summarizeCompactedMiddleDeterministic, not LLM output
+    expect(result.summary).toContain('Middle rounds compacted');
+    // Verify structural invariants of the compression branch:
+    //  - omittedCount > 0 (middle entries were removed)
+    //  - preservedEntries are from rounds 0, 1, N-2, N-1 only
+    expect(result.omittedCount).toBeGreaterThan(0);
+    expect(result.entries.length).toBeLessThan(entries.length);
   });
 
   it('uses OPENAI_API_KEY and OPENAI_BASE_URL as fallbacks', async () => {

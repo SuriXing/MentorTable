@@ -14,3 +14,5 @@ cypress/screenshots/
 .vercel
 .harness/
 test-results/
+.nyc_output/
+coverage/
