@@ -125,6 +125,13 @@ describe('mentorEngine', () => {
       expect(unique.size).toBe(5);
     });
 
+    // The following per-mentor tests intentionally assert specific persona
+    // fingerprints ("bottleneck" for Gates, "first principles" for Musk, etc).
+    // This makes them brittle to copy edits — that's the point. If someone
+    // accidentally swaps one mentor's template with another's, or weakens a
+    // persona into generic advice, these catch it. Intentional copy edits
+    // SHOULD require updating the fingerprint here.
+
     it('bill_gates response talks about bottleneck', () => {
       const result = simulateMentorTable(problem, [mentors[0]], 'en');
       expect(result.mentorReplies[0].likelyResponse).toContain('bottleneck');

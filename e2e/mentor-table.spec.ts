@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './coverage-fixture';
 
 // Increase timeout for tests that trigger LLM API calls (can take 25-30s)
 test.setTimeout(60000);

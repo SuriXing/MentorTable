@@ -116,8 +116,29 @@ test.describe('Mentor Table API', () => {
 
   test('GET /api/mentor-image returns image or 404', async ({ request }) => {
     const res = await request.get(`${API_BASE}/api/mentor-image?name=Bill+Gates`);
-    // The endpoint may return a cached image (200) or 404 if no cache exists.
-    // Both are acceptable — we just verify it does not crash (no 500).
+    // Must NOT be 500 (no server crash). Valid outcomes: cached image served
+    // (200), redirect (302), or Wikipedia miss (404). No other codes allowed.
     expect([200, 302, 404]).toContain(res.status());
+
+    if (res.status() === 200) {
+      // If serving an image, verify it's actually an image with a plausible body
+      const contentType = res.headers()['content-type'] || '';
+      expect(contentType).toMatch(/^image\/(jpeg|png|webp)/);
+      const body = await res.body();
+      expect(body.length).toBeGreaterThan(100);
+      // Cache header is set by the handler
+      expect(res.headers()['cache-control'] || '').toContain('max-age');
+    } else if (res.status() === 404) {
+      // 404 must return a structured error body, not empty
+      const body = await res.json();
+      expect(body.error).toBeTruthy();
+    }
+  });
+
+  test('GET /api/mentor-image without name returns 400', async ({ request }) => {
+    const res = await request.get(`${API_BASE}/api/mentor-image`);
+    expect(res.status()).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain('name');
   });
 });

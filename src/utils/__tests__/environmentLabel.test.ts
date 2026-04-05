@@ -1,13 +1,9 @@
 import { vi } from 'vitest';
 
 describe('environmentLabel', () => {
-  const originalWindow = globalThis.window;
-
   afterEach(() => {
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
-    if (originalWindow) {
-      globalThis.window = originalWindow;
-    }
   });
 
   describe('isLocalRuntime', () => {
@@ -40,13 +36,10 @@ describe('environmentLabel', () => {
     });
 
     it('returns false when window is undefined (SSR)', async () => {
-      const savedWindow = globalThis.window;
-      // @ts-ignore
-      delete globalThis.window;
+      vi.stubGlobal('window', undefined);
       vi.resetModules();
       const { isLocalRuntime } = await import('../environmentLabel');
       expect(isLocalRuntime()).toBe(false);
-      globalThis.window = savedWindow;
     });
   });
 

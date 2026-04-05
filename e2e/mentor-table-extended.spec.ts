@@ -1,4 +1,5 @@
-import { test, expect, Page, Route } from '@playwright/test';
+import type { Page, Route } from '@playwright/test';
+import { test, expect } from './coverage-fixture';
 
 test.setTimeout(60000);
 
