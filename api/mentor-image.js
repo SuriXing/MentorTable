@@ -180,10 +180,11 @@ module.exports = async function mentorImageHandler(req, res) {
     return;
   }
 
-  // 3. Fetch image server-side — try each candidate URL
-  const urls = Array.isArray(imageUrls) ? imageUrls : [imageUrls];
+  // 3. Fetch image server-side — try each candidate URL.
+  // findWikipediaImageUrl only ever returns a string[] or null, so imageUrls is
+  // guaranteed to be an array here.
   let result = null;
-  for (const url of urls) {
+  for (const url of imageUrls) {
     result = await fetchBuffer(url);
     if (result && result.buffer.length >= 100) break;
     result = null;

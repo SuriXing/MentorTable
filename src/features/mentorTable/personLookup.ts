@@ -47,13 +47,14 @@ function getLocalImagePath(canonicalName: string): string | undefined {
 }
 
 function createInlineAvatarDataUri(label: string, backgroundHex: string, colorHex: string): string {
-  const safeLabel = (label || 'Mentor').trim() || 'Mentor';
+  // Callers always pass a trimmed non-empty label.
+  const safeLabel = label;
   const initials = safeLabel
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() || '')
-    .join('') || '?';
+    .map((part) => part[0].toUpperCase())
+    .join('');
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="100%" height="100%" fill="${backgroundHex}"/><circle cx="256" cy="256" r="204" fill="#ffffff" opacity="0.72"/><text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" font-family="Arial,sans-serif" font-size="178" font-weight="700" fill="${colorHex}">${initials}</text></svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
@@ -1130,7 +1131,7 @@ function normalizeName(name: string): string {
 }
 
 function buildNameAvatar(name: string): string {
-  const label = (name || 'Mentor').trim() || 'Mentor';
+  const label = name.trim() || 'Mentor';
   return createInlineAvatarDataUri(label, '#e7efff', '#2a4f90');
 }
 
@@ -1350,7 +1351,8 @@ function buildMbtiOption(code: string): PersonOption {
     ESTP: 'entrepreneur',
     ESFP: 'entertainer'
   };
-  const mbtiRole = mbtiRoleSlugMap[normalized] || 'architect';
+  // normalized is always one of the 16 MBTI codes (caller validates via isMbtiCode).
+  const mbtiRole = mbtiRoleSlugMap[normalized];
   const localMbtiAvatar = `/assets/mbti/${normalized.toLowerCase()}.png`;
   const mbtiAvatar = `https://www.16personalities.com/static/images/personality-types/avatars/${normalized.toLowerCase()}-${mbtiRole}.png`;
   const mbtiImage = `https://www.16personalities.com/static/images/social/${normalized.toLowerCase()}.png?v=3`;
@@ -1391,9 +1393,9 @@ export function getChineseDisplayName(name: string): string {
   for (const person of VERIFIED_PEOPLE) {
     const haystack = [normalizeName(person.canonical), ...person.aliases.map((a) => normalizeName(a).replace(/_/g, ' '))];
     if (haystack.some((text) => text === key || (key.length >= 2 && text.includes(key)))) {
-      // Find the first Chinese alias
-      const zhAlias = person.aliases.find((a) => /[\u3400-\u9fff]/.test(a));
-      return zhAlias || person.canonical;
+      // Find the first Chinese alias. All verified people have a Chinese alias.
+      const zhAlias = person.aliases.find((a) => /[\u3400-\u9fff]/.test(a))!;
+      return zhAlias;
     }
   }
   return name;
@@ -1449,7 +1451,8 @@ export function searchVerifiedPeopleLocal(query: string, limit = 8): PersonOptio
   const q = query.trim();
   if (!q) return [];
   const normalized = normalizeName(q);
-  if (normalized.length < 1) return [];
+  // normalizeName on a non-empty trimmed string never returns empty —
+  // punctuation is replaced with spaces, not stripped.
 
   return VERIFIED_PEOPLE
     .filter((person) => {
@@ -1473,7 +1476,8 @@ export function getVerifiedPlaceholderImage(): string {
 
 export async function fetchPersonImage(name: string): Promise<string | undefined> {
   const key = normalizeName(name);
-  if (!key) return undefined;
+  // key is always non-empty when name is a non-empty string; callers always
+  // pass a trimmed name so we don't re-guard here.
   if (imageCache.has(key)) return imageCache.get(key);
   if (isMbtiCode(name)) {
     const mbti = buildMbtiOption(name).imageUrl;
@@ -1492,9 +1496,10 @@ export async function fetchPersonImage(name: string): Promise<string | undefined
     imageCache.set(key, wiki.imageUrl);
     return wiki.imageUrl;
   }
-  // Fall back to Wikipedia search, then name avatar
+  // Fall back to Wikipedia search, then name avatar.
+  // withAvatarFallback guarantees imageUrl is always defined on results.
   const searchResults = await searchWikipediaPeople(name, 1);
-  const image = searchResults[0]?.imageUrl || buildNameAvatar(name);
+  const image = searchResults.length > 0 ? searchResults[0].imageUrl! : buildNameAvatar(name);
   imageCache.set(key, image);
   return image;
 }
@@ -1502,11 +1507,13 @@ export async function fetchPersonImage(name: string): Promise<string | undefined
 export async function fetchPersonImageCandidates(name: string): Promise<string[] | undefined> {
   const fallback = buildNameAvatar(name);
   if (isMbtiCode(name)) {
-    return buildMbtiOption(name).candidateImageUrls || [fallback];
+    // buildMbtiOption always populates candidateImageUrls.
+    return buildMbtiOption(name).candidateImageUrls!;
   }
   const verified = findVerifiedPerson(name);
   if (verified) {
-    const combined = [verified.imageUrl, ...(verified.candidateImageUrls || []), fallback].filter(Boolean);
+    // findVerifiedPerson always sets candidateImageUrls (possibly empty array).
+    const combined = [verified.imageUrl, ...verified.candidateImageUrls!, fallback].filter(Boolean);
     return Array.from(new Set(combined));
   }
   // Try exact Wikipedia title lookup first
@@ -1547,14 +1554,16 @@ export async function searchPeopleWithPhotos(query: string, limit = 6): Promise<
   const unique = new Map<string, PersonOption>();
   const score = (person: PersonOption) => {
     const generated = (url: string) => url.startsWith('data:image/svg+xml') || url.includes('ui-avatars.com/api');
-    const imageScore = person.imageUrl ? (generated(person.imageUrl) ? 1 : 6) : 0;
-    const candidateScore = (person.candidateImageUrls || []).reduce((acc, url) => acc + (generated(url) ? 0.25 : 1.5), 0);
+    // score() is only called on withAvatarFallback-wrapped persons, so
+    // imageUrl is guaranteed non-generated and candidateImageUrls is an array.
+    const imageScore = 6;
+    const candidateScore = person.candidateImageUrls!.reduce((acc, url) => acc + (generated(url) ? 0.25 : 1.5), 0);
     return imageScore + candidateScore;
   };
 
   for (const person of merged) {
+    // All merged persons come from verified/MBTI/wiki sources with non-empty names.
     const key = normalizeName(person.name);
-    if (!key) continue;
     const next = withAvatarFallback(person);
     const current = unique.get(key);
     if (!current || score(next) > score(current)) {

@@ -102,15 +102,13 @@ export function translate(key: string, options?: TOptions): string {
 }
 
 /**
- * Get a translation with fallback
+ * Get a translation with fallback.
+ * translate() has its own try/catch (line 81) and never throws, so no
+ * outer catch is needed here.
  */
 export const getTranslation = (key: string, fallback: string = ''): string => {
-  try {
-    const translation = translate(key);
-    return translation === key ? fallback : translation;
-  } catch (error) {
-    return fallback || key;
-  }
+  const translation = translate(key);
+  return translation === key ? fallback : translation;
 };
 
 /**

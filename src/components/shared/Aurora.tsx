@@ -123,8 +123,10 @@ export default function Aurora(props: AuroraProps) {
   const ctnDom = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const ctn = ctnDom.current;
-    if (!ctn) return;
+    // React guarantees the ref is bound before useEffect fires, and the
+    // container div is unconditionally rendered at the end of this component,
+    // so ctnDom.current is always non-null here.
+    const ctn = ctnDom.current as HTMLDivElement;
 
     const renderer = new Renderer({
       alpha: true,
@@ -140,7 +142,8 @@ export default function Aurora(props: AuroraProps) {
     let program: Program;
 
     function resize() {
-      if (!ctn) return;
+      // ctn is already narrowed non-null by the outer `if (!ctn) return` check
+      // at the top of this effect; no need to re-check inside resize.
       const width = ctn.offsetWidth;
       const height = ctn.offsetHeight;
       renderer.setSize(width, height);
