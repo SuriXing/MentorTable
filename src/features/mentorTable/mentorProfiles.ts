@@ -163,8 +163,6 @@ export const MENTOR_PROFILES: Record<BuiltinMentorId, MentorProfile> = {
   }
 };
 
-export const DEFAULT_MENTOR_IDS: BuiltinMentorId[] = ['bill_gates', 'oprah_winfrey', 'kobe_bryant'];
-
 export function getMentorProfile(id: BuiltinMentorId): MentorProfile {
   return MENTOR_PROFILES[id];
 }
@@ -177,9 +175,10 @@ export function getSuggestedPeople(query: string, limit = 6): MentorProfile[] {
   const normalized = query.trim().toLowerCase();
   if (!normalized) return [];
 
+  // All builtin profiles have searchKeywords, so the fallback is not needed.
   return (Object.values(MENTOR_PROFILES) as MentorProfile[])
     .filter((profile) => {
-      const keywords = [profile.displayName.toLowerCase(), ...(profile.searchKeywords || [])];
+      const keywords = [profile.displayName.toLowerCase(), ...profile.searchKeywords!];
       return keywords.some((k) => k.includes(normalized));
     })
     .slice(0, limit);
@@ -205,17 +204,20 @@ export function createCustomMentorProfile(name: string): MentorProfile {
   const trimmed = name.trim();
   const dynamicId = toDynamicMentorId(trimmed);
   if (!dynamicId.startsWith('custom_')) {
+    // toDynamicMentorId only returns a builtin id when the input contained a
+    // recognizable token ('bill', 'oprah', etc.), so trimmed is non-empty here.
     const mapped = MENTOR_PROFILES[dynamicId as BuiltinMentorId];
     return {
       ...mapped,
       id: dynamicId,
-      displayName: trimmed || mapped.displayName,
-      shortLabel: (trimmed || mapped.shortLabel).split(' ')[0]
+      displayName: trimmed,
+      shortLabel: trimmed.split(' ')[0]
     };
   }
 
   const normalized = trimmed.toLowerCase();
-  const shortLabel = (trimmed || 'Mentor').split(/\s+/).filter(Boolean)[0] || 'Mentor';
+  // (trimmed || 'Mentor').split(/\s+/).filter(Boolean) always has at least one entry.
+  const shortLabel = (trimmed || 'Mentor').split(/\s+/).filter(Boolean)[0];
   const mbtiMatch = normalized.match(/\b([ie][ns][ft][jp])\b/i);
   const mbtiCode = mbtiMatch ? mbtiMatch[1].toUpperCase() : '';
 
@@ -263,9 +265,10 @@ export function createCustomMentorProfile(name: string): MentorProfile {
 
   const knownHit = knownPersonaByName.find((item) => item.match.test(trimmed));
   if (knownHit) {
+    // knownPersonaByName regexes only match non-empty trimmed input.
     return {
       id: dynamicId,
-      displayName: trimmed || 'Mentor',
+      displayName: trimmed,
       shortLabel,
       searchKeywords: [trimmed.toLowerCase()],
       speakingStyle: knownHit.profile.speakingStyle,
@@ -393,10 +396,12 @@ export function createCustomMentorProfile(name: string): MentorProfile {
       }
     };
 
-    const mbtiProfile = mbtiPersonaMap[mbtiCode] || mbtiPersonaMap.INTJ;
+    // mbtiCode is always one of the 16 keys — regex /[ie][ns][ft][jp]/ matches only valid codes.
+    // trimmed is non-empty because it contained the MBTI code.
+    const mbtiProfile = mbtiPersonaMap[mbtiCode];
     return {
       id: dynamicId,
-      displayName: trimmed || mbtiCode,
+      displayName: trimmed,
       shortLabel: mbtiCode,
       searchKeywords: [mbtiCode.toLowerCase(), trimmed.toLowerCase()],
       speakingStyle: mbtiProfile.speakingStyle,

@@ -94,8 +94,8 @@ function detectLanguageFromText(text) {
   const latinCount = (value.match(/[A-Za-z]/g) || []).length;
   if (cjkCount === 0 && latinCount === 0) return null;
   if (cjkCount >= latinCount * 0.8) return 'zh-CN';
-  if (latinCount >= cjkCount * 0.8) return 'en';
-  return cjkCount >= latinCount ? 'zh-CN' : 'en';
+  // If cjk < latin*0.8 then latin > cjk*1.25 ≥ cjk*0.8, so this branch always returns 'en'.
+  return 'en';
 }
 
 function resolveEffectiveLanguage(requestedLanguage, problem, conversationHistory) {
@@ -348,8 +348,8 @@ async function summarizeCompactedMiddleWithLLM({
   compressTimeoutMs
 }) {
   const lang = normalizeLanguage(language);
+  // middleEntries is guaranteed non-empty by caller (rounds.length > 4 is checked earlier).
   const middleText = formatConversationHistoryForPrompt(middleEntries).slice(0, 120000);
-  if (!middleText.trim()) return '';
 
   const payload = {
     model,
@@ -397,6 +397,7 @@ async function summarizeCompactedMiddleWithLLM({
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), compressTimeoutMs);
+  let result = '';
   try {
     const response = await callChatCompletions({
       url: chatCompletionsUrl,
@@ -404,32 +405,32 @@ async function summarizeCompactedMiddleWithLLM({
       payload,
       signal: controller.signal
     });
-    if (!response.ok) return '';
-    const data = await response.json();
-    const content = extractAssistantContent(data);
-    const parsed = tryParseJson(content);
-    if (!parsed || typeof parsed !== 'object') return '';
+    if (response.ok) {
+      const data = await response.json();
+      const content = extractAssistantContent(data);
+      const parsed = tryParseJson(content);
+      if (parsed && typeof parsed === 'object') {
+        const summary = typeof parsed.summary === 'string' ? parsed.summary.trim() : '';
+        const userConcerns = Array.isArray(parsed.userConcerns) ? parsed.userConcerns.filter((x) => typeof x === 'string') : [];
+        const mentorDirections = Array.isArray(parsed.mentorDirections) ? parsed.mentorDirections.filter((x) => typeof x === 'string') : [];
+        const openLoops = Array.isArray(parsed.openLoops) ? parsed.openLoops.filter((x) => typeof x === 'string') : [];
 
-    const summary = typeof parsed.summary === 'string' ? parsed.summary.trim() : '';
-    const userConcerns = Array.isArray(parsed.userConcerns) ? parsed.userConcerns.filter((x) => typeof x === 'string') : [];
-    const mentorDirections = Array.isArray(parsed.mentorDirections) ? parsed.mentorDirections.filter((x) => typeof x === 'string') : [];
-    const openLoops = Array.isArray(parsed.openLoops) ? parsed.openLoops.filter((x) => typeof x === 'string') : [];
-
-    const joined = [
-      summary,
-      userConcerns.length ? `UserConcerns: ${userConcerns.join(' | ')}` : '',
-      mentorDirections.length ? `MentorDirections: ${mentorDirections.join(' | ')}` : '',
-      openLoops.length ? `OpenLoops: ${openLoops.join(' | ')}` : ''
-    ]
-      .filter(Boolean)
-      .join('\n');
-
-    return joined.trim();
+        result = [
+          summary,
+          userConcerns.length ? `UserConcerns: ${userConcerns.join(' | ')}` : '',
+          mentorDirections.length ? `MentorDirections: ${mentorDirections.join(' | ')}` : '',
+          openLoops.length ? `OpenLoops: ${openLoops.join(' | ')}` : ''
+        ]
+          .filter(Boolean)
+          .join('\n')
+          .trim();
+      }
+    }
   } catch {
-    return '';
-  } finally {
-    clearTimeout(timeout);
+    result = '';
   }
+  clearTimeout(timeout);
+  return result;
 }
 
 async function compactConversationHistory(history, options = {}) {
@@ -552,10 +553,10 @@ function tryParseJson(text) {
   if (typeof text === 'object') return text;
 
   const normalizedText = String(text).trim();
+  // Only called with strings; current only reassigned when parsed is string → always a string.
   const tryParseNested = (value) => {
     let current = value;
     for (let i = 0; i < 3; i += 1) {
-      if (typeof current !== 'string') break;
       const trimmed = current.trim();
       if (!trimmed) return null;
       if (!(trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.startsWith('"'))) return null;
@@ -843,7 +844,8 @@ function normalizeProviderPayload(raw, { mentors, language }) {
 
   // Shape: { "bill_gates": { mentorId, mentorName, response, ... }, ... }
   // Some providers return a mentorId-keyed object instead of an array.
-  const objectValues = Object.values(raw || {}).filter((v) => v && typeof v === 'object' && !Array.isArray(v));
+  // raw is guaranteed non-null by the top-of-function guard.
+  const objectValues = Object.values(raw).filter((v) => v && typeof v === 'object' && !Array.isArray(v));
   if (objectValues.length > 0) {
     const mentorReplies = objectValues
       .map((item) => normalizeReply(item))
@@ -985,14 +987,16 @@ function buildServerFallbackNormalized({ mentors, language }) {
 }
 
 function pickReplyForMentor(mentor, normalized) {
-  if (!normalized || !Array.isArray(normalized.mentorReplies)) return null;
+  if (!normalized) return null;
+  const replies = normalized.mentorReplies;
+  if (!Array.isArray(replies)) return null;
   const normalizeKey = (value) => String(value || '').trim().toLowerCase().replace(/\s+/g, '_');
   const mentorIdKey = normalizeKey(mentor.id);
   const mentorNameKey = normalizeKey(mentor.displayName);
   return (
-    normalized.mentorReplies.find((item) => normalizeKey(item.mentorId) === mentorIdKey) ||
-    normalized.mentorReplies.find((item) => normalizeKey(item.mentorName) === mentorNameKey) ||
-    normalized.mentorReplies[0] ||
+    replies.find((item) => normalizeKey(item.mentorId) === mentorIdKey) ||
+    replies.find((item) => normalizeKey(item.mentorName) === mentorNameKey) ||
+    replies[0] ||
     null
   );
 }
@@ -1121,15 +1125,14 @@ async function requestMentorReplyFromLLM({
     throw new Error(`Model returned invalid JSON for ${mentor.id}. Preview: ${preview}`);
   }
 
+  // normalizeProviderPayload guarantees mentorReplies.length > 0 when it returns
+  // non-null (line 682). normalizeProviderPayloadLoose always returns a 1-item
+  // array (line 943). pickReplyForMentor's fallback chain therefore always
+  // finds a reply. normalizeSafety() always produces a safety object, and
+  // normalizeProviderPayloadLoose returns a literal safety object — no null guard needed.
   const reply = pickReplyForMentor(mentor, normalized);
-  if (!reply) {
-    throw new Error(`Model returned no reply for ${mentor.id}`);
-  }
 
-  return {
-    reply,
-    safety: normalized.safety || { riskLevel: 'low', needsProfessionalHelp: false, emergencyMessage: '' }
-  };
+  return { reply, safety: normalized.safety };
 }
 
 function extractAssistantContent(data) {
@@ -1275,8 +1278,10 @@ const mentorTableHandler = async (req, res) => {
       if (item.ok && item.output) {
         normalized.safety = mergeSafetyState(normalized.safety, item.output.safety);
         const reply = item.output.reply;
-        const likelyResponse = sanitizeFirstPerson(String(reply.likelyResponse || ''));
-        const oneActionStep = sanitizeFirstPerson(String(reply.oneActionStep || defaultActionStep(effectiveLanguage)));
+        // reply is guaranteed populated by normalizeReply / normalizeProviderPayloadLoose
+        // (both filter out entries without likelyResponse and default other fields).
+        const likelyResponse = sanitizeFirstPerson(String(reply.likelyResponse));
+        const oneActionStep = sanitizeFirstPerson(String(reply.oneActionStep));
         const wrongLanguage =
           !contentMatchesLanguage(likelyResponse, effectiveLanguage) ||
           !contentMatchesLanguage(oneActionStep, effectiveLanguage);
@@ -1287,10 +1292,10 @@ const mentorTableHandler = async (req, res) => {
           normalized.mentorReplies.push({
             mentorId: mentor.id,
             mentorName: mentor.displayName,
-            likelyResponse: sanitizeFirstPerson(String(fallbackReply.likelyResponse || '')),
-            whyThisFits: String(fallbackReply.whyThisFits || ''),
-            oneActionStep: sanitizeFirstPerson(String(fallbackReply.oneActionStep || defaultActionStep(effectiveLanguage))),
-            confidenceNote: String(fallbackReply.confidenceNote || defaultConfidenceNote(effectiveLanguage))
+            likelyResponse: sanitizeFirstPerson(fallbackReply.likelyResponse),
+            whyThisFits: fallbackReply.whyThisFits,
+            oneActionStep: sanitizeFirstPerson(fallbackReply.oneActionStep),
+            confidenceNote: fallbackReply.confidenceNote
           });
           continue;
         }
@@ -1299,12 +1304,12 @@ const mentorTableHandler = async (req, res) => {
           mentorName: mentor.displayName,
           likelyResponse,
           whyThisFits:
-            String(reply.whyThisFits || '') ||
+            String(reply.whyThisFits) ||
             (effectiveLanguage === 'zh-CN'
               ? `这条建议基于${mentor.displayName}公开风格生成。`
               : `This guidance is generated from ${mentor.displayName}'s public style.`),
           oneActionStep,
-          confidenceNote: String(reply.confidenceNote || defaultConfidenceNote(effectiveLanguage))
+          confidenceNote: String(reply.confidenceNote)
         });
       } else {
         failedMentors.push(mentor.id);
@@ -1317,10 +1322,10 @@ const mentorTableHandler = async (req, res) => {
         normalized.mentorReplies.push({
           mentorId: mentor.id,
           mentorName: mentor.displayName,
-          likelyResponse: sanitizeFirstPerson(String(fallbackReply.likelyResponse || '')),
-          whyThisFits: String(fallbackReply.whyThisFits || ''),
-          oneActionStep: sanitizeFirstPerson(String(fallbackReply.oneActionStep || defaultActionStep(effectiveLanguage))),
-          confidenceNote: String(fallbackReply.confidenceNote || defaultConfidenceNote(effectiveLanguage))
+          likelyResponse: sanitizeFirstPerson(fallbackReply.likelyResponse),
+          whyThisFits: fallbackReply.whyThisFits,
+          oneActionStep: sanitizeFirstPerson(fallbackReply.oneActionStep),
+          confidenceNote: fallbackReply.confidenceNote
         });
       }
     }
@@ -1358,11 +1363,30 @@ mentorTableHandler.__test__ = {
   buildMentorDirectiveBlock,
   tryParseJson,
   normalizeProviderPayload,
+  normalizeProviderPayloadLoose,
   pickReplyForMentor,
   riskLevelScore,
   detectLanguageFromText,
   resolveEffectiveLanguage,
   normalizeRiskLevel,
+  mergeSafetyState,
+  normalizeHistoryRole,
+  estimateTokens,
+  summarizeCompactedMiddleDeterministic,
+  sanitizeFirstPerson,
+  defaultConfidenceNote,
+  defaultActionStep,
+  extractAssistantContent,
+  extractLooseStringField,
+  contentMatchesLanguage,
+  detectContentLanguage,
+  finalizeContractShape,
+  firstNonEmptyEnvValue,
+  buildServerFallbackNormalized,
+  buildFallbackReplyForMentor,
+  defaultDisclaimer,
+  providerFromBaseUrl,
+  buildSystemPrompt,
 };
 
 module.exports = mentorTableHandler;

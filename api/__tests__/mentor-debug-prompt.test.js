@@ -119,4 +119,59 @@ describe('mentor-debug-prompt handler', () => {
     expect(res._status).toBe(500);
     expect(res._json.error).toBe('Unknown server error');
   });
+
+  it('zh-CN: falls back to empty id and "Mentor" label, empty arrays', async () => {
+    const res = mockRes();
+    // All optional fields missing → exercise `|| ''`, `|| 'Mentor'`, `|| []` falsy branches in zh-CN block
+    await handler(mockReq({ body: { mentor: {}, language: 'zh-CN' } }), res);
+    expect(res._status).toBe(200);
+    expect(res._json.prompt).toContain('MentorId: \n');
+    expect(res._json.prompt).toContain('MentorName: Mentor');
+    expect(res._json.prompt).toContain('SpeakingStyle: \n');
+    expect(res._json.prompt).toContain('CoreValues: \n');
+    expect(res._json.prompt).toContain('DecisionPatterns: \n');
+    expect(res._json.prompt).toContain('KnownExperienceThemes: \n');
+    expect(res._json.prompt).toContain('LikelyBlindSpots: \n');
+    expect(res._json.prompt).toContain('AvoidClaims: \n');
+    expect(res._json.prompt).toContain('第一人称');
+  });
+
+  it('zh-CN: falls back to shortLabel when displayName is missing', async () => {
+    const res = mockRes();
+    await handler(mockReq({
+      body: { mentor: { shortLabel: '短标签' }, language: 'zh-CN' },
+    }), res);
+    expect(res._status).toBe(200);
+    expect(res._json.prompt).toContain('MentorName: 短标签');
+  });
+
+  it('en: falls back to empty id and "Mentor" label, empty arrays', async () => {
+    const res = mockRes();
+    await handler(mockReq({ body: { mentor: {} } }), res);
+    expect(res._status).toBe(200);
+    expect(res._json.prompt).toContain('MentorId: \n');
+    expect(res._json.prompt).toContain('MentorName: Mentor');
+    expect(res._json.prompt).toContain('SpeakingStyle: \n');
+    expect(res._json.prompt).toContain('CoreValues: \n');
+    expect(res._json.prompt).toContain('DecisionPatterns: \n');
+    expect(res._json.prompt).toContain('KnownExperienceThemes: \n');
+    expect(res._json.prompt).toContain('LikelyBlindSpots: \n');
+    expect(res._json.prompt).toContain('AvoidClaims: \n');
+  });
+
+  it('en: falls back to shortLabel when displayName is missing', async () => {
+    const res = mockRes();
+    await handler(mockReq({
+      body: { mentor: { shortLabel: 'Short' }, language: 'en' },
+    }), res);
+    expect(res._status).toBe(200);
+    expect(res._json.prompt).toContain('MentorName: Short');
+  });
+
+  it('returns 400 when body is null (exercises `req.body || {}` fallback)', async () => {
+    const res = mockRes();
+    await handler(mockReq({ body: null }), res);
+    expect(res._status).toBe(400);
+    expect(res._json.error).toMatch(/mentor/i);
+  });
 });

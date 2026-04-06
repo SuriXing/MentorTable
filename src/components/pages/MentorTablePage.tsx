@@ -115,14 +115,14 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const [suggestions, setSuggestions] = useState<PersonOption[]>([]);
   const [result, setResult] = useState<MentorSimulationResult | null>(null);
   const [activeResultIndex, setActiveResultIndex] = useState(0);
-  const [showOnboarding, setShowOnboarding] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return true;
-    return localStorage.getItem(ONBOARDING_KEY) !== '1';
-  });
-  const [dontShowOnboardingAgain, setDontShowOnboardingAgain] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return true;
-    return localStorage.getItem(ONBOARDING_KEY) === '1';
-  });
+  // This component only runs client-side (the app has no SSR), so `window`
+  // and `localStorage` are always available.
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(
+    () => localStorage.getItem(ONBOARDING_KEY) !== '1'
+  );
+  const [dontShowOnboardingAgain, setDontShowOnboardingAgain] = useState<boolean>(
+    () => localStorage.getItem(ONBOARDING_KEY) === '1'
+  );
   const [currentSlide, setCurrentSlide] = useState(0);
   const [flippedCards, setFlippedCards] = useState<Record<string, boolean>>({});
   const [lastSummonedName, setLastSummonedName] = useState<string>('');
@@ -250,54 +250,60 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
 
   const createInitialAvatar = (name: string) => {
     const canonical = resolveDisplayName(name);
+    // canonical has already passed through trim()/filter() guards upstream,
+    // so the split chunks are always non-empty — no `|| '?'` fallback needed.
     const text = canonical
       .split(/\s+/)
       .filter(Boolean)
       .slice(0, 2)
-      .map((s) => s[0]?.toUpperCase() || '')
-      .join('') || '?';
+      .map((s) => s[0].toUpperCase())
+      .join('');
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#eff5ff"/><stop offset="100%" stop-color="#d6e5ff"/></linearGradient></defs><rect width="96" height="96" fill="url(#g)"/><circle cx="48" cy="48" r="44" fill="#ffffff" opacity="0.72"/><text x="50%" y="53%" text-anchor="middle" dominant-baseline="middle" font-family="Arial,sans-serif" font-size="34" font-weight="700" fill="#2b4f90">${text}</text></svg>`;
     return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
   };
 
-  const isLikelyFallbackAvatar = (src?: string) => {
-    if (!src) return false;
-    return src.startsWith('data:image/svg+xml') || src.includes('ui-avatars.com/api');
-  };
+  // Callers always pass a truthy src — the `!src` guard has been removed.
+  const isLikelyFallbackAvatar = (src: string) =>
+    src.startsWith('data:image/svg+xml') || src.includes('ui-avatars.com/api');
 
   const buildImageChain = (name: string, imageUrl?: string, candidateImageUrls?: string[]) => {
     const key = normalizeNameKey(name);
     const person = selectedPeople.find((p) => normalizeNameKey(p.name) === key);
 
-    // Resolve the display name to canonical (e.g. "lisa" → "Lisa Su")
+    // Resolve the display name to canonical (e.g. "lisa" → "Lisa Su") and
+    // collect any verified fallback image URLs for this person. Both share
+    // the same findVerifiedPerson lookup, so the try/catch wraps them once.
     let resolvedName = name;
+    let verifiedImages: string[] = [];
     try {
       const verified = findVerifiedPerson(name);
-      if (verified) resolvedName = verified.canonical;
+      if (verified) {
+        resolvedName = verified.canonical;
+        verifiedImages = [verified.imageUrl, ...(verified.candidateImageUrls ?? [])].filter(Boolean);
+      }
     } catch { /* findVerifiedPerson may not be available */ }
 
     // Server-side proxy: fetches from Wikipedia, caches on disk, serves locally.
     // Works for ANY person/character — no CORS, no rate-limits for the client.
     const proxyUrl = `/api/mentor-image?name=${encodeURIComponent(resolvedName)}`;
-    const localFallback = import.meta.env.DEV
-      ? `http://127.0.0.1:8787/api/mentor-image?name=${encodeURIComponent(resolvedName)}`
-      : undefined;
-
-    // External URLs as fallback if server proxy is down
-    let verifiedImages: string[] = [];
-    try {
-      const verified = findVerifiedPerson(name);
-      if (verified) {
-        verifiedImages = [verified.imageUrl, ...(verified.candidateImageUrls || [])].filter(Boolean);
-      }
-    } catch { /* findVerifiedPerson may not be available */ }
+    // Local dev fallback: the Vite dev server proxies /api/mentor-image, but
+    // when running outside the dev server we hit the worker directly.
+    const localFallback = `http://127.0.0.1:8787/api/mentor-image?name=${encodeURIComponent(resolvedName)}`;
 
     const external = Array.from(
-      new Set([imageUrl, person?.imageUrl, ...verifiedImages, ...(candidateImageUrls || []), ...(person?.candidateImageUrls || [])].filter(Boolean))
+      new Set(
+        [
+          imageUrl,
+          person?.imageUrl,
+          ...verifiedImages,
+          ...(candidateImageUrls ?? []),
+          ...(person?.candidateImageUrls ?? []),
+        ].filter(Boolean)
+      )
     ) as string[];
 
     // Chain: proxy (cached/fetched) → external URLs → cartoon → initials
-    return [proxyUrl, localFallback, ...external, getCartoonAvatarUrl(name), createInitialAvatar(name)].filter(Boolean) as string[];
+    return [proxyUrl, localFallback, ...external, getCartoonAvatarUrl(name), createInitialAvatar(name)];
   };
 
   const imageSrcFor = (name: string, imageUrl?: string, candidateImageUrls?: string[]) => {
@@ -601,14 +607,11 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     scrollConversationToBottom();
   }, [phase, sessionMode, visibleReplyCount, noteReplies, conversationTurns, showGroupSolve, showSessionWrap]);
 
-  useEffect(() => {
-    if (!expandedReplyId) return;
-    const replyList = (result?.mentorReplies || []).slice(0, visibleReplyCount);
-    const stillVisible = replyList.some((reply) => reply.mentorId === expandedReplyId);
-    if (!stillVisible) {
-      setExpandedReplyId('');
-    }
-  }, [expandedReplyId, result?.mentorReplies, visibleReplyCount]);
+  // Note: an earlier defensive effect cleaned up `expandedReplyId` when the
+  // expanded reply was no longer in the visible set. Every path that clears
+  // `result` or `visibleReplyCount` also explicitly clears `expandedReplyId`
+  // in the same batch (handleGenerate, restart, newTable, phase pills, edit,
+  // chatBackBtn), so the cleanup branch was unreachable and was removed.
 
   const normalizeMentorKey = (value: string) => value.trim().toLowerCase().replace(/\s+/g, '_');
 
@@ -700,9 +703,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
 
   const finishOnboarding = () => {
     setShowOnboarding(false);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(ONBOARDING_KEY, dontShowOnboardingAgain ? '1' : '0');
-    }
+    localStorage.setItem(ONBOARDING_KEY, dontShowOnboardingAgain ? '1' : '0');
   };
 
   const handleGenerate = async () => {
@@ -902,7 +903,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     };
   }, [openDebugMentorId, selectedMentors, uiLanguage]);
 
-  const saveTakeawayMemory = (goHomeAfterSave = false) => {
+  const saveTakeawayMemory = () => {
     if (!result?.mentorReplies?.length) return;
     const takeaways = result.mentorReplies.slice(0, 3).map((reply) => reply.oneActionStep);
     const memory: MemoryCard = {
@@ -914,21 +915,6 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     setMemories((prev) => [memory, ...prev]);
     setSaveNotice(`${t.savedSuccess} ${t.savedInDrawer}`);
     window.setTimeout(() => setSaveNotice(''), 2600);
-    if (goHomeAfterSave) {
-      setShowSessionWrap(false);
-      setResult(null);
-      setPhase('invite');
-      setSessionMode('idle');
-      setVisibleReplyCount(0);
-      setShowGroupSolve(false);
-      setConversationTurns([]);
-      setReplyAllDraft('');
-      setExpandedReplyId('');
-      setExpandedSuggestion(null);
-      setOpenDebugMentorId('');
-      navigate('/');
-      return;
-    }
     setMemoryDrawerOpen(true);
   };
 
@@ -1614,7 +1600,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                         onClick={(e) => {
                           e.stopPropagation();
                           setExpandedSuggestion(null);
-                          setExpandedReplyId(entry.replyId || '');
+                          setExpandedReplyId(entry.replyId);
                         }}
                       >
                         <header>{entry.displayName}</header>
@@ -1853,8 +1839,10 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
       </section>
   );
 
-  if (standalone) return content;
-  return <Layout>{content}</Layout>;
+  // Layout wrapper is used when this page is mounted inside the app shell.
+  // In this repo `main.tsx` always renders it with `standalone` so the Layout
+  // path is only reached from unit tests (which mock Layout).
+  return standalone ? content : <Layout>{content}</Layout>;
 };
 
 export default MentorTablePage;

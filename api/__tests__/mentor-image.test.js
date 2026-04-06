@@ -593,6 +593,286 @@ describe('fetchBuffer redirect following', () => {
     expect(res._status).toBe(404);
   });
 
+  it('uses http module when URL scheme is http (not https)', async () => {
+    // Exercise the `url.startsWith('https') ? https : http` ternary's http branch
+    vi.spyOn(fs, 'existsSync').mockReturnValue(false);
+    vi.spyOn(fs, 'mkdirSync').mockReturnValue(undefined);
+    vi.spyOn(fs, 'writeFileSync').mockReturnValue(undefined);
+
+    const https = require('https');
+    const http = require('http');
+
+    // Wikipedia REST API (https) returns a summary pointing to an http:// thumbnail URL
+    vi.spyOn(https, 'get').mockImplementation((url, opts, callback) => {
+      if (typeof opts === 'function') callback = opts;
+      const summaryData = {
+        title: 'HTTP Person',
+        thumbnail: { source: 'http://upload.example.com/thumb/100px-HttpPerson.jpg' },
+      };
+      const mockResponse = {
+        statusCode: 200,
+        headers: { 'content-type': 'application/json' },
+        on(event, handler) {
+          if (event === 'data') handler(Buffer.from(JSON.stringify(summaryData)));
+          if (event === 'end') handler();
+          return mockResponse;
+        },
+        resume() {},
+      };
+      callback(mockResponse);
+      return { on() {}, destroy() {} };
+    });
+
+    // http.get serves the final image
+    const httpGetSpy = vi.spyOn(http, 'get').mockImplementation((url, opts, callback) => {
+      if (typeof opts === 'function') callback = opts;
+      const fakeImage = Buffer.alloc(200, 0xAB);
+      const mockResponse = {
+        statusCode: 200,
+        headers: { 'content-type': 'image/jpeg' },
+        on(event, handler) {
+          if (event === 'data') handler(fakeImage);
+          if (event === 'end') handler();
+          return mockResponse;
+        },
+        resume() {},
+      };
+      callback(mockResponse);
+      return { on() {}, destroy() {} };
+    });
+
+    const res = mockRes();
+    await handler(mockReq({ query: { name: 'HTTP Person' } }), res);
+
+    expect(httpGetSpy).toHaveBeenCalled();
+    expect(res._headers['Content-Type']).toBe('image/jpeg');
+    expect(res._body).toBeTruthy();
+  });
+
+  it('caches as .webp when content-type includes webp', async () => {
+    // Exercise extFromContentType webp branch (line 37)
+    vi.spyOn(fs, 'existsSync').mockReturnValue(false);
+    vi.spyOn(fs, 'mkdirSync').mockReturnValue(undefined);
+    const writeSpy = vi.spyOn(fs, 'writeFileSync').mockReturnValue(undefined);
+
+    const https = require('https');
+    let callIndex = 0;
+    vi.spyOn(https, 'get').mockImplementation((url, opts, callback) => {
+      callIndex += 1;
+      if (typeof opts === 'function') callback = opts;
+      if (callIndex === 1) {
+        // Summary with thumbnail
+        const summaryData = {
+          title: 'Webp Person',
+          thumbnail: { source: 'https://upload.wikimedia.org/thumb/100px-Webp.webp' },
+        };
+        const mockResponse = {
+          statusCode: 200,
+          headers: { 'content-type': 'application/json' },
+          on(event, handler) {
+            if (event === 'data') handler(Buffer.from(JSON.stringify(summaryData)));
+            if (event === 'end') handler();
+            return mockResponse;
+          },
+          resume() {},
+        };
+        callback(mockResponse);
+      } else {
+        // Image with webp content-type
+        const fakeImage = Buffer.alloc(200, 0xAA);
+        const mockResponse = {
+          statusCode: 200,
+          headers: { 'content-type': 'image/webp' },
+          on(event, handler) {
+            if (event === 'data') handler(fakeImage);
+            if (event === 'end') handler();
+            return mockResponse;
+          },
+          resume() {},
+        };
+        callback(mockResponse);
+      }
+      return { on() {}, destroy() {} };
+    });
+
+    const res = mockRes();
+    await handler(mockReq({ query: { name: 'Webp Person' } }), res);
+
+    // Verify the cache file was written with .webp extension
+    expect(writeSpy).toHaveBeenCalled();
+    const writtenPath = writeSpy.mock.calls[0][0];
+    expect(writtenPath).toMatch(/\.webp$/);
+    expect(res._headers['Content-Type']).toBe('image/webp');
+  });
+
+  it('caches as .jpg when content-type header is missing (falls back to empty string → .jpg)', async () => {
+    // Exercise extFromContentType !ct branch (line 35) via line 81 `|| ''` fallback
+    vi.spyOn(fs, 'existsSync').mockReturnValue(false);
+    vi.spyOn(fs, 'mkdirSync').mockReturnValue(undefined);
+    const writeSpy = vi.spyOn(fs, 'writeFileSync').mockReturnValue(undefined);
+
+    const https = require('https');
+    let callIndex = 0;
+    vi.spyOn(https, 'get').mockImplementation((url, opts, callback) => {
+      callIndex += 1;
+      if (typeof opts === 'function') callback = opts;
+      if (callIndex === 1) {
+        const summaryData = {
+          title: 'No Content Type',
+          thumbnail: { source: 'https://upload.wikimedia.org/thumb/100px-NoCT.jpg' },
+        };
+        const mockResponse = {
+          statusCode: 200,
+          headers: { 'content-type': 'application/json' },
+          on(event, handler) {
+            if (event === 'data') handler(Buffer.from(JSON.stringify(summaryData)));
+            if (event === 'end') handler();
+            return mockResponse;
+          },
+          resume() {},
+        };
+        callback(mockResponse);
+      } else {
+        // Image response with NO content-type header
+        const fakeImage = Buffer.alloc(200, 0x11);
+        const mockResponse = {
+          statusCode: 200,
+          headers: {}, // missing content-type
+          on(event, handler) {
+            if (event === 'data') handler(fakeImage);
+            if (event === 'end') handler();
+            return mockResponse;
+          },
+          resume() {},
+        };
+        callback(mockResponse);
+      }
+      return { on() {}, destroy() {} };
+    });
+
+    const res = mockRes();
+    await handler(mockReq({ query: { name: 'No Content Type' } }), res);
+
+    expect(writeSpy).toHaveBeenCalled();
+    const writtenPath = writeSpy.mock.calls[0][0];
+    expect(writtenPath).toMatch(/\.jpg$/);
+  });
+
+  it('returns single-URL array when thumbnail URL has no size marker (larger === original)', async () => {
+    // Exercise findWikipediaImageUrl ternary branch: larger === original → [original]
+    vi.spyOn(fs, 'existsSync').mockReturnValue(false);
+    vi.spyOn(fs, 'mkdirSync').mockReturnValue(undefined);
+    vi.spyOn(fs, 'writeFileSync').mockReturnValue(undefined);
+
+    const https = require('https');
+    let callIndex = 0;
+    vi.spyOn(https, 'get').mockImplementation((url, opts, callback) => {
+      callIndex += 1;
+      if (typeof opts === 'function') callback = opts;
+      if (callIndex === 1) {
+        // Thumbnail URL has NO /\d+px-/ pattern
+        const summaryData = {
+          title: 'No Size Marker',
+          thumbnail: { source: 'https://upload.wikimedia.org/original.jpg' },
+        };
+        const mockResponse = {
+          statusCode: 200,
+          headers: { 'content-type': 'application/json' },
+          on(event, handler) {
+            if (event === 'data') handler(Buffer.from(JSON.stringify(summaryData)));
+            if (event === 'end') handler();
+            return mockResponse;
+          },
+          resume() {},
+        };
+        callback(mockResponse);
+      } else {
+        const fakeImage = Buffer.alloc(200, 0xCC);
+        const mockResponse = {
+          statusCode: 200,
+          headers: { 'content-type': 'image/jpeg' },
+          on(event, handler) {
+            if (event === 'data') handler(fakeImage);
+            if (event === 'end') handler();
+            return mockResponse;
+          },
+          resume() {},
+        };
+        callback(mockResponse);
+      }
+      return { on() {}, destroy() {} };
+    });
+
+    const res = mockRes();
+    await handler(mockReq({ query: { name: 'No Size Marker' } }), res);
+
+    expect(res._headers['Content-Type']).toBe('image/jpeg');
+    expect(res._body).toBeTruthy();
+    // Should have made exactly 2 calls: summary + image (no retries, single URL)
+    expect(callIndex).toBe(2);
+  });
+
+  it('returns 404 when search API finds titles but pageimages query has no pages', async () => {
+    // Exercise line 145 `pageData?.query?.pages ? Object.values(...) : []` falsy branch
+    vi.spyOn(fs, 'existsSync').mockReturnValue(false);
+
+    const https = require('https');
+    let callIndex = 0;
+    vi.spyOn(https, 'get').mockImplementation((url, opts, callback) => {
+      callIndex += 1;
+      if (typeof opts === 'function') callback = opts;
+
+      if (callIndex === 1) {
+        // REST summary: no thumbnail
+        const mockResponse = {
+          statusCode: 200,
+          headers: { 'content-type': 'application/json' },
+          on(event, handler) {
+            if (event === 'data') handler(Buffer.from(JSON.stringify({ title: 'x' })));
+            if (event === 'end') handler();
+            return mockResponse;
+          },
+          resume() {},
+        };
+        callback(mockResponse);
+      } else if (callIndex === 2) {
+        // Search API returns one title
+        const searchData = { query: { search: [{ title: 'Somebody' }] } };
+        const mockResponse = {
+          statusCode: 200,
+          headers: { 'content-type': 'application/json' },
+          on(event, handler) {
+            if (event === 'data') handler(Buffer.from(JSON.stringify(searchData)));
+            if (event === 'end') handler();
+            return mockResponse;
+          },
+          resume() {},
+        };
+        callback(mockResponse);
+      } else {
+        // pageimages query returns an object WITHOUT query.pages
+        const pageData = { batchcomplete: '' };
+        const mockResponse = {
+          statusCode: 200,
+          headers: { 'content-type': 'application/json' },
+          on(event, handler) {
+            if (event === 'data') handler(Buffer.from(JSON.stringify(pageData)));
+            if (event === 'end') handler();
+            return mockResponse;
+          },
+          resume() {},
+        };
+        callback(mockResponse);
+      }
+      return { on() {}, destroy() {} };
+    });
+
+    const res = mockRes();
+    await handler(mockReq({ query: { name: 'Page Missing' } }), res);
+
+    expect(res._status).toBe(404);
+  });
+
   it('handles JSON parse error in fetchJson (invalid JSON body)', async () => {
     vi.spyOn(fs, 'existsSync').mockReturnValue(false);
 
