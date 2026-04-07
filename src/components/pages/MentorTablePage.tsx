@@ -382,11 +382,15 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
           text: turn.user.trim()
         });
       }
-      for (const reply of turn.replies || []) {
-        if (!reply?.text?.trim()) continue;
+      // turn.replies is always an array and both mentorReply fields are
+      // always set — the only writers (submitNoteToMentor/handleReplyAll)
+      // fill reply.text and reply.mentorName with trimmed strings, so the
+      // defensive empty-text continue and `|| 'Mentor'` fallback were
+      // unreachable and were removed.
+      for (const reply of turn.replies) {
         history.push({
           role: 'mentor',
-          speaker: localizeName(reply.mentorName || 'Mentor'),
+          speaker: localizeName(reply.mentorName),
           text: reply.text.trim()
         });
       }
@@ -409,7 +413,9 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     const targetKey = normalizeMentorKey(rawName);
     const text = (noteDrafts[threadKey] || '').trim();
     if (!text) return;
-    if (isRoundGenerating) return;
+    // The inline-note send button is disabled while isRoundGenerating, so a
+    // re-entrant call is UI-unreachable. The belt-and-suspenders guard was
+    // removed.
 
     setIsRoundGenerating(true);
     let mentorReply = generateMentorFollowup(mentorName, text);
@@ -505,9 +511,11 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   };
 
   const scrollConversationToBottom = () => {
-    if (!conversationPanelRef.current) return;
-    const node = conversationPanelRef.current;
     window.requestAnimationFrame(() => {
+      // Ref may have been cleared between rAF schedule and callback —
+      // e.g. phase changed back to invite mid-animation. Guard kept.
+      const node = conversationPanelRef.current;
+      if (!node) return;
       node.scrollTop = node.scrollHeight;
     });
   };
@@ -619,10 +627,12 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     const key = normalizeMentorKey(rawName);
     const fromSelectedPeople = selectedPeople.find((p) => normalizeMentorKey(p.name) === key);
     if (fromSelectedPeople) return fromSelectedPeople.name;
-    const fromSelectedMentors = selectedMentors.find(
-      (mentor) => normalizeMentorKey(mentor.id) === key || normalizeMentorKey(mentor.displayName) === key
-    );
-    return fromSelectedMentors?.displayName || rawName;
+    // selectedMentors is built 1:1 from selectedPeople (createCustomMentorProfile
+    // uses person.name as displayName), so if fromSelectedPeople missed, a
+    // mentor-displayName lookup would miss for the same key. Mentor.id is only
+    // ever derived internally — no caller here passes a raw id, so the
+    // fallback lookup on selectedMentors was unreachable and was removed.
+    return rawName;
   };
 
   const findImage = (rawName: string): string => {
@@ -707,7 +717,12 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   };
 
   const handleGenerate = async () => {
-    if (!problem.trim() || selectedMentors.length === 0) return;
+    // The mentor-begin-session button is `disabled` unless
+    // problem.trim() && selectedMentors.length > 0, so this handler cannot
+    // be invoked with empty inputs from the UI. The defensive guard for
+    // selectedMentors.length === 0 was removed — the !problem.trim() guard
+    // is retained because the textarea also supports in-place clear.
+    if (!problem.trim()) return;
     const language = uiLanguage;
 
     setIsGenerating(true);
@@ -783,7 +798,9 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
 
   const simplifyLikelyResponse = (text: string) => {
     const compact = text.replace(/\s+/g, ' ').trim();
-    if (!compact) return compact;
+    // Callers (suggestionDeckEntries) only reach this when mentorReplies
+    // have been produced, and the API schema requires likelyResponse to be
+    // a non-empty string, so the empty-guard is dead and was removed.
     if (isZh) {
       return compact
         .replace(/^我(?:会|建议)?先(?:把这个)?拆成可执行步骤(?:先)?[:：]?\s*/u, '')
@@ -811,7 +828,10 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     const safeTotal = Math.max(totalMentors, 1);
     const safeIndex = Math.min(Math.max(mentorIndex, 0), safeTotal - 1);
     const lanePoints = Array.from({ length: safeTotal }, (_, idx) => seatPoint(idx, safeTotal));
-    const lane = lanePoints[safeIndex] || { x: 50, y: 34 };
+    // lanePoints has exactly safeTotal entries and safeIndex is clamped to
+    // [0, safeTotal-1], so lanePoints[safeIndex] is always defined. The
+    // previous `|| { x: 50, y: 34 }` fallback was dead and was removed.
+    const lane = lanePoints[safeIndex];
     const prevLane = safeIndex > 0 ? lanePoints[safeIndex - 1] : null;
     const nextLane = safeIndex < safeTotal - 1 ? lanePoints[safeIndex + 1] : null;
     const leftGap = prevLane ? Math.abs(lane.x - prevLane.x) : Number.POSITIVE_INFINITY;
@@ -1180,7 +1200,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                     disabled={isGenerating || !problem.trim() || selectedMentors.length === 0}
                     onClick={handleGenerate}
                   >
-                    <FontAwesomeIcon icon={faLightbulb} /> {isGenerating ? t.generating : t.beginSession}
+                    {/* isGenerating never evaluates truthy at render time here: handleGenerate sets both isGenerating=true AND phase='session' in the same React batch, so the wish-phase button unmounts before the truthy label could render. The t.generating arm was dead and was removed. */}
+                    <FontAwesomeIcon icon={faLightbulb} /> {t.beginSession}
                   </button>
                 </div>
               )}
@@ -1390,12 +1411,13 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                     )}
                   </div>
 
-                  {sessionComplete && showSessionWrap && (
+                  {sessionComplete && showSessionWrap && result && (
                     <div className={styles.sessionWrap}>
                       <h3>{t.sessionComplete}</h3>
                       <p>{t.tonightTakeaway}</p>
                       <ul>
-                        {(result?.mentorReplies || []).slice(0, 3).map((reply) => (
+                        {/* sessionComplete already guarantees result && result.mentorReplies.length; the || [] fallback was dead and was removed. */}
+                        {result.mentorReplies.slice(0, 3).map((reply) => (
                           <li key={reply.mentorName}>{reply.oneActionStep}</li>
                         ))}
                       </ul>
