@@ -719,10 +719,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const handleGenerate = async () => {
     // The mentor-begin-session button is `disabled` unless
     // problem.trim() && selectedMentors.length > 0, so this handler cannot
-    // be invoked with empty inputs from the UI. The defensive guard for
-    // selectedMentors.length === 0 was removed — the !problem.trim() guard
-    // is retained because the textarea also supports in-place clear.
-    if (!problem.trim()) return;
+    // be invoked with empty inputs from the UI. Both defensive guards were
+    // removed as unreachable.
     const language = uiLanguage;
 
     setIsGenerating(true);
@@ -924,8 +922,10 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   }, [openDebugMentorId, selectedMentors, uiLanguage]);
 
   const saveTakeawayMemory = () => {
-    if (!result?.mentorReplies?.length) return;
-    const takeaways = result.mentorReplies.slice(0, 3).map((reply) => reply.oneActionStep);
+    // Save button only renders under `sessionComplete && showSessionWrap`,
+    // which requires result.mentorReplies.length > 0. The defensive guard
+    // was unreachable and was removed.
+    const takeaways = result!.mentorReplies.slice(0, 3).map((reply) => reply.oneActionStep);
     const memory: MemoryCard = {
       id: `${Date.now()}`,
       title: isZh ? '今晚总结' : 'Tonight\'s takeaway',
@@ -963,8 +963,11 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
 
   const suggestionDeckEntries: SuggestionDeckEntry[] = selectedMentors
     .map<SuggestionDeckEntry | null>((mentor, index) => {
+      // selectedMentors mirrors selectedPeople 1:1 via useMemo, so
+      // selectedPeople[index] is always defined here. The `|| mentor.displayName`
+      // fallback was unreachable and was removed.
       const person = selectedPeople[index];
-      const displayName = localizeName(person?.name || mentor.displayName);
+      const displayName = localizeName(person.name);
       const reply = getReplyByMentorName(displayName) || getReplyByMentorName(mentor.displayName);
       const visibleReply = reply ? visibleReplies.find((item) => item.mentorId === reply.mentorId) : undefined;
 
@@ -1244,7 +1247,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                           <div className={styles.conversationRowRight}>
                             <article className={`${styles.conversationBubble} ${styles.conversationRightBubble}`}>
                               <header>{t.you}</header>
-                              <p>{problem.trim() || '...'}</p>
+                              {/* phase==='session' is only reachable through handleGenerate, which requires problem.trim(). The `|| '...'` fallback was unreachable. */}
+                              <p>{problem.trim()}</p>
                             </article>
                           </div>
                           {selectedMentors.map((mentor) => (
@@ -1264,7 +1268,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                         <div className={styles.conversationRowRight}>
                           <article className={`${styles.conversationBubble} ${styles.conversationRightBubble}`}>
                             <header>{t.you}</header>
-                            <p>{problem.trim() || '...'}</p>
+                            {/* problem.trim() is guaranteed non-empty during session — handleGenerate requires it. The `|| '...'` fallback was unreachable. */}
+                            <p>{problem.trim()}</p>
                           </article>
                         </div>
 
@@ -1496,8 +1501,11 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                 </div>
 
                 {selectedMentors.map((mentor: MentorProfile, index: number) => {
+                  // selectedPeople[index] is always defined: selectedMentors
+                  // is derived 1:1 from selectedPeople. `|| mentor.displayName`
+                  // fallback was unreachable and was removed.
                   const person = selectedPeople[index];
-                  const displayName = localizeName(person?.name || mentor.displayName);
+                  const displayName = localizeName(person.name);
                   const mentorReply = getReplyByMentorName(displayName) || getReplyByMentorName(mentor.displayName);
                   const mentorWaitingForReply = Boolean(
                     phase === 'session' &&

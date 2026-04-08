@@ -2358,6 +2358,126 @@ describe('MentorTablePage (branch closure — zh-CN + multi-mentor)', () => {
     const drawer = screen.getByTestId('mentor-memory-drawer');
     expect(drawer.textContent).toMatch(/记忆抽屉|还没有保存/);
   });
+
+  it('renders zh "搜索中..." row while remote search is pending with no local hits', async () => {
+    mentorTestState.searchVerifiedPeopleLocalThrows = true;
+    mentorTestState.getSuggestedPeopleThrows = true;
+    let resolveRemote: (v: any[]) => void = () => undefined;
+    mentorTestState.searchPeopleWithPhotos = () =>
+      new Promise((res) => {
+        resolveRemote = res;
+      });
+    render(<MentorTablePage standalone />);
+    const input = screen.getByTestId('mentor-person-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'x' } });
+    await waitFor(() => {
+      expect(document.body.textContent).toMatch(/搜索中|未找到结果/);
+    });
+    // Clean up
+    await act(async () => {
+      resolveRemote([]);
+      await new Promise((r) => setTimeout(r, 50));
+    });
+  });
+
+  it('zh expanded reply overlay renders "下一步：" label', async () => {
+    generateMentorAdviceMock.mockResolvedValue({
+      schemaVersion: 'mentor_table.v1',
+      language: 'zh-CN',
+      safety: { riskLevel: 'low', needsProfessionalHelp: false, emergencyMessage: '' },
+      mentorReplies: [
+        {
+          mentorId: 'custom_bill_gates',
+          mentorName: 'Bill Gates',
+          likelyResponse:
+            '一段足够长的中文回复内容，超过建议卡片的截断阈值，这样 hasTrimmed 会为真，卡片就会变成可点击按钮或文章以便展开叠加层。再加一点让它更长更长更长。',
+          whyThisFits: '分析型思路。',
+          oneActionStep:
+            '一段足够长的中文行动步骤，用来让 hasTrimmed 为真，这样整张卡片的预览会被截断，并显示可展开提示。',
+          confidenceNote: 'AI模拟视角。',
+        },
+      ],
+      meta: { disclaimer: 'AI模拟视角。', generatedAt: '2024-01-01T00:00:00Z', source: 'llm' as const },
+    });
+    render(<MentorTablePage standalone />);
+    await addMentorName('Bill Gates');
+    fireEvent.click(screen.getByTestId('mentor-continue-wish'));
+    fireEvent.change(screen.getByTestId('mentor-problem-input'), {
+      target: { value: '帮我。' },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('mentor-begin-session'));
+    });
+    await waitFor(() => {
+      expect(screen.getAllByText(/下一步/).length).toBeGreaterThan(0);
+    });
+    const replyCard = document.querySelector(
+      '[class*="tableReplyCard"]'
+    ) as HTMLElement;
+    fireEvent.click(replyCard);
+    await waitFor(() => {
+      expect(document.querySelector('[class*="replyExpandOverlay"]')).toBeTruthy();
+    });
+    const overlayFooter = document.querySelector(
+      '[class*="replyExpandOverlay"] footer'
+    );
+    expect(overlayFooter?.textContent).toMatch(/下一步/);
+  });
+
+  it('zh expanded suggestion overlay renders "下一步：" label', async () => {
+    generateMentorAdviceMock.mockResolvedValue({
+      schemaVersion: 'mentor_table.v1',
+      language: 'zh-CN',
+      safety: { riskLevel: 'low', needsProfessionalHelp: false, emergencyMessage: '' },
+      mentorReplies: [
+        {
+          mentorId: 'custom_bill_gates',
+          mentorName: 'Bill Gates',
+          likelyResponse:
+            '一段足够长的中文回复内容，用来触发截断阈值，这样建议卡片会显示展开提示并变成可点击按钮以便触发展开叠加层。',
+          whyThisFits: '分析型思路。',
+          oneActionStep:
+            '一段足够长的中文行动步骤，用来让 hasTrimmed 为真，这样整张卡片的预览会被截断并显示可展开提示。',
+          confidenceNote: 'AI模拟视角。',
+        },
+      ],
+      meta: { disclaimer: 'AI模拟视角。', generatedAt: '2024-01-01T00:00:00Z', source: 'llm' as const },
+    });
+    render(<MentorTablePage standalone />);
+    await addMentorName('Bill Gates');
+    fireEvent.click(screen.getByTestId('mentor-continue-wish'));
+    fireEvent.change(screen.getByTestId('mentor-problem-input'), {
+      target: { value: '帮我。' },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('mentor-begin-session'));
+    });
+    await waitFor(() => {
+      expect(screen.getAllByText(/下一步/).length).toBeGreaterThan(0);
+    });
+    // Edit returns to invite phase, which preserves result → non-replyId
+    // suggestionCard button variant renders; clicking opens the
+    // expandedSuggestion overlay whose footer contains `下一步：`.
+    const editBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.trim() === '编辑'
+    );
+    fireEvent.click(editBtn!);
+    await waitFor(() =>
+      expect(screen.getByTestId('mentor-person-input')).toBeInTheDocument()
+    );
+    const suggestionBtn = document.querySelector(
+      'button[class*="suggestionCard"]'
+    ) as HTMLButtonElement;
+    expect(suggestionBtn).toBeTruthy();
+    fireEvent.click(suggestionBtn);
+    await waitFor(() => {
+      expect(document.querySelector('[class*="replyExpandOverlay"]')).toBeTruthy();
+    });
+    const overlayFooter = document.querySelector(
+      '[class*="replyExpandOverlay"] footer'
+    );
+    expect(overlayFooter?.textContent).toMatch(/下一步/);
+  });
 });
 
 // ---------------------------------------------------------------------------
