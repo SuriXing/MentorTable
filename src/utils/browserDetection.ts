@@ -42,11 +42,14 @@ export function detectBrowser(): BrowserInfo {
   info.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
   info.isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
   
-  if (/Windows/.test(ua)) info.os = 'Windows';
+  // Bug #17: Android UA contains "Linux; Android 13..." so the Android check
+  // must run BEFORE the Linux check — otherwise Android devices are mis-tagged
+  // as Linux. Order: iOS → Android → Windows → Mac → Linux.
+  if (info.isIOS) info.os = 'iOS';
+  else if (/Android/.test(ua)) info.os = 'Android';
+  else if (/Windows/.test(ua)) info.os = 'Windows';
   else if (/Macintosh|MacIntel/.test(ua)) info.os = 'Mac';
   else if (/Linux/.test(ua)) info.os = 'Linux';
-  else if (/Android/.test(ua)) info.os = 'Android';
-  else if (info.isIOS) info.os = 'iOS';
 
   // Browser detection
   if (/Safari/.test(ua) && !/Chrome/.test(ua)) {
@@ -97,13 +100,22 @@ export function initBrowserCompatibility(): void {
   if (info.isMobile) html.classList.add('is-mobile');
   if (info.isIOS) html.classList.add('is-ios');
 
-  // Fix for iOS 100vh issue
+  // Fix for iOS 100vh issue.
+  // Bug #19: a resize listener is added but was never removed. If
+  // initBrowserCompatibility is called more than once (HMR, tests, SPA
+  // route transitions), listeners accumulate. We guard against double-add
+  // by stashing the handler on a module-level flag-like property.
   if (info.isIOS) {
+    const globalWin = window as unknown as { __mtVhHandler__?: () => void };
+    if (globalWin.__mtVhHandler__) {
+      window.removeEventListener('resize', globalWin.__mtVhHandler__);
+    }
     const setVhVariable = () => {
       document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
     };
     setVhVariable();
     window.addEventListener('resize', setVhVariable);
+    globalWin.__mtVhHandler__ = setVhVariable;
   }
 }
 

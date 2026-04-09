@@ -394,6 +394,8 @@ describe('MentorTablePage (unit)', () => {
     render(<MentorTablePage standalone />);
     await runSession();
 
+    const callsBefore = generateMentorAdviceMock.mock.calls.length;
+
     // Reply-all dock card should be visible
     const replyAllTextarea = document.querySelector(
       '[class*="replyAllDockCard"] textarea'
@@ -410,13 +412,45 @@ describe('MentorTablePage (unit)', () => {
       fireEvent.click(sendAllBtn!);
     });
 
-    // A new conversation turn should appear (two generateMentorAdvice calls now)
-    expect(generateMentorAdviceMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+    // A second generateMentorAdvice call should fire.
+    expect(generateMentorAdviceMock.mock.calls.length).toBe(callsBefore + 1);
+
+    // Inspect the actual payload: every selected mentor must be targeted, and
+    // the typed text must have reached the API via `problem` or
+    // `conversationHistory`.
+    const replyAllCall = generateMentorAdviceMock.mock.calls[callsBefore][0];
+    expect(replyAllCall.mentors.length).toBe(1); // runSession() only added Bill
+    expect(replyAllCall.mentors[0].id).toBe('custom_bill_gates');
+    const serialized =
+      JSON.stringify(replyAllCall.problem || '') +
+      JSON.stringify(replyAllCall.conversationHistory || []);
+    expect(serialized).toMatch(/What about teamwork\?/);
   });
 
   it('pass-a-note to a single mentor triggers follow-up generation', async () => {
+    // Seed a distinct follow-up reply so we can assert it rendered to the DOM.
+    generateMentorAdviceMock.mockReset();
+    generateMentorAdviceMock
+      .mockResolvedValueOnce(buildMockResult())
+      .mockResolvedValueOnce(
+        buildMockResult({
+          mentorReplies: [
+            {
+              mentorId: 'custom_bill_gates',
+              mentorName: 'Bill Gates',
+              likelyResponse: 'Follow-up Bill reply after the note.',
+              whyThisFits: '',
+              oneActionStep: 'Next',
+              confidenceNote: '',
+            },
+          ],
+        })
+      );
+
     render(<MentorTablePage standalone />);
     await runSession();
+
+    const callsBefore = generateMentorAdviceMock.mock.calls.length;
 
     const passNoteBtn = Array.from(document.querySelectorAll('button')).find((b) =>
       /Pass a note to/.test(b.textContent || '')
@@ -438,7 +472,26 @@ describe('MentorTablePage (unit)', () => {
       fireEvent.click(sendBtn);
     });
 
-    expect(generateMentorAdviceMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+    // A follow-up generateMentorAdvice call fired.
+    expect(generateMentorAdviceMock.mock.calls.length).toBe(callsBefore + 1);
+
+    // Inspect the note-specific payload: the targeted mentor list must be
+    // exactly the single mentor the note was sent to, and the note text must
+    // appear in the outgoing payload.
+    const followUpCall = generateMentorAdviceMock.mock.calls[callsBefore][0];
+    expect(followUpCall.mentors).toHaveLength(1);
+    expect(followUpCall.mentors[0].id).toBe('custom_bill_gates');
+    const serialized =
+      JSON.stringify(followUpCall.problem || '') +
+      JSON.stringify(followUpCall.conversationHistory || []);
+    expect(serialized).toMatch(/Can you elaborate\?/);
+
+    // And the follow-up reply rendered to the DOM.
+    await waitFor(() => {
+      expect(
+        document.body.textContent || ''
+      ).toMatch(/Follow-up Bill reply after the note\./);
+    });
   });
 
   it('memory drawer toggle button opens and closes the drawer', () => {
@@ -1048,15 +1101,54 @@ describe('MentorTablePage (unit)', () => {
   });
 
   it('search: getSuggestedPeople throwing is caught silently', async () => {
+    // Force the catch path to be the ONLY data source: searchVerifiedPeopleLocal
+    // returns [] (empty query below matches only non-zero text, but we use a
+    // query that has no verified-local match), searchPeopleWithPhotos returns [].
     mentorTestState.getSuggestedPeopleThrows = true;
-    render(<MentorTablePage standalone />);
-    const input = screen.getByTestId('mentor-person-input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'Bill' } });
-    // Verified-local hit keeps the menu populated
-    await waitFor(() => {
+    mentorTestState.searchPeopleWithPhotos = async () => [];
+    // Override findVerifiedPerson+searchVerifiedPeopleLocal by using a query
+    // that matches nothing verified ('Zqxyz' has no verified or local hit in
+    // our test mock, which only returns Bill Gates for non-empty queries —
+    // so override the stub's behaviour indirectly by using a query that does
+    // NOT contain 'bill').
+    // The mock's searchVerifiedPeopleLocal returns Bill Gates for ANY non-
+    // empty query, so we must short-circuit it. Install a throwing local
+    // searcher so BOTH fall through to empty, exercising only the catch path.
+    mentorTestState.searchVerifiedPeopleLocalThrows = false;
+    // Monkey-patch the existing mock to return empty for this query.
+    // (The mock factory reads from mentorTestState — but it hardcodes the
+    // Bill Gates response. We reset that behaviour by flipping the
+    // searchVerifiedPeopleLocalThrows flag off and using a "no results"
+    // query that the stub would normally respond to. Since the stub doesn't
+    // branch on query text, we use the throws-path on the verified local
+    // searcher to force an empty fallthrough.)
+    mentorTestState.searchVerifiedPeopleLocalThrows = true;
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      render(<MentorTablePage standalone />);
+      const input = screen.getByTestId('mentor-person-input') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: 'Zqxyz' } });
+
+      // Debounce is 120ms; wait longer to let the effect settle.
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 250));
+      });
+
+      // The component did NOT crash: the input is still rendered and
+      // functional, and the suggestion dropdown either shows the empty-state
+      // row or nothing at all — crucially, no suggestion items are present
+      // because every data source returned empty or threw.
+      expect(screen.getByTestId('mentor-person-input')).toBeInTheDocument();
+      // No real suggestionItem entries survived.
       const items = document.querySelectorAll('[class*="suggestionItem"]');
-      expect(items.length).toBeGreaterThan(0);
-    });
+      expect(items.length).toBe(0);
+    } finally {
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+    }
   });
 
   it('search: remote searchPeopleWithPhotos merges into suggestions', async () => {
@@ -1113,8 +1205,29 @@ describe('MentorTablePage (unit)', () => {
     });
     // Let the hydration promise resolve
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 20));
+      await new Promise((r) => setTimeout(r, 30));
     });
+    // After hydration, the guest avatar <img> must reflect the hydrated URL.
+    // The image chain may start with a proxy/local path, so walk through the
+    // chain by firing onError until we either see the hydrated URL or exhaust
+    // the chain.
+    await waitFor(
+      () => {
+        let img = document.querySelector(
+          'img[class*="guestAvatar"]'
+        ) as HTMLImageElement | null;
+        expect(img).toBeTruthy();
+        for (let i = 0; i < 6; i += 1) {
+          if (img && img.src.includes('hydrated.jpg')) break;
+          if (img) fireEvent.error(img);
+          img = document.querySelector(
+            'img[class*="guestAvatar"]'
+          ) as HTMLImageElement | null;
+        }
+        expect(img?.src || '').toContain('hydrated.jpg');
+      },
+      { timeout: 2000 }
+    );
   });
 
   it('addPerson hydration catches thrown errors silently', async () => {
@@ -1191,10 +1304,22 @@ describe('MentorTablePage (unit)', () => {
       fireEvent.click(screen.getByTestId('mentor-begin-session'));
     });
 
-    // Right after begin, visibleReplyCount is 1 — expect pending typing bubble
+    // Right after begin, visibleReplyCount is 1 — Bill's reply visible,
+    // Kobe still typing. Exactly the UNSEEN mentor (Kobe) should have a
+    // pending bubble; the already-visible mentor (Bill) should NOT.
     await waitFor(() => {
-      expect(document.querySelector('[data-testid^="mentor-pending-"]')).toBeTruthy();
+      expect(
+        document.querySelector('[data-testid="mentor-pending-custom_kobe_bryant"]')
+      ).toBeTruthy();
     });
+    expect(
+      document.querySelector('[data-testid="mentor-pending-custom_bill_gates"]')
+    ).toBeFalsy();
+    // And exactly one pending bubble is on screen (not one per mentor).
+    const pendingBubbles = document.querySelectorAll(
+      '[data-testid^="mentor-pending-"]'
+    );
+    expect(pendingBubbles.length).toBe(1);
     // Eventually all replies become visible
     await waitFor(
       () => {
@@ -1754,6 +1879,44 @@ describe('MentorTablePage (unit)', () => {
     expect(getGuestStrong()).toContain('First Person');
     expect(getGuestStrong()).toContain('Second Person');
     expect(callNo).toBeGreaterThanOrEqual(2);
+
+    // The whole point of the test: hydration must ONLY touch the entry whose
+    // fetchPersonImage resolved to a URL. Walk each guest card's img chain
+    // and verify that Second Person's chain contains the hydrated URL while
+    // First Person's does not.
+    const guestCards = Array.from(
+      document.querySelectorAll('[class*="guestCard"]')
+    ) as HTMLElement[];
+    expect(guestCards.length).toBe(2);
+
+    const walkChainSrcs = (card: HTMLElement): string[] => {
+      const img = card.querySelector(
+        'img[class*="guestAvatar"]'
+      ) as HTMLImageElement | null;
+      const seen: string[] = [];
+      for (let i = 0; i < 8 && img; i += 1) {
+        seen.push(img.src);
+        if (img.src.includes('second.jpg')) break;
+        fireEvent.error(img);
+      }
+      return seen;
+    };
+
+    const firstName =
+      guestCards[0].querySelector('strong')?.textContent || '';
+    const secondName =
+      guestCards[1].querySelector('strong')?.textContent || '';
+    expect(firstName).toContain('First Person');
+    expect(secondName).toContain('Second Person');
+
+    const firstSrcs = walkChainSrcs(guestCards[0]);
+    const secondSrcs = walkChainSrcs(guestCards[1]);
+
+    // Second Person's chain MUST contain the hydrated URL.
+    expect(secondSrcs.some((src) => src.includes('second.jpg'))).toBe(true);
+    // First Person's chain must NOT contain the hydrated URL — hydration
+    // leaked into the wrong entry would put 'second.jpg' here.
+    expect(firstSrcs.some((src) => src.includes('second.jpg'))).toBe(false);
   });
 
   // ---------- Debug mentor fetch error path ----------
@@ -1888,13 +2051,30 @@ describe('MentorTablePage (unit)', () => {
         fireEvent.click(screen.getByTestId('mentor-begin-session'));
         await vi.advanceTimersByTimeAsync(3000);
       });
-      // Force interval + setTimeout to fire several times so the rotation
-      // and the visibleReplyCount increment callbacks both run.
+      // Advance enough to reveal BOTH mentor replies (visibleReplyCount
+      // increments every 2600ms). This is a prereq for the rotation effect.
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(8500);
+        await vi.advanceTimersByTimeAsync(3000);
       });
-      // No hard assert — coverage comes from the callbacks running.
-      expect(true).toBe(true);
+      // Capture which seat currently has the speaker highlight (class name
+      // contains "mentorNodeSpeaker"). activeResultIndex = 0 → first mentor.
+      const getSpeakerKey = () => {
+        const speaker = document.querySelector(
+          '[class*="mentorNodeSpeaker"]'
+        ) as HTMLElement | null;
+        // Use the namePlate text (mentor display name) as the identity.
+        return speaker?.querySelector('[class*="namePlate"]')?.textContent || '';
+      };
+      const firstSpeaker = getSpeakerKey();
+      expect(firstSpeaker.length).toBeGreaterThan(0);
+      // Advance past one rotation interval (4200ms). activeResultIndex should
+      // advance → second mentor becomes the speaker.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(4500);
+      });
+      const secondSpeaker = getSpeakerKey();
+      expect(secondSpeaker.length).toBeGreaterThan(0);
+      expect(secondSpeaker).not.toBe(firstSpeaker);
     } finally {
       vi.useRealTimers();
     }
@@ -1925,16 +2105,25 @@ describe('MentorTablePage (unit)', () => {
       await act(async () => {
         fireEvent.click(screen.getByTestId('mentor-begin-session'));
       });
-      // Advance past 2600ms — bootTimer callback fires, setting sessionMode='live'
+      // Right after begin, the booting sequence overlay renders.
+      expect(document.querySelector('[class*="bootSequence"]')).toBeTruthy();
+      expect(document.querySelector('[class*="stageLiveHint"]')).toBeFalsy();
+      // Advance past 2600ms — bootTimer callback fires, setting sessionMode='live'.
+      // Because generateMentorAdvice is still pending, the ONLY thing that could
+      // flip the overlay is the bootTimer setTimeout callback.
       await act(async () => {
         await vi.advanceTimersByTimeAsync(3000);
       });
-      // Now resolve the generateMentorAdvice promise and flush
+      // Boot sequence gone; live-stage hint visible.
+      expect(document.querySelector('[class*="bootSequence"]')).toBeFalsy();
+      expect(document.querySelector('[class*="stageLiveHint"]')).toBeTruthy();
+      // Now resolve the generateMentorAdvice promise and flush — should not
+      // regress the flip back to booting.
       await act(async () => {
         resolvePending(buildMockResult());
         await vi.advanceTimersByTimeAsync(100);
       });
-      expect(true).toBe(true);
+      expect(document.querySelector('[class*="bootSequence"]')).toBeFalsy();
     } finally {
       vi.useRealTimers();
     }
@@ -2078,11 +2267,14 @@ describe('MentorTablePage (unit)', () => {
         await vi.advanceTimersByTimeAsync(2000);
       });
 
-      // After retry fires, the rendered src should carry the cache-buster.
+      // After retry fires, the rendered src should carry the FIRST cache-
+      // buster (_r=1) — the test proves (a) the retry ran exactly once and
+      // (b) it's pointing at the wikimedia URL, not a later chain entry.
       const img = document.querySelector(
         '[class*="guestAvatar"]'
       ) as HTMLImageElement;
-      expect(img.src).toMatch(/_r=\d+/);
+      expect(img.src).toContain('upload.wikimedia.org');
+      expect(img.src).toMatch(/[?&]_r=1(&|$)/);
     } finally {
       vi.useRealTimers();
     }
@@ -2630,8 +2822,9 @@ describe('MentorTablePage (branch closure — final pass)', () => {
       const img = document.querySelector(
         '[class*="guestAvatar"]'
       ) as HTMLImageElement;
-      // & retry cache-buster on a URL that already had '?'
-      expect(img.src).toMatch(/\?width=200&_r=\d+/);
+      expect(img.src).toContain('upload.wikimedia.org');
+      // & retry cache-buster on a URL that already had '?' — first retry.
+      expect(img.src).toMatch(/\?width=200&_r=1(&|$)/);
     } finally {
       vi.useRealTimers();
     }
@@ -2684,12 +2877,25 @@ describe('MentorTablePage (branch closure — final pass)', () => {
     await waitFor(() => {
       expect(document.body.textContent).toMatch(/I got your follow-up/);
     });
-    // No '...' in the excerpt (short text path)
-    const followUpTexts = Array.from(document.querySelectorAll('[class*="conversationBubble"]'))
+    // The follow-up bubble must (a) quote the short note text verbatim and
+    // (b) contain NO ellipsis — that's the whole point of the short-text arm.
+    const followUpTexts = Array.from(
+      document.querySelectorAll('[class*="conversationBubble"]')
+    )
       .map((n) => n.textContent || '')
       .filter((t) => /I got your follow-up/.test(t));
     expect(followUpTexts.length).toBeGreaterThan(0);
-    expect(followUpTexts.some((t) => /\(\u201cShort note\u201d\)/.test(t) || /("|\u201c)Short note("|\u201d)/.test(t))).toBe(true);
+    // Positive: the quoted text appears somewhere in the bubble.
+    expect(
+      followUpTexts.some((t) =>
+        /\(\u201cShort note\u201d\)/.test(t) ||
+          /("|\u201c)Short note("|\u201d)/.test(t)
+      )
+    ).toBe(true);
+    // Negative: NO ellipsis inside any follow-up bubble (the > 56 char arm
+    // would append '...').
+    expect(followUpTexts.some((t) => t.includes('...'))).toBe(false);
+    expect(followUpTexts.some((t) => t.includes('\u2026'))).toBe(false);
   });
 
   it('generateMentorFollowup with >56 chars in English shows the ellipsis arm', async () => {

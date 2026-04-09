@@ -1331,8 +1331,11 @@ describe('mentor-table edge cases', () => {
       text: async () => '',
     });
 
-    // Large history to trigger compression in the handler
-    const history = Array.from({ length: 60 }, (_, i) => ({
+    // Large history to trigger compression in the handler. Must stay within
+    // HISTORY_MAX_ENTRIES (50) added as a DoS/cost cap (bug hunt #8 fix).
+    // 40 entries = 20 user+mentor pairs = plenty to cross the compression
+    // threshold (rounds > 4) while leaving headroom under the cap.
+    const history = Array.from({ length: 40 }, (_, i) => ({
       role: i % 2 === 0 ? 'user' : 'mentor',
       speaker: i % 2 === 0 ? 'User' : 'Elon Musk',
       text: `Message ${i}: ${'x'.repeat(500)}`,
@@ -1583,11 +1586,20 @@ describe('tryParseJson', () => {
   it('returns null after exhausting nested string iterations (4x encoded)', () => {
     const inner = { mentorId: 'too-deep' };
     const quadEncoded = JSON.stringify(JSON.stringify(JSON.stringify(JSON.stringify(inner))));
+    // Measure wall-clock to prove the loop cannot recurse infinitely and
+    // yields a deterministic value shape (either a parsed object or null
+    // from the embedded-object extraction fallback).
+    const startedAt = Date.now();
     const result = tryParseJson(quadEncoded);
-    // After 3 iterations tryParseNested returns null; falls through to extraction
-    // The embedded object extraction may or may not find something depending on content
-    // The key is that the loop terminates without infinite recursion
-    expect(true).toBe(true); // Just verify no crash
+    const elapsed = Date.now() - startedAt;
+    expect(elapsed).toBeLessThan(100);
+    // Contract: tryParseJson returns either null or a plain object/array —
+    // never throws, never returns a raw string.
+    expect(result === null || typeof result === 'object').toBe(true);
+    // And strings (including the doubly-stringified inner value) are NEVER
+    // returned directly: if the 3-iteration cap was silently removed, you'd
+    // get back a string here.
+    expect(typeof result).not.toBe('string');
   });
 
   it('parses top-level array payload directly', () => {
@@ -1745,6 +1757,18 @@ describe('handler no-reply-for-mentor fallback', () => {
 
     expect(res._status).toBe(200);
     expect(res._json.meta.provider).toBe('server-fallback');
+    // Confirm we reached buildServerFallbackNormalized (not some generic
+    // error path that also tags provider='server-fallback') by asserting
+    // the language-safe canonical English fallback text was rendered for
+    // THIS mentor — and only for this mentor.
+    expect(res._json.mentorReplies).toHaveLength(1);
+    expect(res._json.mentorReplies[0].mentorId).toBe(sampleMentor.id);
+    expect(res._json.mentorReplies[0].likelyResponse).toMatch(
+      /I understand this is difficult/
+    );
+    expect(res._json.mentorReplies[0].likelyResponse).toMatch(
+      /smallest executable step/
+    );
   });
 });
 
@@ -1934,19 +1958,11 @@ describe('detectLanguageFromText edge cases', () => {
     expect(detectLanguageFromText('1234 5678')).toBeNull();
   });
 
-  it('returns zh-CN when tied or cjk slightly more than latin (last ternary true branch)', () => {
-    // cjk=3 latin=3: first condition cjkCount >= latinCount * 0.8 → 3 >= 2.4 → true → returns zh-CN
-    // Need: cjkCount < latinCount*0.8 AND latinCount < cjkCount*0.8, i.e. roughly equal ratios both failing
-    // With cjkCount=5, latinCount=7: 5 >= 5.6 false; 7 >= 4 true → returns 'en'. Not useful.
-    // Try cjkCount=5, latinCount=5: 5>=4 true → 'zh-CN' (first branch).
-    // To hit the LAST ternary, we need BOTH first conditions false: cjk < latin*0.8 AND latin < cjk*0.8
-    // cjk=7, latin=9: 7 >= 7.2 false; 9 >= 5.6 true. Not useful.
-    // cjk=9, latin=10: 9 >= 8 true → 'zh-CN'. Not useful.
-    // This branch appears unreachable — since if cjk < latin*0.8 AND latin < cjk*0.8 both hold, then
-    // cjk/latin < 0.8 AND latin/cjk < 0.8 which is impossible (their product would be < 0.64 < 1).
-    // The last ternary is dead code. Accept this and use c8 ignore below.
-    expect(true).toBe(true);
-  });
+  // NOTE: the "last ternary" in detectLanguageFromText is mathematically
+  // unreachable — if `cjkCount < latinCount*0.8` AND `latinCount < cjkCount*0.8`
+  // both hold, their product would be < 0.64 < 1, which is impossible. The
+  // branch was covered by a tautology test that added no behavioural value;
+  // it has been removed. See orchestrator flag for follow-up on dead code.
 });
 
 describe('detectContentLanguage edge cases', () => {
@@ -2333,25 +2349,11 @@ describe('tryParseJson additional branches', () => {
 // ---------------------------------------------------------------------------
 // compactConversationHistory — empty middleText early return (line 352)
 // ---------------------------------------------------------------------------
-describe('compactConversationHistory empty middleText', () => {
-  const savedFetch = globalThis.fetch;
-  afterEach(() => { globalThis.fetch = savedFetch; });
-
-  it('LLM compression with empty middle text returns empty summary', async () => {
-    // Create a history where rounds > 4 but the middle entries stringify to empty.
-    // normalizeConversationHistory filters out text-less items so middle would be empty array.
-    // formatConversationHistoryForPrompt on empty array returns '' → middleText is '' → trim is '' → early return ''.
-    // To get middle entries empty while rounds > 4: need rounds where protectedRoundIndexes = {0,1,N-2,N-1}
-    // picks ALL rounds — only possible when N == 4 (4 rounds). But rounds.length > 4 required.
-    // Alternative: trigger the early return by middle with only whitespace. But normalized filters out text.
-
-    // Cleanest: trigger by spying on fetch but never have middle empty. The `if (!middleText.trim())`
-    // is only reachable if middleEntries is empty, which happens only when rounds.length <= 4 (handled
-    // earlier at line 452). So this branch is actually unreachable through normal flow.
-    // Verify unreachability by inspection and accept it.
-    expect(true).toBe(true);
-  });
-});
+// NOTE: the `if (!middleText.trim())` early-return inside
+// compactConversationHistory is unreachable through normal flow —
+// middleEntries is only empty when rounds.length <= 4, which is handled by
+// an earlier guard. The tautology test that claimed to cover it has been
+// removed. See orchestrator flag for follow-up on dead code.
 
 // ---------------------------------------------------------------------------
 // Handler: req.body null fallback and non-Error per-mentor error branches
@@ -2667,10 +2669,18 @@ describe('normalizeProviderPayload extra branches', () => {
         foo: { likelyResponse: 'bar' },
       },
     };
-    // Mentor with missing id and displayName → normalizeKey(undefined) hits falsy branch
+    // Mentor with missing id and displayName → normalizeKey(undefined) hits
+    // falsy branch. Because no mentor matches the key, the response-map
+    // path must fall back to using the raw key 'foo' as the mentorId rather
+    // than latching onto the empty-mentor defaults.
     const emptyMentor = { id: undefined, displayName: undefined };
     const result = normalizeProviderPayload(raw, { mentors: [emptyMentor], language: 'en' });
     expect(result).toBeTruthy();
+    expect(result.mentorReplies).toHaveLength(1);
+    // The raw key ('foo') is used as the mentorId — NOT the empty mentor's
+    // undefined id — proving the undefined-mentor was actually skipped.
+    expect(result.mentorReplies[0].mentorId).toBe('foo');
+    expect(result.mentorReplies[0].likelyResponse).toBe('bar');
   });
 
   it('single-response shape picks name via matchedMentor displayName fallback', () => {

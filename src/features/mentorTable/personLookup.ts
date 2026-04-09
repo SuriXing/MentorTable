@@ -6,7 +6,40 @@ export interface PersonOption {
   descriptionZh?: string;
 }
 
+// Bug #23: cap imageCache at MAX_IMAGE_CACHE_ENTRIES with LRU eviction.
+// Map iteration order is insertion order; on get() we re-insert to make
+// the entry most-recent. On set() over-capacity we drop the oldest.
+const MAX_IMAGE_CACHE_ENTRIES = 200;
 const imageCache = new Map<string, string | undefined>();
+
+function imageCacheGet(key: string): string | undefined {
+  if (!imageCache.has(key)) return undefined;
+  const value = imageCache.get(key);
+  // Re-insert to mark as most-recent (LRU touch).
+  imageCache.delete(key);
+  imageCache.set(key, value);
+  return value;
+}
+
+function imageCacheSet(key: string, value: string | undefined): void {
+  if (imageCache.has(key)) imageCache.delete(key);
+  imageCache.set(key, value);
+  while (imageCache.size > MAX_IMAGE_CACHE_ENTRIES) {
+    const oldestKey = imageCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    imageCache.delete(oldestKey);
+  }
+}
+
+// Exported for tests and consumers that want to inspect LRU state.
+export function _getImageCacheSize(): number {
+  return imageCache.size;
+}
+
+export function _clearImageCache(): void {
+  imageCache.clear();
+}
+
 const WIKIPEDIA_API = 'https://en.wikipedia.org/w/api.php';
 
 // ── Local image cache (populated by scripts/cache-mentor-images.mjs) ──
@@ -1393,9 +1426,11 @@ export function getChineseDisplayName(name: string): string {
   for (const person of VERIFIED_PEOPLE) {
     const haystack = [normalizeName(person.canonical), ...person.aliases.map((a) => normalizeName(a).replace(/_/g, ' '))];
     if (haystack.some((text) => text === key || (key.length >= 2 && text.includes(key)))) {
-      // Find the first Chinese alias. All verified people have a Chinese alias.
-      const zhAlias = person.aliases.find((a) => /[\u3400-\u9fff]/.test(a))!;
-      return zhAlias;
+      // Bug #25: the old `!` non-null assertion crashed if a verified person
+      // had no Chinese alias. Fall back to the canonical name in that case
+      // so the function is total and never throws.
+      const zhAlias = person.aliases.find((a) => /[\u3400-\u9fff]/.test(a));
+      return zhAlias ?? person.canonical;
     }
   }
   return name;
@@ -1418,11 +1453,44 @@ export function findVerifiedPerson(name: string): { canonical: string; imageUrl:
     if (person.aliases.some((alias) => normalizeName(alias).replace(/_/g, ' ') === key)) return makeResult(person);
   }
 
-  // 2. Partial match fallback — "bill gate" matches "bill gates", "lisa" matches "lisa su"
+  // 2. Word-boundary partial match fallback.
+  //
+  // Bug #24: the previous fallback used bidirectional substring
+  // (`text.includes(key) || key.includes(text)`) which made "gates of hell"
+  // match Bill Gates and "lisa" match "Lisa Su" equally. The fix:
+  //   - Only allow multi-word aliases (>=2 words) to match via "every alias
+  //     word is in the query words" — so "Bill Gates Billionaire" still
+  //     matches the alias "bill gates" but "gates of hell" cannot, because
+  //     no multi-word alias of Bill Gates is fully present.
+  //   - For single-word aliases we require a prefix match where the query
+  //     is itself ≤ the alias length (so "bil" → "bill gates" still works
+  //     but "gates of hell" does not match the single-word alias "gates").
+  //   - Query-prefix-of-alias: "bill gate" matches "bill gates".
   if (key.length >= 3) {
+    const queryWords = key.split(/\s+/).filter(Boolean);
+    const keyWords = new Set(queryWords.filter((w) => w.length >= 2));
     for (const person of VERIFIED_PEOPLE) {
       const haystack = [normalizeName(person.canonical), ...person.aliases.map((a) => normalizeName(a))].map((s) => s.replace(/_/g, ' '));
-      if (haystack.some((text) => text.includes(key) || key.includes(text))) return makeResult(person);
+      for (const text of haystack) {
+        const textWords = text.split(/\s+/).filter(Boolean);
+        if (textWords.length === 0) continue;
+
+        // Multi-word alias: every alias word must appear as a word in the query.
+        if (textWords.length >= 2) {
+          const allAliasWordsInQuery = textWords.every((w) => keyWords.has(w));
+          if (allAliasWordsInQuery) return makeResult(person);
+        }
+
+        // Query-prefix-of-alias on word boundaries, e.g.
+        // "bill gate" → "bill gates", "lisa s" → "lisa su".
+        if (
+          queryWords.length > 0 &&
+          queryWords.length <= textWords.length &&
+          queryWords.every((qw, i) => textWords[i] === qw || textWords[i].startsWith(qw))
+        ) {
+          return makeResult(person);
+        }
+      }
     }
   }
 
@@ -1478,29 +1546,29 @@ export async function fetchPersonImage(name: string): Promise<string | undefined
   const key = normalizeName(name);
   // key is always non-empty when name is a non-empty string; callers always
   // pass a trimmed name so we don't re-guard here.
-  if (imageCache.has(key)) return imageCache.get(key);
+  if (imageCache.has(key)) return imageCacheGet(key);
   if (isMbtiCode(name)) {
     const mbti = buildMbtiOption(name).imageUrl;
-    imageCache.set(key, mbti);
+    imageCacheSet(key, mbti);
     return mbti;
   }
 
   const verified = findVerifiedPerson(name);
   if (verified?.imageUrl) {
-    imageCache.set(key, verified.imageUrl);
+    imageCacheSet(key, verified.imageUrl);
     return verified.imageUrl;
   }
   // Try exact Wikipedia title lookup first
   const wiki = await fetchWikiImageByTitle(name);
   if (wiki?.imageUrl) {
-    imageCache.set(key, wiki.imageUrl);
+    imageCacheSet(key, wiki.imageUrl);
     return wiki.imageUrl;
   }
   // Fall back to Wikipedia search, then name avatar.
   // withAvatarFallback guarantees imageUrl is always defined on results.
   const searchResults = await searchWikipediaPeople(name, 1);
   const image = searchResults.length > 0 ? searchResults[0].imageUrl! : buildNameAvatar(name);
-  imageCache.set(key, image);
+  imageCacheSet(key, image);
   return image;
 }
 
