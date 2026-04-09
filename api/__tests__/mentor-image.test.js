@@ -558,9 +558,10 @@ describe('fetchBuffer redirect following', () => {
 
     vi.useRealTimers();
 
-    // Verify the retry actually happened: callIndex should reach 3
-    // (summary lookup → 429 → retry success)
-    expect(callIndex).toBeGreaterThanOrEqual(3);
+    // Verify the retry happened EXACTLY once: summary lookup → 429 → retry.
+    // An exact count catches both "no retry" (<3) and "runaway retry loop"
+    // (>3) regressions.
+    expect(callIndex).toBe(3);
     // Verify the eventual successful response was served
     expect(res._headers['Content-Type']).toBe('image/jpeg');
     expect(res._body).toBeTruthy();
@@ -602,12 +603,16 @@ describe('fetchBuffer redirect following', () => {
     const https = require('https');
     const http = require('http');
 
-    // Wikipedia REST API (https) returns a summary pointing to an http:// thumbnail URL
+    // Wikipedia REST API (https) returns a summary pointing to an http:// thumbnail URL.
+    // Must be on an allowlisted host — bug #5 SSRF fix rejects any host not in
+    // ALLOWED_HOSTS/ALLOWED_HOST_SUFFIXES before fetch. upload.wikimedia.org is
+    // allowlisted; the test is verifying the scheme branch (http vs https), not
+    // the allowlist.
     vi.spyOn(https, 'get').mockImplementation((url, opts, callback) => {
       if (typeof opts === 'function') callback = opts;
       const summaryData = {
         title: 'HTTP Person',
-        thumbnail: { source: 'http://upload.example.com/thumb/100px-HttpPerson.jpg' },
+        thumbnail: { source: 'http://upload.wikimedia.org/thumb/100px-HttpPerson.jpg' },
       };
       const mockResponse = {
         statusCode: 200,

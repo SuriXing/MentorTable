@@ -68,6 +68,9 @@ interface SuggestionDeckEntry {
 }
 
 const MAX_PEOPLE = 10;
+// Cap for conversation history forwarded to the mentor API on each round
+// (bug #44). Prevents unbounded token growth across many reply rounds.
+const MAX_CONVERSATION_TURNS_IN_HISTORY = 12;
 const COORDINATE_PASS_NOTE_WITH_ALL = (import.meta.env.VITE_MENTOR_NOTE_COORDINATE_ALL ?? '1') !== '0';
 const ONBOARDING_KEY = 'mentorTableOnboardingHiddenV2';
 const DEFAULT_PLACEHOLDER_AVATAR = getVerifiedPlaceholderImage();
@@ -90,6 +93,21 @@ const onboardingSlides = [
 const vibeTags = ['Builder', 'Storyteller', 'Competitor', 'Strategist', 'Dreamer', 'Rebel'];
 const vibeTagsZh = ['构建者', '讲述者', '行动派', '战略派', '梦想家', '突破者'];
 
+
+// Bug #22: Date.now() alone can collide within the same millisecond when
+// React 18 StrictMode double-invokes or when auto-reply fires on the same
+// tick as a user click. Use crypto.randomUUID when available, with a
+// Date.now + random fallback for older browsers/test environments.
+let __uniqueIdCounter = 0;
+function uniqueId(prefix = 'id'): string {
+  const cryptoObj: { randomUUID?: () => string } | undefined =
+    typeof globalThis !== 'undefined'
+      ? ((globalThis as unknown) as { crypto?: { randomUUID?: () => string } }).crypto
+      : undefined;
+  if (cryptoObj?.randomUUID) return `${prefix}-${cryptoObj.randomUUID()}`;
+  __uniqueIdCounter += 1;
+  return `${prefix}-${Date.now()}-${__uniqueIdCounter}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 function getMentorCategory(name: string): 'tech' | 'sports' | 'artist' | 'leader' {
   const normalized = name.toLowerCase();
@@ -151,6 +169,13 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const [debugPromptErrorByMentorId, setDebugPromptErrorByMentorId] = useState<Record<string, string>>({});
   const [saveNotice, setSaveNotice] = useState('');
   const conversationPanelRef = useRef<HTMLDivElement | null>(null);
+  // Bug #20: per-person hydration sequence — an addPerson call records its
+  // sequence number; when the async image fetch resolves, we only apply the
+  // result if that sequence is still the latest for the normalized key.
+  // This prevents a stale hydration from an earlier add/remove cycle from
+  // overwriting fresh data when the user quickly removes and re-adds a
+  // person.
+  const personHydrationSeqRef = useRef<Map<string, number>>(new Map());
 
   const selectedMentors = useMemo(
     () => selectedPeople.map((person) => createCustomMentorProfile(person.name)),
@@ -374,7 +399,12 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
       });
     }
 
-    for (const turn of conversationTurns) {
+    // Cap conversation turns client-side to avoid unbounded token growth
+    // (bug #44). The most-recent MAX_CONVERSATION_TURNS_IN_HISTORY turns are
+    // always the most useful for the mentor's context — earlier turns are
+    // dropped before sending to the API.
+    const recentTurns = conversationTurns.slice(-MAX_CONVERSATION_TURNS_IN_HISTORY);
+    for (const turn of recentTurns) {
       if (turn.user?.trim()) {
         history.push({
           role: 'user',
@@ -382,12 +412,14 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
           text: turn.user.trim()
         });
       }
-      // turn.replies is always an array and both mentorReply fields are
-      // always set — the only writers (submitNoteToMentor/handleReplyAll)
-      // fill reply.text and reply.mentorName with trimmed strings, so the
-      // defensive empty-text continue and `|| 'Mentor'` fallback were
-      // unreachable and were removed.
+      // deadcode-audit deletion #2 (unsafe): restored skip guard for
+      // whitespace-only mentor replies. The original justification claimed
+      // writers always set trimmed strings, but a remote LLM can return
+      // `likelyResponse: "   "` which passes the truthiness check and would
+      // otherwise be forwarded to the API as an empty mentor turn. See
+      // .harness/nodes/deadcode-audit/eval.md (deletion #2).
       for (const reply of turn.replies) {
+        if (!reply?.text?.trim()) continue;
         history.push({
           role: 'mentor',
           speaker: localizeName(reply.mentorName),
@@ -462,7 +494,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     setConversationTurns((prev) => [
       ...prev,
       {
-        id: `${Date.now()}-${threadKey}-${prev.length}`,
+        // Bug #22: collision-safe id via uniqueId (crypto.randomUUID fallback).
+        id: uniqueId(`turn-${threadKey}`),
         user: text,
         replies: [{ mentorName, text: mentorReply }]
       }
@@ -498,7 +531,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
       setConversationTurns((prev) => [
         ...prev,
         {
-          id: `${Date.now()}-${prev.length}`,
+          // Bug #22: collision-safe id via uniqueId.
+          id: uniqueId('turn-all'),
           user: text,
           replies
         }
@@ -675,6 +709,29 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
       if (prev.length >= MAX_PEOPLE) return prev;
       return [...prev, { name, imageUrl: initialImage, candidateImageUrls: initialCandidates }];
     });
+
+    // Bug #20: bump the hydration sequence so any in-flight fetches from a
+    // previous add/remove cycle will be ignored once they resolve.
+    const hydrationKey = name.toLowerCase();
+    const hydrationSeq = (personHydrationSeqRef.current.get(hydrationKey) || 0) + 1;
+    personHydrationSeqRef.current.set(hydrationKey, hydrationSeq);
+
+    // Bug #21: clear stale imageAttempt/imageRetry counters for this key so
+    // the re-added person starts at chain index 0 again.
+    const normalizedKey = name.trim().toLowerCase().replace(/\s+/g, ' ');
+    setImageAttemptByKey((prev) => {
+      if (!(normalizedKey in prev)) return prev;
+      const next = { ...prev };
+      delete next[normalizedKey];
+      return next;
+    });
+    setImageRetryByKey((prev) => {
+      if (!(normalizedKey in prev)) return prev;
+      const next = { ...prev };
+      delete next[normalizedKey];
+      return next;
+    });
+
     setLastSummonedName(name);
     window.setTimeout(() => setLastSummonedName(''), 1800);
     setPersonQuery('');
@@ -683,6 +740,10 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     if (shouldHydrateProfile) {
       try {
         const [fetchedImage, fetchedCandidates] = await Promise.all([fetchPersonImage(name), fetchPersonImageCandidates(name)]);
+        // Bug #20: only apply if our hydration sequence is still the latest
+        // for this person. A newer addPerson call would have bumped the seq.
+        const latestSeq = personHydrationSeqRef.current.get(hydrationKey) || 0;
+        if (latestSeq !== hydrationSeq) return;
         if (fetchedImage || fetchedCandidates) {
           setSelectedPeople((prev) =>
             prev.map((p) =>
@@ -698,6 +759,26 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
 
   const removePerson = (name: string) => {
     setSelectedPeople((prev) => prev.filter((p) => p.name !== name));
+    // Bug #21: clear per-person image attempt/retry counters so that when
+    // the user re-adds the same person, image loading restarts from chain
+    // index 0 instead of the previously advanced state.
+    const normalizedKey = name.trim().toLowerCase().replace(/\s+/g, ' ');
+    setImageAttemptByKey((prev) => {
+      if (!(normalizedKey in prev)) return prev;
+      const next = { ...prev };
+      delete next[normalizedKey];
+      return next;
+    });
+    setImageRetryByKey((prev) => {
+      if (!(normalizedKey in prev)) return prev;
+      const next = { ...prev };
+      delete next[normalizedKey];
+      return next;
+    });
+    // Bug #20: invalidate any in-flight hydration for this person.
+    const hydrationKey = name.toLowerCase();
+    const current = personHydrationSeqRef.current.get(hydrationKey) || 0;
+    personHydrationSeqRef.current.set(hydrationKey, current + 1);
   };
 
   const shuffleSeating = () => {
@@ -863,12 +944,16 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
 
   const groupSolveText = useMemo(() => {
     if (!result?.mentorReplies?.length) return '';
-    const lines = result.mentorReplies.slice(0, 4).map((reply) => {
+    // Bug #41: i18n-safe separator. Bug #40 (indicator for extras): include
+    // all replies instead of silently dropping mentors 5..N. Chinese users
+    // get a fullwidth separator, English users a regular ASCII separator.
+    const separator = isZh ? ' ｜ ' : ' | ';
+    const lines = result.mentorReplies.map((reply) => {
       const name = localizeName(resolveMentorName(reply.mentorName));
       return `${name}: ${reply.oneActionStep}`;
     });
-    return lines.join(' | ');
-  }, [result?.mentorReplies, selectedPeople]);
+    return lines.join(separator);
+  }, [result?.mentorReplies, selectedPeople, isZh]);
 
   const openDebugMentor = selectedMentors.find((mentor) => mentor.id === openDebugMentorId) || null;
   const openDebugMentorDisplayName = openDebugMentor ? localizeName(openDebugMentor.displayName) : '';
@@ -925,9 +1010,12 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     // Save button only renders under `sessionComplete && showSessionWrap`,
     // which requires result.mentorReplies.length > 0. The defensive guard
     // was unreachable and was removed.
-    const takeaways = result!.mentorReplies.slice(0, 3).map((reply) => reply.oneActionStep);
+    // Bug #40: save all mentor takeaways instead of silently capping at 3.
+    // Users with 5+ mentor tables were losing 40-70% of their saved data.
+    const takeaways = result!.mentorReplies.map((reply) => reply.oneActionStep);
     const memory: MemoryCard = {
-      id: `${Date.now()}`,
+      // Bug #22: collision-safe id via uniqueId.
+      id: uniqueId('memory'),
       title: isZh ? '今晚总结' : 'Tonight\'s takeaway',
       createdAt: new Date().toLocaleString(),
       takeaways
@@ -1104,7 +1192,13 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                       placeholder={t.invitePlaceholder}
                       className={styles.personInput}
                     />
-                    <button type="button" data-testid="mentor-add-person" className={styles.addBtn} onClick={() => addPerson(personQuery)}>
+                    <button
+                      type="button"
+                      data-testid="mentor-add-person"
+                      className={styles.addBtn}
+                      aria-label={isZh ? '添加人物' : 'Add person'}
+                      onClick={() => addPerson(personQuery)}
+                    >
                       <FontAwesomeIcon icon={faPlus} />
                     </button>
                     {personQuery.trim() && (
@@ -1169,7 +1263,12 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                           >
                             {t.flip}
                           </button>
-                          <button type="button" className={styles.removeGuestBtn} onClick={() => removePerson(person.name)}>
+                          <button
+                            type="button"
+                            className={styles.removeGuestBtn}
+                            aria-label={isZh ? `移除 ${localizeName(person.name)}` : `Remove ${localizeName(person.name)}`}
+                            onClick={() => removePerson(person.name)}
+                          >
                             <FontAwesomeIcon icon={faXmark} />
                           </button>
                         </div>
@@ -1422,7 +1521,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                       <p>{t.tonightTakeaway}</p>
                       <ul>
                         {/* sessionComplete already guarantees result && result.mentorReplies.length; the || [] fallback was dead and was removed. */}
-                        {result.mentorReplies.slice(0, 3).map((reply) => (
+                        {/* Bug #40: show all mentor takeaways instead of dropping mentors 4..N silently. */}
+                        {result.mentorReplies.map((reply) => (
                           <li key={reply.mentorName}>{reply.oneActionStep}</li>
                         ))}
                       </ul>
@@ -1476,6 +1576,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                   <button
                     type="button"
                     className={styles.candleProp}
+                    aria-label={isZh ? '调整蜡烛亮度' : 'Adjust candle brightness'}
                     style={{ ['--flame-scale' as string]: `${0.8 + candleLevel * 0.26}` }}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -1556,6 +1657,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                             type="button"
                             className={styles.debugIconBtn}
                             title={t.inspectPrompt}
+                            aria-label={t.inspectPrompt}
                             onClick={(e) => {
                               e.stopPropagation();
                               setOpenDebugMentorId((prev) => (prev === mentor.id ? '' : mentor.id));
@@ -1803,7 +1905,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                 <header>{memory.title}</header>
                 <small>{memory.createdAt}</small>
                 <ul>
-                  {memory.takeaways.slice(0, 3).map((item, idx) => (
+                  {/* Bug #40: show all saved takeaways in the memory drawer. */}
+                  {memory.takeaways.map((item, idx) => (
                     <li key={`${memory.id}-${idx}`}>{item}</li>
                   ))}
                 </ul>

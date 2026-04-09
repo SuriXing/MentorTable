@@ -39,11 +39,37 @@ const app = express();
 const port = Number(process.env.MENTOR_API_PORT || 8787);
 const host = process.env.MENTOR_API_HOST || '127.0.0.1';
 
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: process.env.MENTOR_JSON_LIMIT || '256kb' }));
+
+// CORS: read allowlist from env. In dev (VERCEL_ENV !== 'production') and
+// when no allowlist is configured, fall back to '*' for convenience. In prod
+// deploys an explicit ALLOWED_ORIGINS list is required.
+const allowedOriginList = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+function resolveAllowOrigin(reqOrigin) {
+  if (allowedOriginList.length === 0) {
+    // No explicit list. In production this should be set; fall back to '*'
+    // to preserve existing dev behavior.
+    return '*';
+  }
+  if (reqOrigin && allowedOriginList.includes(reqOrigin)) return reqOrigin;
+  // No match — return first allowed origin so the browser rejects the request
+  // cleanly rather than echoing an attacker-controlled Origin header.
+  return allowedOriginList[0];
+}
+
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const allowOrigin = resolveAllowOrigin(req.headers && req.headers.origin);
+  res.setHeader('Access-Control-Allow-Origin', allowOrigin);
+  if (allowOrigin !== '*') {
+    res.setHeader('Vary', 'Origin');
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400');
   if (req.method === 'OPTIONS') {
     res.status(204).end();
     return;

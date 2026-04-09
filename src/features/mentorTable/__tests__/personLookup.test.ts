@@ -66,12 +66,19 @@ describe('personLookup', () => {
 
     const image = await fetchPersonImage('Completely Unknown Person ZZZZZ');
 
-    // Should fall back to a name avatar (data URI or ui-avatars)
-    expect(image).toBeTruthy();
+    // Should fall back to a name avatar (data URI or ui-avatars). Assert the
+    // specific fallback shape rather than a bare typeof/truthy check — a
+    // truthy string like "undefined" would otherwise slip through.
     expect(typeof image).toBe('string');
+    expect(image!.length).toBeGreaterThan(0);
     expect(
-      image.startsWith('data:image/svg') || image.includes('ui-avatars.com') || image.includes('dicebear.com')
+      image!.startsWith('data:image/svg') ||
+      image!.includes('ui-avatars.com') ||
+      image!.includes('dicebear.com')
     ).toBe(true);
+    // Fallback must not contain literal garbage like "undefined" / "null".
+    expect(image!.toLowerCase()).not.toContain('undefined');
+    expect(image!.toLowerCase()).not.toContain('null');
   });
 
   it('fetchPersonImage uses Wikipedia title lookup when available', async () => {
@@ -121,7 +128,7 @@ describe('personLookup', () => {
               '99': {
                 title: 'Wiki Person',
                 thumbnail: { source: 'https://example.com/wiki-person.jpg' },
-                pageprops: { wikibase_shortdesc: 'Some person' }
+                pageprops: { wikibase_shortdesc: 'American entrepreneur and inventor' }
               }
             }
           }
@@ -132,7 +139,10 @@ describe('personLookup', () => {
 
     const candidates = await fetchPersonImageCandidates('Wiki Person XYZ');
     expect(candidates).toBeTruthy();
-    expect(candidates!.length).toBeGreaterThanOrEqual(1);
+    // The wiki-search branch MUST surface the mocked wiki thumbnail — not
+    // just return a placeholder. A length-only assertion would pass even if
+    // the wiki branch was bypassed and only the name-avatar fallback ran.
+    expect(candidates!.some((u) => u === 'https://example.com/wiki-person.jpg')).toBe(true);
   });
 
   it('fetchPersonImageCandidates returns fallback array when wiki search has no images', async () => {
@@ -152,8 +162,17 @@ describe('personLookup', () => {
 
     const candidates = await fetchPersonImageCandidates('Totally Unknown ZZZZZ');
     expect(candidates).toBeTruthy();
-    expect(candidates!.length).toBeGreaterThanOrEqual(1);
-    // Should contain at least the name avatar fallback
+    // Must contain the name-avatar fallback specifically — not just "some"
+    // entry. Name-avatars start with `data:image/svg` or hit ui-avatars /
+    // dicebear.
+    expect(
+      candidates!.some(
+        (u) =>
+          u.startsWith('data:image/svg') ||
+          u.includes('ui-avatars.com') ||
+          u.includes('dicebear.com')
+      )
+    ).toBe(true);
   });
 
   it('fetchPersonImageCandidates returns wiki image + fallback for wiki title hit', async () => {
@@ -253,11 +272,21 @@ describe('personLookup', () => {
   });
 
   it('fetchPersonImageCandidates handles verified person with no candidateImageUrls (line 1513)', async () => {
-    // Hayao Miyazaki has no candidateImageUrls → `|| []` fallback
+    // Hayao Miyazaki has no candidateImageUrls → `|| []` fallback. The
+    // result must still surface a real image (the primary imageUrl from
+    // the verified record), proving the `|| []` branch didn't silently
+    // drop the primary.
     const { fetchPersonImageCandidates } = await import('../personLookup');
     const candidates = await fetchPersonImageCandidates('Hayao Miyazaki');
     expect(candidates).toBeTruthy();
-    expect(candidates!.length).toBeGreaterThanOrEqual(1);
+    expect(candidates!.every((u) => typeof u === 'string' && u.length > 0)).toBe(true);
+    // At least one entry must be a real (verified) image — a local asset
+    // path or an http(s) URL — not just a name-avatar placeholder.
+    expect(
+      candidates!.some(
+        (u) => u.startsWith('/assets/') || /^https?:\/\//.test(u)
+      )
+    ).toBe(true);
   });
 
   it('fetchPersonImageCandidates returns combined array for verified person', async () => {
@@ -265,7 +294,6 @@ describe('personLookup', () => {
 
     const candidates = await fetchPersonImageCandidates('Bill Gates');
     expect(candidates).toBeTruthy();
-    expect(candidates!.length).toBeGreaterThanOrEqual(1);
     // Should include the verified local image
     expect(candidates!.some((url) => url.includes('bill-gates'))).toBe(true);
   });
@@ -309,9 +337,18 @@ describe('personLookup', () => {
 
     // Unknown person triggers Wikipedia lookup which will fail via the mocked fetch
     const image = await fetchPersonImage('Network Error Person ZZZZZ');
-    // Should still return something (name avatar fallback)
-    expect(image).toBeTruthy();
+    // Should swallow the error and return a well-formed fallback avatar,
+    // not a truthy garbage string. The function must not leak fetch errors.
     expect(typeof image).toBe('string');
+    expect(image!.length).toBeGreaterThan(0);
+    expect(
+      image!.startsWith('data:image/svg') ||
+      image!.includes('ui-avatars.com') ||
+      image!.includes('dicebear.com')
+    ).toBe(true);
+    // Make sure the fetch was actually invoked (and therefore the catch path
+    // was the one that produced the fallback).
+    expect(fetchMock).toHaveBeenCalled();
   });
 
   it('searchVerifiedPeopleLocal handles partial substring queries and sorts by relevance', async () => {
@@ -338,9 +375,18 @@ describe('personLookup', () => {
     const { fetchPersonImage } = await import('../personLookup');
 
     const image = await fetchPersonImage('Some Unknown XYZ123');
-    // fetchJson returns null for both wiki title + search → falls back to name avatar
-    expect(image).toBeTruthy();
+    // fetchJson returns null for both wiki title + search → falls back to
+    // a name-avatar (data URI / ui-avatars / dicebear). Must NOT be a raw
+    // wiki URL or undefined.
     expect(typeof image).toBe('string');
+    expect(image!.length).toBeGreaterThan(0);
+    expect(
+      image!.startsWith('data:image/svg') ||
+      image!.includes('ui-avatars.com') ||
+      image!.includes('dicebear.com')
+    ).toBe(true);
+    // Confirm we actually hit fetchJson's not-ok path.
+    expect(fetchMock).toHaveBeenCalled();
   });
 
   it('isLikelyEntityTitle: MBTI titles in wiki search results pass the filter (line 1297)', async () => {
@@ -371,7 +417,10 @@ describe('personLookup', () => {
     // fetchWikiImageByTitle for the returned 'INFJ' title (2nd mock).
     const { searchPeopleWithPhotos } = await import('../personLookup');
     const results = await searchPeopleWithPhotos('Qqxyzabc', 6);
-    expect(results.length).toBeGreaterThan(0);
+    // The INFJ entry MUST survive the isLikelyEntityTitle filter — without
+    // this, other (non-MBTI) results could mask a regression that drops
+    // MBTI titles.
+    expect(results.some((r) => r.name === 'INFJ')).toBe(true);
   });
 
   it('isLikelyEntityDescription: falsy description returns false', async () => {
@@ -558,14 +607,16 @@ describe('personLookup', () => {
     expect(image).toBe('https://example.com/notitle.jpg');
   });
 
-  it('getChineseDisplayName returns canonical when verified person has no Chinese alias', async () => {
-    // Line 1396: zhAlias || person.canonical — canonical branch
-    // Lara Croft has no Chinese alias (confirm via code inspection)
+  it('getChineseDisplayName returns the Chinese alias for verified person with one', async () => {
+    // Contract: when a verified person has a Chinese alias, getChineseDisplayName
+    // must return it (not the canonical name, not the raw input). Lara Croft's
+    // Chinese alias is '劳拉'. This audit finding was originally checking the
+    // `zhAlias ?? person.canonical` fallback arm, but every verified person in
+    // VERIFIED_PEOPLE has a Chinese alias — the fallback arm is dead code.
     const { getChineseDisplayName } = await import('../personLookup');
     const result = getChineseDisplayName('Lara Croft');
-    // Must be either 'Lara Croft' (no zh alias) or the canonical itself
-    expect(typeof result).toBe('string');
-    expect(result.length).toBeGreaterThan(0);
+    expect(/[\u3400-\u9fff]/.test(result)).toBe(true);
+    expect(result).not.toBe('Lara Croft');
   });
 
   it('findVerifiedPerson exact match returns the canonical (line 1416)', async () => {
@@ -720,8 +771,18 @@ describe('personLookup', () => {
 
     const candidates = await fetchPersonImageCandidates('Qqxyz Wwqzr');
     expect(candidates).toBeTruthy();
+    // Wiki image must survive.
     expect(candidates!.some((u) => u === 'https://example.com/famous.jpg')).toBe(true);
-    expect(candidates!.length).toBeGreaterThanOrEqual(2); // wiki image + fallback
+    // Name-avatar fallback must also be present — proving the `true` branch
+    // kept both the wiki hit AND appended the fallback.
+    expect(
+      candidates!.some(
+        (u) =>
+          u.startsWith('data:image/svg') ||
+          u.includes('ui-avatars.com') ||
+          u.includes('dicebear.com')
+      )
+    ).toBe(true);
   });
 
   it('searchPeopleWithPhotos returns empty for empty query (line 1523)', async () => {
@@ -771,6 +832,14 @@ describe('personLookup', () => {
     // 'gates' → 'Bill Gates' has word 'gates' starting with query
     const results = await searchPeopleWithPhotos('gates', 6);
     expect(results.some((r) => r.name === 'Bill Gates')).toBe(true);
+    // The word-prefix hit (Bill Gates, whose second word starts with 'gates')
+    // must appear in the top sorted position — not buried behind
+    // substring-only matches.
+    const firstName = results[0].name.toLowerCase();
+    const firstMatchesWordPrefix =
+      firstName.startsWith('gates') ||
+      firstName.split(/\s+/).some((w) => w.startsWith('gates'));
+    expect(firstMatchesWordPrefix).toBe(true);
   });
 
   it('sort comparator: substring-only match (neither name nor any word startsWith)', async () => {
@@ -786,6 +855,19 @@ describe('personLookup', () => {
     // 'ates' → 'Bill Gates' contains 'ates' but neither name nor any word starts with 'ates'
     const results = await searchPeopleWithPhotos('ates', 6);
     expect(results.length).toBeGreaterThan(0);
+    // Every returned match must CONTAIN 'ates' (substring branch), and at
+    // least one of them must NOT start any word with 'ates' — proving the
+    // substring-only branch was traversed and not just short-circuited by
+    // a prefix match.
+    expect(
+      results.every((r) => r.name.toLowerCase().includes('ates'))
+    ).toBe(true);
+    expect(
+      results.some((r) => {
+        const n = r.name.toLowerCase();
+        return !n.startsWith('ates') && !n.split(/\s+/).some((w) => w.startsWith('ates'));
+      })
+    ).toBe(true);
   });
 
   it('sort comparator: multiple results trigger both branches of startsWith check', async () => {
@@ -801,6 +883,14 @@ describe('personLookup', () => {
     const results = await searchPeopleWithPhotos('ma', 20);
     // Multiple results → comparator invoked, hits both `? 0` and `: 1` branches
     expect(results.length).toBeGreaterThan(1);
+    // Verify ordering: the first entry must be a word-prefix match ("ma")
+    // since word-prefix ranks before substring-only. If the sort were
+    // inverted or no-op, this would fail.
+    const firstName = results[0].name.toLowerCase();
+    const firstStartsWithMa =
+      firstName.startsWith('ma') ||
+      firstName.split(/\s+/).some((w) => w.startsWith('ma'));
+    expect(firstStartsWithMa).toBe(true);
   });
 
   it('filters out wikipedia results that are not likely people or characters', async () => {

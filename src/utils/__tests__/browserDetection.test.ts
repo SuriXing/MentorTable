@@ -124,9 +124,9 @@ describe('detectBrowser', () => {
       const info = detectBrowser();
       expect(info.isMobile).toBe(true);
       expect(info.isChrome).toBe(true);
-      // Note: Android UA contains "Linux" and the OS detection checks Linux before Android,
-      // so Android devices get os='Linux'. This is a known quirk of the detection order.
-      expect(info.os).toBe('Linux');
+      // Bug #17 fix (commit pending): OS detection now checks Android before Linux,
+      // so Android devices correctly report os='Android' instead of the prior quirk.
+      expect(info.os).toBe('Android');
     });
 
     it('detects iPhone as mobile and iOS', () => {

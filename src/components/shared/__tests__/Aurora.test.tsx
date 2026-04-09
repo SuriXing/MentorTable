@@ -160,6 +160,24 @@ describe('Aurora', () => {
     expect(Array.isArray(stops)).toBe(true);
     expect(stops).toHaveLength(3);
     expect(stops[0]).toHaveLength(3);
+
+    // Verify each triple matches the hex value it came from — this is the
+    // actual pipeline contract (Aurora must route user's colorStops through
+    // the Color constructor and hand the resulting r/g/b values to the
+    // shader uniform). Without this, the uniform could contain garbage and
+    // the test would still pass.
+    // #112233 → 0x11/255, 0x22/255, 0x33/255
+    expect(stops[0][0]).toBeCloseTo(0x11 / 255, 3);
+    expect(stops[0][1]).toBeCloseTo(0x22 / 255, 3);
+    expect(stops[0][2]).toBeCloseTo(0x33 / 255, 3);
+    // #445566
+    expect(stops[1][0]).toBeCloseTo(0x44 / 255, 3);
+    expect(stops[1][1]).toBeCloseTo(0x55 / 255, 3);
+    expect(stops[1][2]).toBeCloseTo(0x66 / 255, 3);
+    // #778899
+    expect(stops[2][0]).toBeCloseTo(0x77 / 255, 3);
+    expect(stops[2][1]).toBeCloseTo(0x88 / 255, 3);
+    expect(stops[2][2]).toBeCloseTo(0x99 / 255, 3);
   });
 
   it('appends the gl canvas into its container div', () => {
@@ -236,15 +254,32 @@ describe('Aurora', () => {
   });
 
   it('responds to window resize events', () => {
-    render(<Aurora />);
+    const { container } = render(<Aurora />);
     const renderer = rendererInstances[0];
     const beforeCalls = renderer.setSize.mock.calls.length;
+    const wrapper = container.firstChild as HTMLElement;
+
+    // Simulate container sizing — jsdom returns 0 for offsetWidth/offsetHeight
+    // by default. Override to known values so we can verify the resize
+    // handler passes THEM through to renderer.setSize (rather than zero or
+    // NaN or window dimensions).
+    Object.defineProperty(wrapper, 'offsetWidth', {
+      configurable: true,
+      get: () => 640,
+    });
+    Object.defineProperty(wrapper, 'offsetHeight', {
+      configurable: true,
+      get: () => 480,
+    });
 
     act(() => {
       window.dispatchEvent(new Event('resize'));
     });
 
     expect(renderer.setSize.mock.calls.length).toBeGreaterThan(beforeCalls);
+    // Last call MUST be (640, 480) — proves the resize handler reads the
+    // current container dimensions rather than sending stale / zero values.
+    expect(renderer.setSize).toHaveBeenLastCalledWith(640, 480);
   });
 
   it('removes the resize listener on unmount', () => {

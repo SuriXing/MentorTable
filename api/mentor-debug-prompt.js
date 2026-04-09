@@ -1,19 +1,53 @@
+const ALLOWED_LANGUAGES = new Set(['zh-CN', 'en']);
+
 function normalizeLanguage(language) {
-  return language === 'zh-CN' ? 'zh-CN' : 'en';
+  if (typeof language !== 'string') return 'en';
+  if (!ALLOWED_LANGUAGES.has(language)) return 'en';
+  return language;
+}
+
+// Cap per-field length and strip control chars so a 10MB speakingStyle array
+// cannot produce a 10MB response body or smuggle newline-based injection.
+function sanitizeField(value, maxLen = 300) {
+  if (value === null || value === undefined) return '';
+  const str = typeof value === 'string' ? value : String(value);
+  // eslint-disable-next-line no-control-regex
+  const cleaned = str.replace(/[\u0000-\u0008\u000a-\u001f\u007f]/g, ' ').trim();
+  return cleaned.length > maxLen ? cleaned.slice(0, maxLen) : cleaned;
+}
+
+function sanitizeArray(arr, perItemMax = 200, maxItems = 12) {
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .slice(0, maxItems)
+    .map((item) => sanitizeField(item, perItemMax))
+    .filter(Boolean);
 }
 
 function buildMentorPromptBlock(mentor, language) {
   const lang = normalizeLanguage(language);
+  const id = sanitizeField(mentor && mentor.id, 120);
+  const displayName =
+    sanitizeField(mentor && mentor.displayName, 120) ||
+    sanitizeField(mentor && mentor.shortLabel, 120) ||
+    'Mentor';
+  const speakingStyle = sanitizeArray(mentor && mentor.speakingStyle).join('; ');
+  const coreValues = sanitizeArray(mentor && mentor.coreValues).join('; ');
+  const decisionPatterns = sanitizeArray(mentor && mentor.decisionPatterns).join('; ');
+  const knownExperienceThemes = sanitizeArray(mentor && mentor.knownExperienceThemes).join('; ');
+  const likelyBlindSpots = sanitizeArray(mentor && mentor.likelyBlindSpots).join('; ');
+  const avoidClaims = sanitizeArray(mentor && mentor.avoidClaims).join('; ');
+
   if (lang === 'zh-CN') {
     return [
-      `MentorId: ${mentor.id || ''}`,
-      `MentorName: ${mentor.displayName || mentor.shortLabel || 'Mentor'}`,
-      `SpeakingStyle: ${(mentor.speakingStyle || []).join('; ')}`,
-      `CoreValues: ${(mentor.coreValues || []).join('; ')}`,
-      `DecisionPatterns: ${(mentor.decisionPatterns || []).join('; ')}`,
-      `KnownExperienceThemes: ${(mentor.knownExperienceThemes || []).join('; ')}`,
-      `LikelyBlindSpots: ${(mentor.likelyBlindSpots || []).join('; ')}`,
-      `AvoidClaims: ${(mentor.avoidClaims || []).join('; ')}`,
+      `MentorId: ${id}`,
+      `MentorName: ${displayName}`,
+      `SpeakingStyle: ${speakingStyle}`,
+      `CoreValues: ${coreValues}`,
+      `DecisionPatterns: ${decisionPatterns}`,
+      `KnownExperienceThemes: ${knownExperienceThemes}`,
+      `LikelyBlindSpots: ${likelyBlindSpots}`,
+      `AvoidClaims: ${avoidClaims}`,
       '',
       'OutputRules:',
       '1) 必须第一人称表达。',
@@ -24,14 +58,14 @@ function buildMentorPromptBlock(mentor, language) {
   }
 
   return [
-    `MentorId: ${mentor.id || ''}`,
-    `MentorName: ${mentor.displayName || mentor.shortLabel || 'Mentor'}`,
-    `SpeakingStyle: ${(mentor.speakingStyle || []).join('; ')}`,
-    `CoreValues: ${(mentor.coreValues || []).join('; ')}`,
-    `DecisionPatterns: ${(mentor.decisionPatterns || []).join('; ')}`,
-    `KnownExperienceThemes: ${(mentor.knownExperienceThemes || []).join('; ')}`,
-    `LikelyBlindSpots: ${(mentor.likelyBlindSpots || []).join('; ')}`,
-    `AvoidClaims: ${(mentor.avoidClaims || []).join('; ')}`,
+    `MentorId: ${id}`,
+    `MentorName: ${displayName}`,
+    `SpeakingStyle: ${speakingStyle}`,
+    `CoreValues: ${coreValues}`,
+    `DecisionPatterns: ${decisionPatterns}`,
+    `KnownExperienceThemes: ${knownExperienceThemes}`,
+    `LikelyBlindSpots: ${likelyBlindSpots}`,
+    `AvoidClaims: ${avoidClaims}`,
     '',
     'OutputRules:',
     '1) Use strict first-person voice.',
