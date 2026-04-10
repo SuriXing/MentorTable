@@ -142,6 +142,115 @@ describe('mentor-table handler', () => {
     await handler(mockReq({ method: 'POST', body: { problem: 'test', mentors: 'bad' } }), res);
     expect(res._status).toBe(400);
   });
+
+  it('returns 413 when problem exceeds PROBLEM_MAX_CHARS (5000)', async () => {
+    // DoS/cost cap — attacker can't flood the LLM with megabytes of prompt.
+    process.env.LLM_API_KEY = 'test-key';
+    const res = mockRes();
+    const hugeProblem = 'x'.repeat(5001);
+    await handler(mockReq({
+      method: 'POST',
+      body: { problem: hugeProblem, mentors: [sampleMentor] },
+    }), res);
+    expect(res._status).toBe(413);
+    expect(res._json.error).toMatch(/5000 character limit/);
+  });
+
+  it('returns 413 when mentors count exceeds MENTORS_MAX (10)', async () => {
+    // Each mentor spawns a parallel upstream call — cap prevents a single
+    // request from fan-out-amplifying token spend.
+    process.env.LLM_API_KEY = 'test-key';
+    const res = mockRes();
+    const manyMentors = Array.from({ length: 11 }, (_, i) => ({
+      ...sampleMentor,
+      id: `mentor_${i}`,
+      displayName: `Mentor ${i}`,
+    }));
+    await handler(mockReq({
+      method: 'POST',
+      body: { problem: 'test', mentors: manyMentors },
+    }), res);
+    expect(res._status).toBe(413);
+    expect(res._json.error).toMatch(/too many mentors.*10/);
+  });
+
+  it('returns Unknown server error when the caught error has an empty message', async () => {
+    // Exercises the `error.message || 'Unknown server error'` fallback branch
+    // at line 1427. Need an Error whose .message is '' so the || picks the
+    // constant string.
+    process.env.LLM_API_KEY = 'test-key';
+    const emptyErr = new Error('');
+    // Ensure .message stays empty on the thrown Error
+    const badBody = {
+      problem: 'test',
+      language: 'en',
+      mentors: [sampleMentor],
+    };
+    Object.defineProperty(badBody, 'conversationHistory', {
+      get() { throw emptyErr; },
+      enumerable: true,
+    });
+
+    const res = mockRes();
+    await handler(mockReq({ method: 'POST', body: badBody }), res);
+
+    expect(res._status).toBe(500);
+    expect(res._json.error).toBe('Unknown server error');
+  });
+
+  it('falls back to <unreadable> when upstream error body cannot be read', async () => {
+    // Exercises `errorText = '<unreadable>'` fallback at lines 1113-1115.
+    // Upstream returns non-ok; response.text() itself rejects (broken stream).
+    // Handler must still throw a redacted per-mentor error and fall back.
+    process.env.LLM_API_KEY = 'test-key';
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: async () => { throw new Error('stream destroyed'); },
+      json: async () => ({}),
+    });
+
+    const res = mockRes();
+    await handler(mockReq({
+      method: 'POST',
+      body: { problem: 'test', language: 'en', mentors: [sampleMentor] },
+    }), res);
+
+    expect(res._status).toBe(200);
+    // Mentor fell back via buildFallbackReplyForMentor
+    expect(res._json.mentorReplies).toHaveLength(1);
+    expect(res._json.mentorReplies[0].mentorId).toBe(sampleMentor.id);
+
+    // Confirm the '<unreadable>' fallback was actually logged server-side
+    const unreadableLog = errorSpy.mock.calls.find(
+      (call) => typeof call[0] === 'string' && call[0].includes('body=<unreadable>')
+    );
+    expect(unreadableLog).toBeTruthy();
+    errorSpy.mockRestore();
+  });
+
+  it('returns 413 when conversationHistory exceeds HISTORY_MAX_ENTRIES (50)', async () => {
+    // Prevents bypassing per-entry caps via hundreds of short entries.
+    process.env.LLM_API_KEY = 'test-key';
+    const res = mockRes();
+    const tooManyEntries = Array.from({ length: 51 }, (_, i) => ({
+      role: i % 2 === 0 ? 'user' : 'mentor',
+      speaker: 'x',
+      text: 'hi',
+    }));
+    await handler(mockReq({
+      method: 'POST',
+      body: {
+        problem: 'test',
+        mentors: [sampleMentor],
+        conversationHistory: tooManyEntries,
+      },
+    }), res);
+    expect(res._status).toBe(413);
+    expect(res._json.error).toMatch(/conversationHistory exceeds 50 entries/);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -2123,6 +2232,53 @@ describe('buildMentorDirectiveBlock field fallbacks', () => {
     expect(result).toContain('LikelyBlindSpots: \n');
     expect(result).toContain('AvoidClaims: ');
   });
+
+  it('handles mentor fields that are explicitly null (not undefined)', () => {
+    // Exercises the `value === null` half of the null/undefined guard on
+    // line 191. Passing {id: null, ...} distinguishes from the undefined case.
+    const result = buildMentorDirectiveBlock([{
+      id: null,
+      displayName: null,
+      speakingStyle: null,
+    }]);
+    expect(result).toContain('MentorId: \n');
+    expect(result).toContain('MentorName: Mentor');
+    expect(result).toContain('SpeakingStyle: \n');
+  });
+
+  it('coerces non-string mentor fields to strings', () => {
+    // Exercises the `String(value)` branch in sanitizeMentorField (line 192)
+    const result = buildMentorDirectiveBlock([{
+      id: 42, // number → String(42)
+      displayName: { toString: () => 'ObjMentor' },
+      speakingStyle: [100, false], // non-string array items
+    }]);
+    expect(result).toContain('MentorId: 42');
+    expect(result).toContain('MentorName: ObjMentor');
+    expect(result).toContain('SpeakingStyle: 100; false');
+  });
+
+  it('strips control characters from mentor fields', () => {
+    // Exercises the control-char regex branch (line 196)
+    const result = buildMentorDirectiveBlock([{
+      id: 'id',
+      displayName: 'Name\u0001With\u0007Ctrl\nNewline',
+    }]);
+    expect(result).toContain('MentorName: Name With Ctrl Newline');
+    expect(result).not.toMatch(/\u0001/);
+  });
+
+  it('truncates mentor fields longer than the cap', () => {
+    // Exercises the `cleaned.length > maxLen` branch (line 197)
+    // displayName cap is 120
+    const longName = 'y'.repeat(500);
+    const result = buildMentorDirectiveBlock([{ id: 'id', displayName: longName }]);
+    const line = result.split('\n').find((l) => l.startsWith('MentorName: '));
+    expect(line).toBeTruthy();
+    const value = line.replace('MentorName: ', '');
+    expect(value.length).toBe(120);
+    expect(value).toBe('y'.repeat(120));
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -2866,6 +3022,15 @@ describe('buildUserPrompt field fallbacks', () => {
     // Exercises `compacted.entries || []`
     const result = buildUserPrompt('p', 'en', [sampleMentor], { summary: 'S', usedLlmCompression: false });
     expect(result).toContain('No prior conversation history');
+  });
+
+  it('emits empty <user_problem> block when problem is not a string', () => {
+    // Exercises the non-string branch of the `typeof problem === 'string'`
+    // ternary at line 542-544. The handler never reaches here with a
+    // non-string problem (the 400 guard catches it), but buildUserPrompt is
+    // also exposed for unit use and must stay defensive.
+    const result = buildUserPrompt(null, 'en', [sampleMentor], null);
+    expect(result).toMatch(/<user_problem>\s*<\/user_problem>/);
   });
 });
 

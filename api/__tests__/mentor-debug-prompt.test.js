@@ -174,4 +174,67 @@ describe('mentor-debug-prompt handler', () => {
     expect(res._status).toBe(400);
     expect(res._json.error).toMatch(/mentor/i);
   });
+
+  it('normalizes unknown language string to English', async () => {
+    // Exercises `if (!ALLOWED_LANGUAGES.has(language)) return 'en'` branch
+    const res = mockRes();
+    await handler(mockReq({ body: { mentor: sampleMentor, language: 'fr' } }), res);
+    expect(res._status).toBe(200);
+    // English rules emitted, not Chinese
+    expect(res._json.prompt).toContain('first-person voice');
+    expect(res._json.prompt).not.toContain('第一人称');
+  });
+
+  it('coerces non-string mentor fields to strings via String()', async () => {
+    // Exercises the `String(value)` branch in sanitizeField
+    const res = mockRes();
+    await handler(mockReq({
+      body: {
+        mentor: {
+          id: 12345, // number, not string
+          displayName: { toString: () => 'ObjMentor' }, // object with toString
+          speakingStyle: [42, true], // non-string array items
+        },
+      },
+    }), res);
+    expect(res._status).toBe(200);
+    expect(res._json.prompt).toContain('MentorId: 12345');
+    expect(res._json.prompt).toContain('MentorName: ObjMentor');
+    expect(res._json.prompt).toContain('SpeakingStyle: 42; true');
+  });
+
+  it('strips control characters from mentor fields', async () => {
+    // Exercises the control-char regex replacement on line 15
+    const res = mockRes();
+    await handler(mockReq({
+      body: {
+        mentor: {
+          id: 'safe',
+          displayName: 'Name\u0001With\u0007Ctrl\nChars',
+        },
+      },
+    }), res);
+    expect(res._status).toBe(200);
+    // control chars and newline replaced by spaces
+    expect(res._json.prompt).toContain('MentorName: Name With Ctrl Chars');
+    expect(res._json.prompt).not.toMatch(/Name\u0001/);
+  });
+
+  it('truncates mentor fields that exceed max length', async () => {
+    // Exercises the `cleaned.length > maxLen` truncation branch
+    const res = mockRes();
+    const longName = 'x'.repeat(500); // displayName max is 120
+    await handler(mockReq({
+      body: { mentor: { id: 'id', displayName: longName } },
+    }), res);
+    expect(res._status).toBe(200);
+    // Pull out the MentorName line and check length
+    const line = res._json.prompt
+      .split('\n')
+      .find((l) => l.startsWith('MentorName: '));
+    expect(line).toBeTruthy();
+    const nameValue = line.replace('MentorName: ', '');
+    expect(nameValue.length).toBe(120);
+    expect(nameValue).toBe('x'.repeat(120));
+  });
 });

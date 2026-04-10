@@ -56,11 +56,11 @@ function toSlug(name) {
     .replace(/^-|-$/g, '');
   if (normalized) return normalized;
   // Fallback: names with only non-ASCII letters (CJK, Cyrillic, Arabic, etc.)
-  // get a deterministic hash-based slug so the handler still works.
+  // get a deterministic hash-based slug so the handler still works. The caller
+  // already validated non-empty + trimmed, so we only need the letter guard to
+  // keep punctuation-only names (e.g. "!!!") rejecting with invalid slug.
   const trimmed = name.trim();
-  if (!trimmed) return '';
-  const hasLetter = /\p{L}/u.test(trimmed);
-  if (!hasLetter) return '';
+  if (!/\p{L}/u.test(trimmed)) return '';
   return crypto.createHash('sha1').update(trimmed).digest('hex').slice(0, 16);
 }
 

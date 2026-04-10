@@ -415,6 +415,47 @@ describe('MentorTablePage bug-fix regressions', () => {
       const guestCards = document.querySelectorAll('[class*="guestCard"]');
       expect(guestCards.length).toBe(1);
     });
+
+    it('addPerson clears stale imageAttempt/imageRetry keys on re-add without prior removal', async () => {
+      // Exercises the delete-key branch in addPerson's setImageAttemptByKey /
+      // setImageRetryByKey callbacks (MentorTablePage.tsx:724-726 + 730-732).
+      // Steps:
+      //   1) add Bill → guest card renders
+      //   2) fire img errors → imageAttemptByKey + imageRetryByKey now hold the
+      //      normalized "bill gates" key
+      //   3) re-add Bill (without removing) — setSelectedPeople dedupes, but
+      //      the image-key delete branches still execute and must clear the
+      //      counters for the next render pass.
+      render(<MentorTablePage standalone />);
+      await addPerson('Bill');
+
+      const guestImg = document.querySelector(
+        '[class*="guestCard"] img'
+      ) as HTMLImageElement;
+      expect(guestImg).toBeTruthy();
+
+      // Advance both attempt and retry counters. Using example.com (not
+      // wikimedia) so each error increments imageAttemptByKey directly.
+      fireEvent.error(guestImg);
+      fireEvent.error(guestImg);
+
+      // Sanity: the guest card is still present before re-adding.
+      expect(document.querySelectorAll('[class*="guestCard"]').length).toBe(1);
+
+      // Re-add without removing first — selectedPeople dedupes but the
+      // image-key delete branches run on the existing state. This exercises
+      // the delete path, not the "key missing → return prev" fast path.
+      await addPerson('Bill');
+
+      // Still exactly one guest card, and the image src reverts to chain[0]
+      // now that attempt/retry counters were cleared.
+      const guestCards = document.querySelectorAll('[class*="guestCard"]');
+      expect(guestCards.length).toBe(1);
+      const imgAfter = guestCards[0].querySelector('img') as HTMLImageElement;
+      // chain[0] is the primary Bill image — cleared counters mean no retry
+      // query-string and no advance into candidateImageUrls[0].
+      expect(imgAfter.src).not.toMatch(/bill2\.jpg/);
+    });
   });
 
   describe('Bug #42: icon-only buttons have aria-label', () => {
@@ -433,6 +474,118 @@ describe('MentorTablePage bug-fix regressions', () => {
 
       const candle = document.querySelector('[class*="candleProp"]') as HTMLElement;
       expect(candle.getAttribute('aria-label')).toBeTruthy();
+    });
+  });
+
+  describe('Bug #22 follow-up: uniqueId fallback when crypto.randomUUID unavailable', () => {
+    // MentorTablePage.tsx uniqueId() — lines 102-110 — prefers crypto.randomUUID
+    // when available and falls back to a Date.now+counter+random hex format.
+    // In jsdom + modern Node, crypto.randomUUID is a non-configurable property
+    // of globalThis.crypto, so we use vi.stubGlobal to replace the whole crypto
+    // object with one that lacks randomUUID. vi.unstubAllGlobals restores the
+    // original after each test.
+
+    beforeEach(() => {
+      // Replace globalThis.crypto with a plain object missing randomUUID so
+      // uniqueId's `cryptoObj?.randomUUID` check is falsy → fallback path fires.
+      vi.stubGlobal('crypto', {});
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('saveTakeawayMemory works when crypto.randomUUID is unavailable', async () => {
+      render(<MentorTablePage standalone />);
+      await addPerson('Bill');
+      fireEvent.click(screen.getByTestId('mentor-continue-wish'));
+      fireEvent.change(screen.getByTestId('mentor-problem-input'), {
+        target: { value: 'Problem without crypto' },
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('mentor-begin-session'));
+      });
+      await waitFor(() => {
+        expect(screen.getAllByText(/Next move/).length).toBeGreaterThan(0);
+      });
+
+      // Open session wrap, click save — this invokes saveTakeawayMemory which
+      // calls uniqueId('memory'). Fallback path must produce a non-empty id.
+      const showWrapBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('Show session wrap')
+      );
+      expect(showWrapBtn).toBeTruthy();
+      fireEvent.click(showWrapBtn!);
+
+      const saveBtn = screen.getByTestId('mentor-save-chat');
+      fireEvent.click(saveBtn);
+
+      // saveTakeawayMemory() auto-opens the memory drawer on save.
+      // Verify a memory card was rendered — a non-empty id (via uniqueId
+      // crypto fallback) is required for React to mount the article.
+      const drawer = await waitFor(() => screen.getByTestId('mentor-memory-drawer'));
+      expect(drawer.querySelector('article')).toBeTruthy();
+    });
+  });
+
+  describe('Bug #20 follow-up: hydration seq mismatch aborts stale fetch', () => {
+    // When addPerson's Promise.all resolves AFTER removePerson has bumped the
+    // sequence, the callback must return early and NOT update selectedPeople
+    // with the stale fetched image. This exercises line 748's `latestSeq !==
+    // hydrationSeq` true branch — the race-guard itself.
+
+    it('hydration that resolves after removePerson does not pollute state', async () => {
+      // Set up fetchPersonImage to return a promise we can resolve manually.
+      let resolveFetch!: (v: string) => void;
+      const pendingFetch = new Promise<string>((res) => { resolveFetch = res; });
+      state.fetchPersonImage = () => pendingFetch;
+      state.fetchPersonImageCandidates = async () => undefined;
+      // Don't match as verified so addPerson must hydrate via fetch.
+      state.findVerifiedPerson = () => undefined;
+
+      render(<MentorTablePage standalone />);
+
+      // Add a custom person — findVerifiedPerson returns undefined so
+      // addPerson's hydration path fires.
+      await addPerson('Mystery Person');
+
+      // Now remove the person. This bumps personHydrationSeqRef BEFORE
+      // the pending fetch resolves.
+      const removeBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+        b.className.includes('removeGuestBtn')
+      ) as HTMLButtonElement;
+      expect(removeBtn).toBeTruthy();
+      fireEvent.click(removeBtn);
+
+      // Guest card should be gone.
+      await waitFor(() => {
+        expect(document.querySelectorAll('[class*="guestCard"]').length).toBe(0);
+      });
+
+      // NOW resolve the stale fetch. The hydration callback must check the
+      // seq, see it's no longer the latest, and return early. If the fix is
+      // broken, selectedPeople would get repopulated with the stale image.
+      await act(async () => {
+        resolveFetch('https://example.com/stale.jpg');
+        // Let microtasks flush.
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      // Guest card should STILL be gone (the stale fetch was discarded).
+      expect(document.querySelectorAll('[class*="guestCard"]').length).toBe(0);
+
+      // Restore mocks for subsequent tests.
+      state.fetchPersonImage = async () => undefined;
+      state.fetchPersonImageCandidates = async () => undefined;
+      state.findVerifiedPerson = (name: string) =>
+        name.toLowerCase().includes('bill')
+          ? {
+              canonical: 'Bill Gates',
+              imageUrl: 'https://example.com/bill.jpg',
+              candidateImageUrls: ['https://example.com/bill2.jpg'],
+            }
+          : undefined;
     });
   });
 });

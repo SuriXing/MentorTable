@@ -148,4 +148,36 @@ describe('bug-fixes: mentorTable feature', () => {
       expect(callsAfter).toBe(callsBefore); // cache hit → no new fetch
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Runtime invariant helper: _assertVerifiedPeopleHaveChineseAliases
+  // ---------------------------------------------------------------------------
+  describe('_assertVerifiedPeopleHaveChineseAliases', () => {
+    it('does not throw on a list where every person has a CJK alias', async () => {
+      const { _assertVerifiedPeopleHaveChineseAliases } = await import('../personLookup');
+      const goodList = [
+        { canonical: 'Alice', aliases: ['alice', '爱丽丝'] },
+        { canonical: 'Bob', aliases: ['bob', 'robert', '鲍勃'] },
+      ];
+      expect(() => _assertVerifiedPeopleHaveChineseAliases(goodList)).not.toThrow();
+    });
+
+    it('throws a descriptive error when a person has no CJK alias', async () => {
+      const { _assertVerifiedPeopleHaveChineseAliases } = await import('../personLookup');
+      const badList = [
+        { canonical: 'Alice', aliases: ['alice', '爱丽丝'] },
+        { canonical: 'No Chinese Name', aliases: ['foo', 'bar'] }, // no CJK
+      ];
+      expect(() => _assertVerifiedPeopleHaveChineseAliases(badList))
+        .toThrow(/"No Chinese Name".*missing a Chinese alias/);
+    });
+
+    it('VERIFIED_PEOPLE (real production list) passes the invariant', async () => {
+      // Importing the module runs the invariant at load; a throw would have
+      // killed the test file entirely. Getting here proves production data
+      // satisfies the invariant.
+      const mod = await import('../personLookup');
+      expect(typeof mod._assertVerifiedPeopleHaveChineseAliases).toBe('function');
+    });
+  });
 });
