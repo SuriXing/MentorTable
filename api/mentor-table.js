@@ -210,7 +210,7 @@ function buildMentorDirectiveBlock(mentors = []) {
   return mentors
     .map((m) => {
       const id = sanitizeMentorField(m && m.id, 120);
-      const displayName = sanitizeMentorField(m && m.displayName, 120);
+      const displayName = sanitizeMentorField(m && m.displayName, 120) || 'Mentor';
       return [
         `MentorId: ${id}`,
         `MentorName: ${displayName}`,
@@ -1433,8 +1433,9 @@ const mentorTableHandler = async (req, res) => {
 
 // Strip common API key / bearer token patterns from strings before sending
 // them to the client. Covers sk-, Bearer <token>, and long hex/base64 runs.
+// Only ever called with `error.message || 'Unknown server error'` which is
+// guaranteed to be a non-empty string, so no non-string guard is needed.
 function redactSensitive(str) {
-  if (typeof str !== 'string') return 'Unknown server error';
   return str
     .replace(/sk-[A-Za-z0-9_\-]{8,}/g, 'sk-[REDACTED]')
     .replace(/Bearer\s+[A-Za-z0-9_\-.=]+/gi, 'Bearer [REDACTED]')

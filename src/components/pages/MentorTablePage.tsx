@@ -98,12 +98,11 @@ const vibeTagsZh = ['构建者', '讲述者', '行动派', '战略派', '梦想�
 // React 18 StrictMode double-invokes or when auto-reply fires on the same
 // tick as a user click. Use crypto.randomUUID when available, with a
 // Date.now + random fallback for older browsers/test environments.
+// globalThis is always defined in ES2020+ / Node 12+ (our Vite target is
+// es2015 but node+modern browsers always have it), so no existence check.
 let __uniqueIdCounter = 0;
 function uniqueId(prefix = 'id'): string {
-  const cryptoObj: { randomUUID?: () => string } | undefined =
-    typeof globalThis !== 'undefined'
-      ? ((globalThis as unknown) as { crypto?: { randomUUID?: () => string } }).crypto
-      : undefined;
+  const cryptoObj = ((globalThis as unknown) as { crypto?: { randomUUID?: () => string } }).crypto;
   if (cryptoObj?.randomUUID) return `${prefix}-${cryptoObj.randomUUID()}`;
   __uniqueIdCounter += 1;
   return `${prefix}-${Date.now()}-${__uniqueIdCounter}-${Math.random().toString(36).slice(2, 10)}`;
@@ -741,8 +740,10 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
       try {
         const [fetchedImage, fetchedCandidates] = await Promise.all([fetchPersonImage(name), fetchPersonImageCandidates(name)]);
         // Bug #20: only apply if our hydration sequence is still the latest
-        // for this person. A newer addPerson call would have bumped the seq.
-        const latestSeq = personHydrationSeqRef.current.get(hydrationKey) || 0;
+        // for this person. A newer addPerson or removePerson call would have
+        // bumped the seq. `.get()!` is safe — we set it unconditionally two
+        // lines above, and either set or removePerson's bump keeps it defined.
+        const latestSeq = personHydrationSeqRef.current.get(hydrationKey)!;
         if (latestSeq !== hydrationSeq) return;
         if (fetchedImage || fetchedCandidates) {
           setSelectedPeople((prev) =>
@@ -775,9 +776,12 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
       delete next[normalizedKey];
       return next;
     });
-    // Bug #20: invalidate any in-flight hydration for this person.
+    // Bug #20: invalidate any in-flight hydration for this person. The key
+    // is always set — removePerson is only reachable via the X button on a
+    // guest card, which only renders for persons already added via addPerson
+    // (which sets the ref unconditionally before awaiting). `.get()!` is safe.
     const hydrationKey = name.toLowerCase();
-    const current = personHydrationSeqRef.current.get(hydrationKey) || 0;
+    const current = personHydrationSeqRef.current.get(hydrationKey)!;
     personHydrationSeqRef.current.set(hydrationKey, current + 1);
   };
 

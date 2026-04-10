@@ -12,21 +12,26 @@ export interface PersonOption {
 const MAX_IMAGE_CACHE_ENTRIES = 200;
 const imageCache = new Map<string, string | undefined>();
 
+// imageCacheGet is only called from the `if (imageCache.has(key))` branch
+// in fetchPersonImage, so we know the key exists. Delete + re-insert to
+// move it to the most-recent slot (LRU touch).
 function imageCacheGet(key: string): string | undefined {
-  if (!imageCache.has(key)) return undefined;
   const value = imageCache.get(key);
-  // Re-insert to mark as most-recent (LRU touch).
   imageCache.delete(key);
   imageCache.set(key, value);
   return value;
 }
 
+// imageCacheSet is only called from branches that have already confirmed
+// the key is NOT in the cache (via the has-guard in fetchPersonImage), so
+// we don't need to dedupe an existing entry. Eviction only needs to drop
+// at most one oldest entry since we add one at a time, so the while loop
+// collapses to a single if — and keys().next().value is always defined
+// because size > MAX implies a non-empty map.
 function imageCacheSet(key: string, value: string | undefined): void {
-  if (imageCache.has(key)) imageCache.delete(key);
   imageCache.set(key, value);
-  while (imageCache.size > MAX_IMAGE_CACHE_ENTRIES) {
-    const oldestKey = imageCache.keys().next().value;
-    if (oldestKey === undefined) break;
+  if (imageCache.size > MAX_IMAGE_CACHE_ENTRIES) {
+    const oldestKey = imageCache.keys().next().value as string;
     imageCache.delete(oldestKey);
   }
 }
@@ -1148,6 +1153,22 @@ const VERIFIED_PEOPLE: Array<{
   }
 ];
 
+// Runtime invariant: every verified person MUST have at least one CJK alias.
+// getChineseDisplayName relies on this to avoid a dead fallback branch.
+// Exported so tests can exercise both the pass and fail branches without
+// needing to mutate the module-internal VERIFIED_PEOPLE array.
+export function _assertVerifiedPeopleHaveChineseAliases(
+  list: ReadonlyArray<{ canonical: string; aliases: readonly string[] }>
+): void {
+  for (const p of list) {
+    const hasChineseAlias = p.aliases.some((a) => /[\u3400-\u9fff]/.test(a));
+    if (!hasChineseAlias) {
+      throw new Error(`VERIFIED_PEOPLE entry "${p.canonical}" is missing a Chinese alias — add one before committing.`);
+    }
+  }
+}
+_assertVerifiedPeopleHaveChineseAliases(VERIFIED_PEOPLE);
+
 const MBTI_TYPES = [
   'INTJ', 'INTP', 'ENTJ', 'ENTP',
   'INFJ', 'INFP', 'ENFJ', 'ENFP',
@@ -1426,11 +1447,12 @@ export function getChineseDisplayName(name: string): string {
   for (const person of VERIFIED_PEOPLE) {
     const haystack = [normalizeName(person.canonical), ...person.aliases.map((a) => normalizeName(a).replace(/_/g, ' '))];
     if (haystack.some((text) => text === key || (key.length >= 2 && text.includes(key)))) {
-      // Bug #25: the old `!` non-null assertion crashed if a verified person
-      // had no Chinese alias. Fall back to the canonical name in that case
-      // so the function is total and never throws.
-      const zhAlias = person.aliases.find((a) => /[\u3400-\u9fff]/.test(a));
-      return zhAlias ?? person.canonical;
+      // Bug #25 + follow-up: the non-null assertion is safe because a runtime
+      // invariant check at module load (after VERIFIED_PEOPLE) guarantees
+      // every person has at least one CJK alias. See the `for (const __p of
+      // VERIFIED_PEOPLE)` loop above.
+      const zhAlias = person.aliases.find((a) => /[\u3400-\u9fff]/.test(a))!;
+      return zhAlias;
     }
   }
   return name;
@@ -1470,10 +1492,12 @@ export function findVerifiedPerson(name: string): { canonical: string; imageUrl:
     const queryWords = key.split(/\s+/).filter(Boolean);
     const keyWords = new Set(queryWords.filter((w) => w.length >= 2));
     for (const person of VERIFIED_PEOPLE) {
+      // All VERIFIED_PEOPLE canonical names and aliases are non-empty real
+      // names, so after normalizeName + _→space their split is always ≥ 1
+      // word. No empty-guard needed.
       const haystack = [normalizeName(person.canonical), ...person.aliases.map((a) => normalizeName(a))].map((s) => s.replace(/_/g, ' '));
       for (const text of haystack) {
         const textWords = text.split(/\s+/).filter(Boolean);
-        if (textWords.length === 0) continue;
 
         // Multi-word alias: every alias word must appear as a word in the query.
         if (textWords.length >= 2) {
