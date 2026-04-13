@@ -1,3 +1,5 @@
+const { applyApiSecurity } = require('../lib/security.js');
+
 const RESPONSE_SCHEMA_VERSION = 'mentor_table.v1';
 
 const RESPONSE_SCHEMA = {
@@ -1223,6 +1225,15 @@ function firstNonEmptyEnvValue(candidates) {
 }
 
 const mentorTableHandler = async (req, res) => {
+  // Apply shared security middleware (CORS + OPTIONS + body cap + rate limit).
+  // The body cap is 256kb here — conversation history can legitimately be
+  // large on multi-round sessions. Rate limit is stricter than mentor-image
+  // because each request fans out to 10 upstream LLM calls.
+  if (!applyApiSecurity(req, res, {
+    maxBodyBytes: '256kb',
+    rateLimit: { capacity: 20, refillPerSecond: 0.3 },
+  })) return;
+
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;

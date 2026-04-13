@@ -16,6 +16,7 @@ const https = require('https');
 const http = require('http');
 const crypto = require('crypto');
 const { URL } = require('url');
+const { applyApiSecurity } = require('../lib/security.js');
 
 // Vercel serverless functions only allow writes under /tmp. Keep the repo-local
 // `public/assets/mentors` directory as a read-only fallback for pre-baked
@@ -218,7 +219,16 @@ async function findWikipediaImageUrl(name) {
 }
 
 module.exports = async function mentorImageHandler(req, res) {
-  const name = (req.query.name || '').trim();
+  // Apply shared security middleware (CORS + OPTIONS + body cap + rate limit).
+  // image proxy is GET-only; body cap is tiny, rate limit is more generous
+  // since browsers may legitimately burst 10 image requests when a table
+  // with 10 mentors first loads.
+  if (!applyApiSecurity(req, res, {
+    maxBodyBytes: '4kb',
+    rateLimit: { capacity: 60, refillPerSecond: 2 },
+  })) return;
+
+  const name = (req.query && req.query.name ? String(req.query.name) : '').trim();
   if (!name) {
     res.status(400).json({ error: 'name parameter required' });
     return;
