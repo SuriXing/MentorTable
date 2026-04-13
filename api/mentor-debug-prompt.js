@@ -1,3 +1,5 @@
+const { applyApiSecurity } = require('../lib/security.js');
+
 const ALLOWED_LANGUAGES = new Set(['zh-CN', 'en']);
 
 function normalizeLanguage(language) {
@@ -76,6 +78,11 @@ function buildMentorPromptBlock(mentor, language) {
 }
 
 module.exports = async (req, res) => {
+  // Apply shared security middleware: CORS, OPTIONS, body-size cap, rate limit.
+  // This runs in BOTH the Vercel prod path (direct api/* routing) and the
+  // server.js dev path (Express wrapper) — see lib/security.js header comment.
+  if (!applyApiSecurity(req, res, { maxBodyBytes: '64kb' })) return;
+
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
@@ -91,7 +98,17 @@ module.exports = async (req, res) => {
     const prompt = buildMentorPromptBlock(mentor, language);
     res.status(200).json({ prompt });
   } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown server error' });
+    // Log the full error server-side for debugging.
+    console.error('[mentor-debug-prompt] error:', error);
+    // Never pass raw thrown values to the client (bug #4 from R2B).
+    let message = 'Unknown server error';
+    if (error instanceof Error && error.message) {
+      // Redact anything resembling an API key/token before returning.
+      message = error.message
+        .replace(/sk-[A-Za-z0-9_\-]{8,}/g, 'sk-[REDACTED]')
+        .replace(/Bearer\s+[A-Za-z0-9_\-.=]+/gi, 'Bearer [REDACTED]');
+    }
+    res.status(500).json({ error: message });
   }
 };
 

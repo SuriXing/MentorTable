@@ -399,10 +399,28 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     }
 
     // Cap conversation turns client-side to avoid unbounded token growth
-    // (bug #44). The most-recent MAX_CONVERSATION_TURNS_IN_HISTORY turns are
-    // always the most useful for the mentor's context — earlier turns are
-    // dropped before sending to the API.
-    const recentTurns = conversationTurns.slice(-MAX_CONVERSATION_TURNS_IN_HISTORY);
+    // (bug #44) AND to stay under the server's HISTORY_MAX_ENTRIES=50 cap
+    // (R2A ARCH-1: a 5-mentor × 12-turn session would send ~80 entries and
+    // 413 on every submit). Each turn contributes (1 user + replies.length
+    // mentor entries), so the cap must shrink as mentor count grows.
+    //
+    // Formula: remaining budget after baseProblem (1) + visibleReplies.length
+    // + latestUserText (1, if present). Divide by worst-case per-turn
+    // entry count to get max turns we can fit.
+    const SERVER_HISTORY_CAP = 49; // keep 1 entry headroom below server's 50
+    const hasLatest = latestUserText && latestUserText.trim().length > 0 ? 1 : 0;
+    const baseSlots = 1 + visibleReplies.length + hasLatest;
+    // Worst-case per-turn size: 1 user + the largest replies array across all turns.
+    // `turn.replies` is always an array per ConversationTurn type.
+    let worstPerTurn = 2;
+    for (const turn of conversationTurns) {
+      const size = 1 + turn.replies.length;
+      if (size > worstPerTurn) worstPerTurn = size;
+    }
+    const budget = Math.max(0, SERVER_HISTORY_CAP - baseSlots);
+    const dynamicTurnCap = Math.max(1, Math.floor(budget / worstPerTurn));
+    const effectiveTurnCap = Math.min(MAX_CONVERSATION_TURNS_IN_HISTORY, dynamicTurnCap);
+    const recentTurns = conversationTurns.slice(-effectiveTurnCap);
     for (const turn of recentTurns) {
       if (turn.user?.trim()) {
         history.push({

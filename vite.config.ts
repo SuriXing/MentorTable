@@ -56,6 +56,7 @@ export default defineConfig(({ mode }) => {
           'src/context/**/*.{ts,tsx}',
           'src/i18n.ts',
           'api/**/*.js',
+          'lib/**/*.js',
         ],
         exclude: [
           '**/*.d.ts',

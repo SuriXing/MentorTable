@@ -5,6 +5,16 @@ const mentorTableHandler = require('./api/mentor-table.js');
 const mentorDebugPromptHandler = require('./api/mentor-debug-prompt.js');
 const mentorImageHandler = require('./api/mentor-image.js');
 
+// Security middleware lives in lib/security.js and is applied twice:
+// (1) each api/*.js handler calls applyApiSecurity at its top — this is the
+//     production path on Vercel (direct routing to api/*.js).
+// (2) server.js mirrors the CORS + OPTIONS layer below for the dev-only
+//     /api/health endpoint so local browsers don't hit CORS errors when
+//     probing health. The body cap and rate limit are intentionally NOT
+//     applied here because the api/*.js handlers apply them themselves
+//     when reached via the app.all(...) routes below.
+const { applyCorsHeaders, handleCorsPreflight } = require('./lib/security.js');
+
 function stripWrappingQuotes(value) {
   if (typeof value !== 'string' || value.length < 2) return value;
   const first = value[0];
@@ -39,44 +49,20 @@ const app = express();
 const port = Number(process.env.MENTOR_API_PORT || 8787);
 const host = process.env.MENTOR_API_HOST || '127.0.0.1';
 
+// Express body parser (needed so req.body is populated before each api/*.js
+// handler's applyApiSecurity call reads it).
 app.use(express.json({ limit: process.env.MENTOR_JSON_LIMIT || '256kb' }));
 
-// CORS: read allowlist from env. In dev (VERCEL_ENV !== 'production') and
-// when no allowlist is configured, fall back to '*' for convenience. In prod
-// deploys an explicit ALLOWED_ORIGINS list is required.
-const allowedOriginList = (process.env.ALLOWED_ORIGINS || '')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
-
-function resolveAllowOrigin(reqOrigin) {
-  if (allowedOriginList.length === 0) {
-    // No explicit list. In production this should be set; fall back to '*'
-    // to preserve existing dev behavior.
-    return '*';
-  }
-  if (reqOrigin && allowedOriginList.includes(reqOrigin)) return reqOrigin;
-  // No match — return first allowed origin so the browser rejects the request
-  // cleanly rather than echoing an attacker-controlled Origin header.
-  return allowedOriginList[0];
-}
-
+// CORS + OPTIONS for all routes in dev. The api/*.js handlers also apply
+// their own CORS headers via applyApiSecurity — they're idempotent with
+// the dev-side headers here. See lib/security.js header.
 app.use((req, res, next) => {
-  const allowOrigin = resolveAllowOrigin(req.headers && req.headers.origin);
-  res.setHeader('Access-Control-Allow-Origin', allowOrigin);
-  if (allowOrigin !== '*') {
-    res.setHeader('Vary', 'Origin');
-  }
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Max-Age', '86400');
-  if (req.method === 'OPTIONS') {
-    res.status(204).end();
-    return;
-  }
+  applyCorsHeaders(req, res);
+  if (handleCorsPreflight(req, res)) return;
   next();
 });
 
+// Health endpoint is dev-only (server.js is bypassed on Vercel).
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, service: 'mentor-api' });
 });
