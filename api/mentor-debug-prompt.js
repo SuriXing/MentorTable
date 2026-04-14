@@ -1,4 +1,9 @@
-const { applyApiSecurity, redactSensitive } = require('../lib/security.js');
+const {
+  applyApiSecurity,
+  redactSensitive,
+  sanitizeMentorField,
+  sanitizeMentorFieldArray,
+} = require('../lib/security.js');
 
 const ALLOWED_LANGUAGES = new Set(['zh-CN', 'en']);
 
@@ -8,23 +13,17 @@ function normalizeLanguage(language) {
   return language;
 }
 
-// Cap per-field length and strip control chars so a 10MB speakingStyle array
-// cannot produce a 10MB response body or smuggle newline-based injection.
-function sanitizeField(value, maxLen = 300) {
-  if (value === null || value === undefined) return '';
-  const str = typeof value === 'string' ? value : String(value);
-  // eslint-disable-next-line no-control-regex
-  const cleaned = str.replace(/[\u0000-\u0008\u000a-\u001f\u007f]/g, ' ').trim();
-  return cleaned.length > maxLen ? cleaned.slice(0, maxLen) : cleaned;
-}
-
-function sanitizeArray(arr, perItemMax = 200, maxItems = 12) {
-  if (!Array.isArray(arr)) return [];
-  return arr
-    .slice(0, maxItems)
-    .map((item) => sanitizeField(item, perItemMax))
-    .filter(Boolean);
-}
+// R3 C-1 fix: this handler used to ship a local sanitizeField/sanitizeArray
+// pair that only stripped C0+DEL — missing the C1, bidi (U+202A-U+202E,
+// U+2066-U+2069), zero-width (U+200B-U+200D, U+2060, U+FEFF), and LS/PS
+// (U+2028-U+2029) coverage that lib/security.js gained in R2 BYPASS-3.
+// The handler now imports the shared helper so all three handlers
+// (mentor-table.js, mentor-image.js, mentor-debug-prompt.js) share one
+// sanitizer and the next BYPASS-3-style finding is fixed once, not three
+// times.
+const sanitizeField = (value, maxLen = 300) => sanitizeMentorField(value, maxLen);
+const sanitizeArray = (arr, perItemMax = 200, maxItems = 12) =>
+  sanitizeMentorFieldArray(arr, perItemMax, maxItems);
 
 function buildMentorPromptBlock(mentor, language) {
   const lang = normalizeLanguage(language);

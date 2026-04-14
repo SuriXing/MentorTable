@@ -571,7 +571,54 @@ describe('mentor-image BYPASS-7/NEW-2/NEW-5', () => {
       res
     );
     expect(res._status).toBe(404);
-    expect(res._json.name).toBe('EvilNameHere');
+    // R3 C-2 fix: safeReflectName now delegates to lib/security.js's
+    // sanitizeMentorField, which REPLACES control chars with a space (then
+    // trim) instead of stripping them. This is intentional — a space
+    // breaks a smuggled control-char-bordered instruction more reliably
+    // than concatenation. So 'Evil\u0001Name\u0007Here' → 'Evil Name Here'
+    // (not 'EvilNameHere' which the old local regex produced).
+    expect(res._json.name).toBe('Evil Name Here');
+    // Negative assertions: the raw control characters must not survive.
+    expect(res._json.name).not.toContain('\u0001');
+    expect(res._json.name).not.toContain('\u0007');
+  });
+
+  // R3 C-2 follow-up: a hostile name with bidi/zero-width Unicode (the
+  // BYPASS-3 vector) is now also stripped from reflection. Pre-fix this
+  // would have leaked the override character into the 404 JSON.
+  it('NEW-5/C-2: strips bidi override and zero-width chars from reflected name', async () => {
+    vi.spyOn(fs, 'existsSync').mockReturnValue(false);
+    const https = require('https');
+    vi.spyOn(https, 'get').mockImplementation((url, opts, callback) => {
+      if (typeof opts === 'function') callback = opts;
+      const mockResponse = {
+        statusCode: 200,
+        headers: { 'content-type': 'application/json' },
+        on(event, handler) {
+          if (event === 'data') handler(Buffer.from('{"title":"x"}'));
+          if (event === 'end') handler();
+          return mockResponse;
+        },
+        resume() {},
+      };
+      callback(mockResponse);
+      return { on() {}, destroy() {} };
+    });
+
+    const res = mockRes();
+    // U+202E = RIGHT-TO-LEFT OVERRIDE, U+200B = ZERO WIDTH SPACE
+    await mentorImageHandler(
+      mockReq({ method: 'GET', query: { name: 'Bad\u202eName\u200bHere' } }),
+      res
+    );
+    expect(res._status).toBe(404);
+    // The raw control codepoints must not be in the reflected JSON.
+    expect(res._json.name).not.toContain('\u202e');
+    expect(res._json.name).not.toContain('\u200b');
+    // The visible portions are preserved with whitespace boundaries.
+    expect(res._json.name).toContain('Bad');
+    expect(res._json.name).toContain('Name');
+    expect(res._json.name).toContain('Here');
   });
 });
 
