@@ -123,6 +123,14 @@ export default function Aurora(props: AuroraProps) {
   const ctnDom = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // MC-1: honor prefers-reduced-motion — skip the rAF loop entirely.
+    // The background stays visually present via CSS fallback but doesn't
+    // burn CPU on users who've asked the OS to dial down motion.
+    const reduceMotion =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) return;
     // React guarantees the ref is bound before useEffect fires, and the
     // container div is unconditionally rendered at the end of this component,
     // so ctnDom.current is always non-null here.

@@ -87,6 +87,7 @@ describe('mentor-image cached file serving', () => {
 
     // Mock fs.createReadStream to return a mock readable
     const mockStream = {
+      on() { return mockStream; },
       pipe(dest) { dest._piped = true; return dest; },
     };
     vi.spyOn(fs, 'createReadStream').mockReturnValue(mockStream);
@@ -110,7 +111,7 @@ describe('mentor-image cached file serving', () => {
       return false;
     });
 
-    const mockStream = { pipe(dest) { dest._piped = true; return dest; } };
+    const mockStream = { on() { return mockStream; }, pipe(dest) { dest._piped = true; return dest; } };
     vi.spyOn(fs, 'createReadStream').mockReturnValue(mockStream);
 
     const res = mockRes();
@@ -130,7 +131,7 @@ describe('mentor-image cached file serving', () => {
       return false;
     });
 
-    const mockStream = { pipe(dest) { dest._piped = true; return dest; } };
+    const mockStream = { on() { return mockStream; }, pipe(dest) { dest._piped = true; return dest; } };
     vi.spyOn(fs, 'createReadStream').mockReturnValue(mockStream);
 
     const res = mockRes();
@@ -395,7 +396,7 @@ describe('slug generation via handler behavior', () => {
     const expectedCachedPath = path.join(CACHE_DIR, 'lisa-su.jpg');
 
     vi.spyOn(fs, 'existsSync').mockImplementation((p) => p === expectedCachedPath);
-    const mockStream = { pipe(dest) { dest._piped = true; return dest; } };
+    const mockStream = { on() { return mockStream; }, pipe(dest) { dest._piped = true; return dest; } };
     vi.spyOn(fs, 'createReadStream').mockReturnValue(mockStream);
 
     const res = mockRes();
@@ -410,7 +411,7 @@ describe('slug generation via handler behavior', () => {
     const expectedPath = path.join(CACHE_DIR, 'dr-jane-doe.jpg');
 
     vi.spyOn(fs, 'existsSync').mockImplementation((p) => p === expectedPath);
-    const mockStream = { pipe(dest) { dest._piped = true; return dest; } };
+    const mockStream = { on() { return mockStream; }, pipe(dest) { dest._piped = true; return dest; } };
     vi.spyOn(fs, 'createReadStream').mockReturnValue(mockStream);
 
     const res = mockRes();
@@ -594,7 +595,7 @@ describe('fetchBuffer redirect following', () => {
     expect(res._status).toBe(404);
   });
 
-  it('uses http module when URL scheme is http (not https)', async () => {
+  it('rejects http:// Wikimedia thumbnails (BYPASS-7: https only)', async () => {
     // Exercise the `url.startsWith('https') ? https : http` ternary's http branch
     vi.spyOn(fs, 'existsSync').mockReturnValue(false);
     vi.spyOn(fs, 'mkdirSync').mockReturnValue(undefined);
@@ -628,7 +629,9 @@ describe('fetchBuffer redirect following', () => {
       return { on() {}, destroy() {} };
     });
 
-    // http.get serves the final image
+    // http.get must NEVER be invoked after BYPASS-7 — isAllowedUrl rejects
+    // plain http:// outright. The handler should see no valid candidate URL
+    // and return 502 "failed to fetch image".
     const httpGetSpy = vi.spyOn(http, 'get').mockImplementation((url, opts, callback) => {
       if (typeof opts === 'function') callback = opts;
       const fakeImage = Buffer.alloc(200, 0xAB);
@@ -649,9 +652,11 @@ describe('fetchBuffer redirect following', () => {
     const res = mockRes();
     await handler(mockReq({ query: { name: 'HTTP Person' } }), res);
 
-    expect(httpGetSpy).toHaveBeenCalled();
-    expect(res._headers['Content-Type']).toBe('image/jpeg');
-    expect(res._body).toBeTruthy();
+    // BYPASS-7: http module must not be called
+    expect(httpGetSpy).not.toHaveBeenCalled();
+    // Handler falls through to the "no image" 502 path.
+    expect(res._status).toBe(502);
+    expect(res._json.error).toMatch(/failed to fetch/i);
   });
 
   it('caches as .webp when content-type includes webp', async () => {
@@ -896,7 +901,7 @@ describe('fetchBuffer redirect following', () => {
     const expectedPath = path.join(CACHE_DIR, expectedSlug + '.jpg');
 
     vi.spyOn(fs, 'existsSync').mockImplementation((p) => p === expectedPath);
-    const mockStream = { pipe(dest) { dest._piped = true; return dest; } };
+    const mockStream = { on() { return mockStream; }, pipe(dest) { dest._piped = true; return dest; } };
     vi.spyOn(fs, 'createReadStream').mockReturnValue(mockStream);
 
     const res = mockRes();

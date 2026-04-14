@@ -578,9 +578,11 @@ describe('MentorTablePage (unit)', () => {
     expect(btn.disabled).toBe(true);
   });
 
-  it('renders through the Layout wrapper when standalone is false', () => {
+  it('renders through the Layout wrapper when standalone is false', async () => {
+    // R2-BUNDLE-1: Layout is now lazy-loaded, so the first paint renders
+    // the Suspense fallback (null). We wait for the mock Layout to appear.
     render(<MentorTablePage />);
-    expect(screen.getByTestId('mock-layout')).toBeInTheDocument();
+    expect(await screen.findByTestId('mock-layout')).toBeInTheDocument();
   });
 
   it('fetches debug prompt when a mentor is hovered and inspect button clicked', async () => {

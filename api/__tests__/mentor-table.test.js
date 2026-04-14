@@ -359,6 +359,25 @@ describe('compactConversationHistoryDeterministic', () => {
     expect(result.omittedCount).toBeGreaterThan(0);
     expect(result.summary).toBeTruthy();
   });
+
+  it('returns empty summary when head+tail reconstruct the full history (omittedCount === 0)', () => {
+    // Forces the `omittedCount > 0 ? ... : ''` false branch on line 357:
+    // countChars > maxChars bypasses the L324 fast path, but entries.length
+    // is small enough that head (4) + tail (6) = full 10 entries → nothing
+    // is omitted → summary must be the empty string.
+    const entries = Array.from({ length: 10 }, (_, i) => ({
+      role: i % 2 === 0 ? 'user' : 'mentor',
+      speaker: i % 2 === 0 ? 'u' : 'm',
+      text: 'x'.repeat(80),
+    }));
+    // maxItems=10 (== entries.length), maxChars=500 (< countChars) → fast
+    // path skipped. tailBudget = max(1200, 340) = 1200, and each entry is
+    // ~92 chars so all 6 non-head entries fit comfortably.
+    const result = compactConversationHistoryDeterministic(entries, 10, 500);
+    expect(result.entries.length).toBe(10);
+    expect(result.omittedCount).toBe(0);
+    expect(result.summary).toBe('');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1160,13 +1179,20 @@ describe('mentor-table LLM integration', () => {
   });
 
   it('falls back to deterministic when rounds <= 4 but tokens exceed threshold', async () => {
-    // 4 user messages (2 rounds: user+mentor, user+mentor) with very long text
-    // to exceed token threshold, but only 2 rounds
+    // ≤4 rounds, but byte size pushed past the NEW-6 hard byte floor
+    // (32KB) so we bypass the early short-circuit and reach the rounds
+    // check. Each entry is capped to 2000 chars by normalizeConversationHistory,
+    // so we need ~18+ entries to cross 32KB total.
+    const pad = 'a'.repeat(1900);
     const entries = [
-      { role: 'user', speaker: 'User', text: 'a'.repeat(500000) },
-      { role: 'mentor', speaker: 'Mentor', text: 'b'.repeat(500000) },
-      { role: 'user', speaker: 'User', text: 'c'.repeat(500000) },
-      { role: 'mentor', speaker: 'Mentor', text: 'd'.repeat(500000) },
+      { role: 'user', speaker: 'User', text: `u1 ${pad}` },
+      ...Array.from({ length: 6 }, (_, i) => ({ role: 'mentor', speaker: `M${i}`, text: `r1-${i} ${pad}` })),
+      { role: 'user', speaker: 'User', text: `u2 ${pad}` },
+      ...Array.from({ length: 6 }, (_, i) => ({ role: 'mentor', speaker: `M${i}`, text: `r2-${i} ${pad}` })),
+      { role: 'user', speaker: 'User', text: `u3 ${pad}` },
+      ...Array.from({ length: 6 }, (_, i) => ({ role: 'mentor', speaker: `M${i}`, text: `r3-${i} ${pad}` })),
+      { role: 'user', speaker: 'User', text: `u4 ${pad}` },
+      { role: 'mentor', speaker: 'M0', text: `r4-0 ${pad}` },
     ];
 
     const result = await compactConversationHistory(entries, {
@@ -1180,7 +1206,8 @@ describe('mentor-table LLM integration', () => {
       compressTimeoutMs: 5000,
     });
 
-    // Should use deterministic fallback since rounds <= 4
+    // Should use deterministic fallback since rounds <= 4 (4 user messages)
+    expect(result.usedLlmCompression).toBe(false);
     expect(result.estimatedTokens).toBeGreaterThan(100);
   });
 
@@ -1323,25 +1350,28 @@ describe('mentor-table backend context continuity', () => {
   });
 
   it('keeps first/last rounds when compaction is forced', async () => {
+    // Pad text so total byte size > 32KB (NEW-6 hard floor) and the LLM
+    // compression path actually runs. Each entry is ~2KB of filler.
+    const filler = (tag) => `${tag}: ${'x'.repeat(2000)}`;
     const history = [
-      { role: 'user', speaker: 'You', text: 'Round 1 user concern about burnout.' },
-      { role: 'mentor', speaker: 'Lisa', text: 'Round 1 Lisa advice.' },
-      { role: 'mentor', speaker: 'Satya', text: 'Round 1 Satya advice.' },
-      { role: 'user', speaker: 'You', text: 'Round 2 user follow-up.' },
-      { role: 'mentor', speaker: 'Lisa', text: 'Round 2 Lisa advice.' },
-      { role: 'mentor', speaker: 'Satya', text: 'Round 2 Satya advice.' },
-      { role: 'user', speaker: 'You', text: 'Round 3 user update about stress.' },
-      { role: 'mentor', speaker: 'Lisa', text: 'Round 3 Lisa advice.' },
-      { role: 'mentor', speaker: 'Satya', text: 'Round 3 Satya advice.' },
-      { role: 'user', speaker: 'You', text: 'Round 4 user update about conflict.' },
-      { role: 'mentor', speaker: 'Lisa', text: 'Round 4 Lisa advice.' },
-      { role: 'mentor', speaker: 'Satya', text: 'Round 4 Satya advice.' },
-      { role: 'user', speaker: 'You', text: 'Round 5 user asks for a plan.' },
-      { role: 'mentor', speaker: 'Lisa', text: 'Round 5 Lisa advice.' },
-      { role: 'mentor', speaker: 'Satya', text: 'Round 5 Satya advice.' },
-      { role: 'user', speaker: 'You', text: 'Round 6 user asks how to communicate upward.' },
-      { role: 'mentor', speaker: 'Lisa', text: 'Round 6 Lisa advice.' },
-      { role: 'mentor', speaker: 'Satya', text: 'Round 6 Satya advice.' },
+      { role: 'user', speaker: 'You', text: `Round 1 user concern about burnout. ${filler('u1')}` },
+      { role: 'mentor', speaker: 'Lisa', text: `Round 1 Lisa advice. ${filler('m1a')}` },
+      { role: 'mentor', speaker: 'Satya', text: `Round 1 Satya advice. ${filler('m1b')}` },
+      { role: 'user', speaker: 'You', text: `Round 2 user follow-up. ${filler('u2')}` },
+      { role: 'mentor', speaker: 'Lisa', text: `Round 2 Lisa advice. ${filler('m2a')}` },
+      { role: 'mentor', speaker: 'Satya', text: `Round 2 Satya advice. ${filler('m2b')}` },
+      { role: 'user', speaker: 'You', text: `Round 3 user update about stress. ${filler('u3')}` },
+      { role: 'mentor', speaker: 'Lisa', text: `Round 3 Lisa advice. ${filler('m3a')}` },
+      { role: 'mentor', speaker: 'Satya', text: `Round 3 Satya advice. ${filler('m3b')}` },
+      { role: 'user', speaker: 'You', text: `Round 4 user update about conflict. ${filler('u4')}` },
+      { role: 'mentor', speaker: 'Lisa', text: `Round 4 Lisa advice. ${filler('m4a')}` },
+      { role: 'mentor', speaker: 'Satya', text: `Round 4 Satya advice. ${filler('m4b')}` },
+      { role: 'user', speaker: 'You', text: `Round 5 user asks for a plan. ${filler('u5')}` },
+      { role: 'mentor', speaker: 'Lisa', text: `Round 5 Lisa advice. ${filler('m5a')}` },
+      { role: 'mentor', speaker: 'Satya', text: `Round 5 Satya advice. ${filler('m5b')}` },
+      { role: 'user', speaker: 'You', text: `Round 6 user asks how to communicate upward. ${filler('u6')}` },
+      { role: 'mentor', speaker: 'Lisa', text: `Round 6 Lisa advice. ${filler('m6a')}` },
+      { role: 'mentor', speaker: 'Satya', text: `Round 6 Satya advice. ${filler('m6b')}` },
     ];
 
     const compacted = await compactConversationHistory(history, {
@@ -2533,11 +2563,14 @@ describe('handler req.body and per-mentor error edge cases', () => {
     delete globalThis.fetch;
   });
 
-  it('returns 400 when body is null (exercises `req.body || {}` fallback)', async () => {
+  it('returns 400 when body is null (NEW-8 shape check)', async () => {
     const res = mockRes();
     await handler(mockReq({ method: 'POST', body: null }), res);
     expect(res._status).toBe(400);
-    expect(res._json.error).toMatch(/problem/i);
+    // NEW-8 tightens the error to a top-level shape check before field-level
+    // validation runs, so the surface message is now "body must be a JSON
+    // object" rather than a per-field "problem is required" message.
+    expect(res._json.error).toMatch(/JSON object/i);
   });
 
   it('logs per-mentor error when fetch throws a non-Error value (exercises String(item.error) branch)', async () => {
@@ -3024,13 +3057,21 @@ describe('buildUserPrompt field fallbacks', () => {
     expect(result).toContain('No prior conversation history');
   });
 
-  it('emits empty <user_problem> block when problem is not a string', () => {
+  it('emits empty <user_problem_{suffix}> block when problem is not a string', () => {
     // Exercises the non-string branch of the `typeof problem === 'string'`
-    // ternary at line 542-544. The handler never reaches here with a
-    // non-string problem (the 400 guard catches it), but buildUserPrompt is
-    // also exposed for unit use and must stay defensive.
+    // ternary. BYPASS-5 made the delimiter per-request randomized, so the
+    // assertion now checks the suffixed tag form.
     const result = buildUserPrompt(null, 'en', [sampleMentor], null);
-    expect(result).toMatch(/<user_problem>\s*<\/user_problem>/);
+    expect(result).toMatch(/<user_problem_[a-z0-9]+>\s*<\/user_problem_[a-z0-9]+>/);
+  });
+
+  it('falls back to "Mentor" displayName when mentor.displayName is missing', () => {
+    // Exercises the `|| 'Mentor'` default on line 540. The sanitizer
+    // returns '' for a missing/empty displayName, so the literal 'Mentor'
+    // label should appear in the rendered block.
+    const result = buildUserPrompt('prob', 'en', [{ id: 'nameless-1' }], null);
+    expect(result).toContain('MentorId: nameless-1');
+    expect(result).toContain('MentorName: Mentor');
   });
 });
 
@@ -3162,6 +3203,50 @@ describe('compactConversationHistory LLM branches', () => {
     expect(result.usedLlmCompression).toBe(true);
     expect(result.summary).toContain('UserConcerns');
     expect(result.summary).toContain('OpenLoops');
+  });
+
+  it('LLM compression with ALL list fields non-array — all arrays fall back to [] and empty segments are dropped', async () => {
+    // Exercises the `: []` fallbacks on lines 440 and 442 (userConcerns
+    // and openLoops are not arrays) AND the `userConcerns.length ? ... : ''`
+    // / `openLoops.length ? ... : ''` false branches on lines 446 and 448.
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              summary: 'Only a summary, no list fields.',
+              userConcerns: 'not-array',
+              mentorDirections: 'also-not-array',
+              openLoops: { bad: 'shape' },
+            }),
+          },
+        }],
+      }),
+      text: async () => '',
+    });
+
+    const entries = Array.from({ length: 80 }, (_, i) => ({
+      role: i % 2 === 0 ? 'user' : 'mentor',
+      speaker: i % 2 === 0 ? 'u' : 'm',
+      text: `msg ${i}: ${'x'.repeat(2000)}`,
+    }));
+
+    const result = await compactConversationHistory(entries, {
+      tokenThreshold: 100,
+      language: 'en',
+      model: 'm',
+      apiKey: 'k',
+      chatCompletionsUrl: 'https://x/y',
+    });
+
+    expect(result.usedLlmCompression).toBe(true);
+    // Summary contains only the text summary — no UserConcerns / MentorDirections / OpenLoops lines.
+    expect(result.summary).toContain('Only a summary');
+    expect(result.summary).not.toContain('UserConcerns');
+    expect(result.summary).not.toContain('MentorDirections');
+    expect(result.summary).not.toContain('OpenLoops');
   });
 
   it('LLM compression throws → caught → empty summary → deterministic fallback', async () => {

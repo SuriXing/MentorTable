@@ -7,6 +7,13 @@
  *    so "gates of hell" must NOT match "Bill Gates".
  *  - Bug #25: getChineseDisplayName must not throw when a verified person
  *    lacks a Chinese alias (was using non-null assertion before).
+ *  - R2A ARCH-4: ambiguous single-word names (e.g. "lisa") must not silently
+ *    shadow one verified person over another. Unambiguous single-word names
+ *    (e.g. "bill") must still resolve.
+ *  - R2D ALGO-1: findVerifiedPerson exact-match lookups must be O(1) via a
+ *    pre-built Map, not O(n) over VERIFIED_PEOPLE.
+ *  - R2D ALGO-4: searchVerifiedPeopleLocal must not re-normalize the haystack
+ *    on every call — normalized aliases are pre-computed at module load.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -178,6 +185,108 @@ describe('bug-fixes: mentorTable feature', () => {
       // satisfies the invariant.
       const mod = await import('../personLookup');
       expect(typeof mod._assertVerifiedPeopleHaveChineseAliases).toBe('function');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // R2A ARCH-4: ambiguous single-word disambiguation
+  // ---------------------------------------------------------------------------
+  describe('R2A ARCH-4: single-word disambiguation', () => {
+    it('"lisa" is ambiguous (Lisa Su vs. Lisa BLACKPINK) → returns undefined', async () => {
+      const { findVerifiedPerson } = await import('../personLookup');
+      // Both Lisa Su (canonical "Lisa Su") and Lisa (BLACKPINK) contain
+      // the word "lisa" as a standalone token in their canonical/aliases,
+      // so a bare single-word "lisa" query must not silently shadow one.
+      const result = findVerifiedPerson('lisa');
+      expect(result).toBeUndefined();
+    });
+
+    it('"Lisa Su" (multi-word) still resolves to Lisa Su', async () => {
+      const { findVerifiedPerson } = await import('../personLookup');
+      const result = findVerifiedPerson('Lisa Su');
+      expect(result).toBeTruthy();
+      expect(result!.canonical).toBe('Lisa Su');
+    });
+
+    it('"lisa blackpink" (multi-word) still resolves to Lisa (BLACKPINK)', async () => {
+      const { findVerifiedPerson } = await import('../personLookup');
+      const result = findVerifiedPerson('lisa blackpink');
+      expect(result).toBeTruthy();
+      expect(result!.canonical).toBe('Lisa (BLACKPINK)');
+    });
+
+    it('"bill" is UNambiguous and still resolves to Bill Gates', async () => {
+      // Regression: the ARCH-4 disambiguation rule must not break single-word
+      // queries that are unambiguous (only one verified person contains the
+      // token). "bill" appears only in Bill Gates across VERIFIED_PEOPLE.
+      const { findVerifiedPerson } = await import('../personLookup');
+      const result = findVerifiedPerson('bill');
+      expect(result).toBeTruthy();
+      expect(result!.canonical).toBe('Bill Gates');
+    });
+
+    it('"gates" is UNambiguous and still resolves to Bill Gates', async () => {
+      const { findVerifiedPerson } = await import('../personLookup');
+      const result = findVerifiedPerson('gates');
+      expect(result).toBeTruthy();
+      expect(result!.canonical).toBe('Bill Gates');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // R2D ALGO-1: findVerifiedPerson exact-match O(1) Map lookup
+  // R2D ALGO-4: searchVerifiedPeopleLocal pre-normalized haystack
+  // ---------------------------------------------------------------------------
+  describe('R2D ALGO-1/ALGO-4: lookup performance', () => {
+    it('findVerifiedPerson exact canonical match is a Map.get (no linear scan)', async () => {
+      // Behavioral proxy: repeated calls on the same exact-match key return
+      // the same canonical and must run many times without slowdown. We also
+      // verify a few divergent keys all resolve correctly — the Map must be
+      // keyed on canonical AND aliases, not just canonical.
+      const { findVerifiedPerson } = await import('../personLookup');
+      expect(findVerifiedPerson('Bill Gates')?.canonical).toBe('Bill Gates');
+      // Alias exact match (single-word aliases that are unambiguous).
+      expect(findVerifiedPerson('gates')?.canonical).toBe('Bill Gates');
+      // Chinese alias exact match.
+      expect(findVerifiedPerson('比尔·盖茨')?.canonical).toBe('Bill Gates');
+      // Alias with underscore normalization.
+      expect(findVerifiedPerson('bill_gates')?.canonical).toBe('Bill Gates');
+    });
+
+    it('searchVerifiedPeopleLocal returns same results whether called once or many times', async () => {
+      // Behavioral proxy: the pre-normalized haystack must not mutate state
+      // between calls — idempotent regardless of call count.
+      const { searchVerifiedPeopleLocal } = await import('../personLookup');
+      const first = searchVerifiedPeopleLocal('bill', 5).map((p) => p.name);
+      for (let i = 0; i < 50; i += 1) {
+        searchVerifiedPeopleLocal('bill', 5);
+      }
+      const last = searchVerifiedPeopleLocal('bill', 5).map((p) => p.name);
+      expect(last).toEqual(first);
+      expect(first[0]).toBe('Bill Gates');
+    });
+
+    it('searchVerifiedPeopleLocal handles broad substring queries without re-normalization drift', async () => {
+      const { searchVerifiedPeopleLocal } = await import('../personLookup');
+      // Broad query ('a') matches many people — the pre-normalized haystack
+      // must yield a stable, non-empty ordered list.
+      const r1 = searchVerifiedPeopleLocal('a', 20).map((p) => p.name);
+      const r2 = searchVerifiedPeopleLocal('a', 20).map((p) => p.name);
+      expect(r1).toEqual(r2);
+      expect(r1.length).toBeGreaterThan(1);
+    });
+
+    it('getChineseDisplayName partial-match path (substring hit, not exact key)', async () => {
+      // "比尔" is a strict prefix of "比尔 盖茨" (normalized Bill Gates alias).
+      // It is NOT itself a key in EXACT_LOOKUP_MAP, so this query exercises
+      // the partial-match fallback branch in getChineseDisplayName.
+      const { getChineseDisplayName } = await import('../personLookup');
+      const result = getChineseDisplayName('比尔');
+      // Returned name must be a CJK alias of Bill Gates.
+      expect(typeof result).toBe('string');
+      expect(/[\u3400-\u9fff]/.test(result)).toBe(true);
+      // Must have returned a Bill Gates CJK alias, not the passthrough input.
+      expect(result).not.toBe('比尔');
     });
   });
 });

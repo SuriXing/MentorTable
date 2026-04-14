@@ -1,4 +1,4 @@
-const { applyApiSecurity } = require('../lib/security.js');
+const { applyApiSecurity, redactSensitive } = require('../lib/security.js');
 
 const ALLOWED_LANGUAGES = new Set(['zh-CN', 'en']);
 
@@ -101,12 +101,11 @@ module.exports = async (req, res) => {
     // Log the full error server-side for debugging.
     console.error('[mentor-debug-prompt] error:', error);
     // Never pass raw thrown values to the client (bug #4 from R2B).
+    // NEW-4: share the redactor from lib/security.js so this handler inherits
+    // the BYPASS-1 fix (broader secret coverage, no UUID over-redaction).
     let message = 'Unknown server error';
     if (error instanceof Error && error.message) {
-      // Redact anything resembling an API key/token before returning.
-      message = error.message
-        .replace(/sk-[A-Za-z0-9_\-]{8,}/g, 'sk-[REDACTED]')
-        .replace(/Bearer\s+[A-Za-z0-9_\-.=]+/gi, 'Bearer [REDACTED]');
+      message = redactSensitive(error.message);
     }
     res.status(500).json({ error: message });
   }

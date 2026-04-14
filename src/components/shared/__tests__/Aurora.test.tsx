@@ -291,6 +291,31 @@ describe('Aurora', () => {
     removeSpy.mockRestore();
   });
 
+  it('MC-1: skips the rAF loop entirely when prefers-reduced-motion matches', () => {
+    // Stub window.matchMedia so the component's reduceMotion check fires.
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: true,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })) as unknown as typeof window.matchMedia;
+    try {
+      render(<Aurora />);
+      // None of the heavy WebGL setup should have happened.
+      expect(rendererInstances.length).toBe(0);
+      expect(programInstances.length).toBe(0);
+      expect(meshInstances.length).toBe(0);
+      expect(rafCallbacks.length).toBe(0);
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
+  });
+
   it('falls back to the initial colorStops when props update without providing them', () => {
     const { rerender } = render(<Aurora amplitude={1.0} colorStops={['#aa0000', '#00bb00', '#0000cc']} />);
     const program = programInstances[0];

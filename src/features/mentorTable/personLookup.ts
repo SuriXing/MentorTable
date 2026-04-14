@@ -1213,6 +1213,88 @@ function normalizeName(name: string): string {
     .replace(/\s+/g, ' ');
 }
 
+// ── R2D ALGO-1 + ALGO-4: module-load precomputation ──────────────────────
+//
+// Before R2, findVerifiedPerson scanned all ~200 entries on every call
+// (O(n) per keystroke), re-normalizing every alias each time. Round 2 moves
+// the normalization and exact-key indexing to module load so:
+//   - exact-match lookups are O(1) via EXACT_LOOKUP_MAP
+//   - word-boundary fallback iterates a frozen pre-normalized haystack
+//   - searchVerifiedPeopleLocal iterates NORMALIZED_HAYSTACKS instead of
+//     re-normalizing aliases on every keystroke
+//
+// The behavior of the word-boundary fallback (Bug #24) is preserved exactly —
+// the Map only accelerates exact matches.
+interface NormalizedEntry {
+  person: typeof VERIFIED_PEOPLE[number];
+  /** Normalized canonical + every normalized alias, underscores → spaces. */
+  haystack: string[];
+  /** Same as haystack but split into word arrays for the fallback loop. */
+  haystackWords: string[][];
+  /** Pre-computed set of every word that appears anywhere in haystack. */
+  allWords: Set<string>;
+}
+
+function normalizeAliasKey(s: string): string {
+  return normalizeName(s).replace(/_/g, ' ');
+}
+
+const NORMALIZED_ENTRIES: NormalizedEntry[] = VERIFIED_PEOPLE.map((person) => {
+  const haystack = [
+    normalizeAliasKey(person.canonical),
+    ...person.aliases.map((a) => normalizeAliasKey(a))
+  ];
+  const haystackWords = haystack.map((t) => t.split(/\s+/).filter(Boolean));
+  const allWords = new Set<string>();
+  for (const words of haystackWords) {
+    for (const w of words) allWords.add(w);
+  }
+  return { person, haystack, haystackWords, allWords };
+});
+
+/**
+ * EXACT_LOOKUP_MAP: normalized key → verified person. Each person is indexed
+ * under its canonical name AND every alias. If multiple people share an alias
+ * (shouldn't happen in practice, but defensively), the FIRST one wins —
+ * matching the pre-R2 linear-scan behavior.
+ */
+const EXACT_LOOKUP_MAP: Map<string, typeof VERIFIED_PEOPLE[number]> = (() => {
+  const map = new Map<string, typeof VERIFIED_PEOPLE[number]>();
+  for (const entry of NORMALIZED_ENTRIES) {
+    for (const key of entry.haystack) {
+      if (!map.has(key)) map.set(key, entry.person);
+    }
+  }
+  return map;
+})();
+
+/**
+ * WORD_TO_PEOPLE: normalized word → set of verified-person indices that
+ * contain that word anywhere in their canonical/aliases. Used by R2A ARCH-4
+ * to detect ambiguous single-word queries (e.g. "lisa" → both Lisa Su and
+ * Lisa (BLACKPINK)).
+ */
+const WORD_TO_PEOPLE: Map<string, Set<number>> = (() => {
+  const map = new Map<string, Set<number>>();
+  NORMALIZED_ENTRIES.forEach((entry, idx) => {
+    for (const word of entry.allWords) {
+      let bucket = map.get(word);
+      if (!bucket) {
+        bucket = new Set();
+        map.set(word, bucket);
+      }
+      bucket.add(idx);
+    }
+  });
+  return map;
+})();
+
+// Pre-computed list of normalized "haystack strings" for searchVerifiedPeopleLocal.
+// Each slot corresponds to VERIFIED_PEOPLE[i] and contains every normalized
+// form of that person's canonical + aliases (so .includes() checks can run
+// directly without re-normalizing on every keystroke).
+const SEARCH_HAYSTACKS: string[][] = NORMALIZED_ENTRIES.map((e) => e.haystack);
+
 function buildNameAvatar(name: string): string {
   const label = name.trim() || 'Mentor';
   return createInlineAvatarDataUri(label, '#e7efff', '#2a4f90');
@@ -1473,15 +1555,22 @@ async function searchWikipediaPeople(query: string, limit: number): Promise<Pers
  */
 export function getChineseDisplayName(name: string): string {
   const key = normalizeName(name).replace(/_/g, ' ');
-  for (const person of VERIFIED_PEOPLE) {
-    const haystack = [normalizeName(person.canonical), ...person.aliases.map((a) => normalizeName(a).replace(/_/g, ' '))];
-    if (haystack.some((text) => text === key || (key.length >= 2 && text.includes(key)))) {
-      // Bug #25 + follow-up: the non-null assertion is safe because a runtime
-      // invariant check at module load (after VERIFIED_PEOPLE) guarantees
-      // every person has at least one CJK alias. See the `for (const __p of
-      // VERIFIED_PEOPLE)` loop above.
-      const zhAlias = person.aliases.find((a) => /[\u3400-\u9fff]/.test(a))!;
-      return zhAlias;
+  // Fast path: exact-alias Map hit.
+  const exact = EXACT_LOOKUP_MAP.get(key);
+  if (exact) {
+    // Bug #25 + follow-up: the non-null assertion is safe because a runtime
+    // invariant check at module load guarantees every person has at least
+    // one CJK alias.
+    return exact.aliases.find((a) => /[\u3400-\u9fff]/.test(a))!;
+  }
+  // Partial-match path (preserved from pre-R2 behavior): if the query is
+  // 2+ chars and appears as a substring of any normalized haystack entry,
+  // return that person's Chinese alias.
+  if (key.length >= 2) {
+    for (const entry of NORMALIZED_ENTRIES) {
+      if (entry.haystack.some((text) => text.includes(key))) {
+        return entry.person.aliases.find((a) => /[\u3400-\u9fff]/.test(a))!;
+      }
     }
   }
   return name;
@@ -1498,10 +1587,26 @@ export function findVerifiedPerson(name: string): { canonical: string; imageUrl:
     };
   };
 
-  // 1. Exact match (fastest, most precise)
-  for (const person of VERIFIED_PEOPLE) {
-    if (normalizeName(person.canonical) === key) return makeResult(person);
-    if (person.aliases.some((alias) => normalizeName(alias).replace(/_/g, ' ') === key)) return makeResult(person);
+  // 1. Exact match — O(1) Map lookup (R2D ALGO-1). The Map is keyed on
+  // the canonical name AND every alias, normalized at module load.
+  const exact = EXACT_LOOKUP_MAP.get(key);
+  if (exact) {
+    // R2A ARCH-4: single-word queries whose single token also appears as a
+    // standalone word in ANOTHER verified person's canonical/aliases are
+    // ambiguous. "lisa" is exact-alias of Lisa Su but "lisa" is also a word
+    // of "Lisa (BLACKPINK)" → return undefined so the UI shows a
+    // disambiguation list instead of silently shadowing one person.
+    //
+    // The rule is scoped to single-word queries on purpose: multi-word
+    // exact matches ("Lisa Su", "lisa blackpink") are always unambiguous.
+    const queryWords = key.split(/\s+/).filter(Boolean);
+    if (queryWords.length === 1) {
+      const bucket = WORD_TO_PEOPLE.get(queryWords[0]);
+      if (bucket && bucket.size >= 2) {
+        return undefined;
+      }
+    }
+    return makeResult(exact);
   }
 
   // 2. Word-boundary partial match fallback.
@@ -1520,18 +1625,13 @@ export function findVerifiedPerson(name: string): { canonical: string; imageUrl:
   if (key.length >= 3) {
     const queryWords = key.split(/\s+/).filter(Boolean);
     const keyWords = new Set(queryWords.filter((w) => w.length >= 2));
-    for (const person of VERIFIED_PEOPLE) {
-      // All VERIFIED_PEOPLE canonical names and aliases are non-empty real
-      // names, so after normalizeName + _→space their split is always ≥ 1
-      // word. No empty-guard needed.
-      const haystack = [normalizeName(person.canonical), ...person.aliases.map((a) => normalizeName(a))].map((s) => s.replace(/_/g, ' '));
-      for (const text of haystack) {
-        const textWords = text.split(/\s+/).filter(Boolean);
-
+    for (const entry of NORMALIZED_ENTRIES) {
+      // Iterate pre-computed word arrays — no re-normalization per call.
+      for (const textWords of entry.haystackWords) {
         // Multi-word alias: every alias word must appear as a word in the query.
         if (textWords.length >= 2) {
           const allAliasWordsInQuery = textWords.every((w) => keyWords.has(w));
-          if (allAliasWordsInQuery) return makeResult(person);
+          if (allAliasWordsInQuery) return makeResult(entry.person);
         }
 
         // Query-prefix-of-alias on word boundaries, e.g.
@@ -1541,7 +1641,7 @@ export function findVerifiedPerson(name: string): { canonical: string; imageUrl:
           queryWords.length <= textWords.length &&
           queryWords.every((qw, i) => textWords[i] === qw || textWords[i].startsWith(qw))
         ) {
-          return makeResult(person);
+          return makeResult(entry.person);
         }
       }
     }
@@ -1551,11 +1651,12 @@ export function findVerifiedPerson(name: string): { canonical: string; imageUrl:
 }
 
 /** Relevance score for sorting: lower = better match.
- *  Priority: first/last name starts with query > any word starts with query > substring match. */
-function nameRelevance(person: { canonical: string; aliases: string[] }, query: string): number {
-  const names = [person.canonical, ...person.aliases].map((s) => normalizeName(s).replace(/_/g, ' '));
+ *  Priority: first/last name starts with query > any word starts with query > substring match.
+ *  R2D ALGO-4: takes a pre-normalized haystack from NORMALIZED_ENTRIES so it
+ *  does not re-normalize on every call. */
+function nameRelevanceFromHaystack(haystack: string[], query: string): number {
   let best = 100;
-  for (const name of names) {
+  for (const name of haystack) {
     if (name.startsWith(query)) { best = Math.min(best, 0); break; }
     const words = name.split(/\s+/);
     if (words.some((w) => w.startsWith(query))) best = Math.min(best, 1);
@@ -1567,6 +1668,9 @@ function nameRelevance(person: { canonical: string; aliases: string[] }, query: 
 /**
  * Instant synchronous search of VERIFIED_PEOPLE — no network calls.
  * Returns matches with photos for use as instant autocomplete suggestions.
+ *
+ * R2D ALGO-4: iterates the pre-normalized NORMALIZED_ENTRIES array instead
+ * of re-normalizing every alias on every keystroke. Behavior is unchanged.
  */
 export function searchVerifiedPeopleLocal(query: string, limit = 8): PersonOption[] {
   const q = query.trim();
@@ -1575,20 +1679,24 @@ export function searchVerifiedPeopleLocal(query: string, limit = 8): PersonOptio
   // normalizeName on a non-empty trimmed string never returns empty —
   // punctuation is replaced with spaces, not stripped.
 
-  return VERIFIED_PEOPLE
-    .filter((person) => {
-      const haystack = [person.canonical, ...person.aliases].map((s) => normalizeName(s).replace(/_/g, ' '));
-      return haystack.some((text) => text.includes(normalized));
-    })
-    .sort((a, b) => nameRelevance(a, normalized) - nameRelevance(b, normalized))
-    .slice(0, limit)
-    .map((person) => ({
+  const matches: Array<{ entry: NormalizedEntry; score: number }> = [];
+  for (const entry of NORMALIZED_ENTRIES) {
+    if (entry.haystack.some((text) => text.includes(normalized))) {
+      matches.push({ entry, score: nameRelevanceFromHaystack(entry.haystack, normalized) });
+    }
+  }
+  matches.sort((a, b) => a.score - b.score);
+
+  return matches.slice(0, limit).map(({ entry }) => {
+    const person = entry.person;
+    return {
       name: person.canonical,
       imageUrl: person.imageUrl,
       candidateImageUrls: person.candidateImageUrls,
       description: person.description,
       descriptionZh: person.descriptionZh
-    }));
+    };
+  });
 }
 
 export function getVerifiedPlaceholderImage(): string {
@@ -1651,19 +1759,23 @@ export async function searchPeopleWithPhotos(query: string, limit = 6): Promise<
   if (!q) return [];
 
   const normalized = normalizeName(q);
-  const verifiedMatches = VERIFIED_PEOPLE
-    .filter((person) => {
-      const haystack = [person.canonical, ...person.aliases].map((s) => normalizeName(s).replace(/_/g, ' '));
-      return haystack.some((text) => text.includes(normalized));
-    })
-    .sort((a, b) => nameRelevance(a, normalized) - nameRelevance(b, normalized))
+  // R2D ALGO-4: iterate the pre-normalized NORMALIZED_ENTRIES instead of
+  // re-normalizing every alias on every call.
+  const verifiedScored: Array<{ entry: NormalizedEntry; score: number }> = [];
+  for (const entry of NORMALIZED_ENTRIES) {
+    if (entry.haystack.some((text) => text.includes(normalized))) {
+      verifiedScored.push({ entry, score: nameRelevanceFromHaystack(entry.haystack, normalized) });
+    }
+  }
+  verifiedScored.sort((a, b) => a.score - b.score);
+  const verifiedMatches = verifiedScored
     .slice(0, Math.max(1, Math.min(limit, 10)))
-    .map((person) => withAvatarFallback({
-      name: person.canonical,
-      imageUrl: person.imageUrl,
-      candidateImageUrls: person.candidateImageUrls,
-      description: person.description,
-      descriptionZh: person.descriptionZh
+    .map(({ entry }) => withAvatarFallback({
+      name: entry.person.canonical,
+      imageUrl: entry.person.imageUrl,
+      candidateImageUrls: entry.person.candidateImageUrls,
+      description: entry.person.description,
+      descriptionZh: entry.person.descriptionZh
     }));
 
   const mbtiMatches = MBTI_TYPES
