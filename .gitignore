@@ -16,3 +16,4 @@ cypress/screenshots/
 test-results/
 .nyc_output/
 coverage/
+supabase/
