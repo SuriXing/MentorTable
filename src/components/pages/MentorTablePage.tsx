@@ -36,6 +36,7 @@ import {
   searchPeopleWithPhotos,
   searchVerifiedPeopleLocal
 } from '../../features/mentorTable/personLookup';
+import { applyMentorSpeakerClass } from './applyMentorSpeakerClass';
 import styles from './MentorTablePage.module.css';
 
 type RitualPhase = 'invite' | 'wish' | 'session';
@@ -446,7 +447,14 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
 
   const mentorThreadKey = (rawName: string) => normalizeMentorKey(resolveMentorName(rawName));
 
-  const buildConversationHistory = (latestUserText?: string): MentorConversationMessage[] => {
+  // R3 C-4: latestUserText is REQUIRED, not optional. All three call sites
+  // (handleGenerate / handleReplyAll / submitNoteToMentor) guard their
+  // `text` before invoking and never pass undefined or empty. Making it
+  // required at the type level means the budget calc and the trailing
+  // append agree (no defensive guard contradiction). If a future caller
+  // wants to skip latestUserText, they should call a new variant — don't
+  // re-introduce the optional + if-guard pattern that R3 flagged.
+  const buildConversationHistory = (latestUserText: string): MentorConversationMessage[] => {
     const history: MentorConversationMessage[] = [];
     const baseProblem = problem.trim();
     if (baseProblem) {
@@ -476,12 +484,11 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     // + latestUserText (1, if present). Divide by worst-case per-turn
     // entry count to get max turns we can fit.
     const SERVER_HISTORY_CAP = 49; // keep 1 entry headroom below server's 50
-    // All three callers (handleGenerate, handleReplyAll, submitNoteToMentor)
-    // guard their `text` before invoking buildConversationHistory, so
-    // `latestUserText` is always a non-empty trimmed string here. The old
-    // `? 1 : 0` ternary had a dead false branch — inlined as 1.
-    const hasLatest = 1;
-    const baseSlots = 1 + visibleReplies.length + hasLatest;
+    // R3 C-4: latestUserText is always present (the parameter is required;
+    // see the comment on the function signature). The budget includes its
+    // slot unconditionally — this matches the unconditional append at
+    // line ~520. Both halves agree.
+    const baseSlots = 1 + visibleReplies.length + 1;
     // Worst-case per-turn size: 1 user + the largest replies array across all turns.
     // `turn.replies` is always an array per ConversationTurn type.
     let worstPerTurn = 2;
@@ -517,13 +524,16 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
       }
     }
 
-    if (latestUserText?.trim()) {
-      history.push({
-        role: 'user',
-        speaker: t.you,
-        text: latestUserText.trim()
-      });
-    }
+    // R3 C-4: latestUserText is required and non-empty (see signature).
+    // Append unconditionally — matches the budget calc above. The
+    // previous `if (latestUserText?.trim())` guard contradicted the
+    // unconditional budget addend and was flagged by Round 3 as the
+    // "two halves disagree" maintenance hazard.
+    history.push({
+      role: 'user',
+      speaker: t.you,
+      text: latestUserText.trim()
+    });
 
     return history;
   };
@@ -725,15 +735,11 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     const total = result?.mentorReplies?.length ?? 0;
     if (sessionMode !== 'live' || total === 0 || isConversationHovered) return;
     const applyActiveClass = (idx: number) => {
-      const nodes = mentorNodeRefs.current;
-      // Null-safety guard removed: `selectedMentors` cannot shrink while
-      // we're in the 'live' session phase (the remove-mentor button only
-      // renders in the 'invite' phase), so every ref slot we iterate here
-      // is always the live DOM node React committed. If a mentor-removal
-      // flow is ever added during session, restore `if (!node) continue;`.
-      for (let i = 0; i < nodes.length; i += 1) {
-        nodes[i]!.classList.toggle(styles.mentorNodeSpeaker, i === idx);
-      }
+      // R3 C-3: applyMentorSpeakerClass (module-level) handles the null
+      // guard for the inline-ref-callback null-write window. Extracted
+      // out of the closure so it's directly unit-testable with a nulled
+      // slot — see src/components/pages/__tests__ rotation tests.
+      applyMentorSpeakerClass(mentorNodeRefs.current, idx, styles.mentorNodeSpeaker);
     };
     applyActiveClass(activeIndexRef.current);
     const timer = window.setInterval(() => {

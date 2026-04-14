@@ -220,6 +220,46 @@ describe('mentor-debug-prompt handler', () => {
     expect(res._json.prompt).not.toMatch(/Name\u0001/);
   });
 
+  // R3 C-1 regression: this handler used to ship its OWN local sanitizeField
+  // that only stripped C0+DEL, missing C1 / bidi / zero-width / LS-PS. A
+  // hostile mentor displayName with these codepoints was reaching the LLM
+  // prompt unmodified — a live BYPASS-3 prompt-injection vector via the
+  // debug endpoint. Now delegates to lib/security.js's sanitizeMentorField.
+  it('C-1: strips bidi override and zero-width chars from mentor fields', async () => {
+    const res = mockRes();
+    await handler(mockReq({
+      body: {
+        mentor: {
+          id: 'safe',
+          displayName: 'Bad\u202eName\u200bSneaky\u2066Hidden',
+          // also test array fields go through sanitizeArray
+          speakingStyle: ['style\u200bone', 'two\u202etwo'],
+          coreValues: ['val\u2028newline', 'val\u2029sep'],
+        },
+      },
+    }), res);
+    expect(res._status).toBe(200);
+    const prompt = res._json.prompt;
+    // The raw codepoints must NOT appear in the rendered prompt.
+    expect(prompt).not.toContain('\u202e'); // RLO
+    expect(prompt).not.toContain('\u202c'); // PDF
+    expect(prompt).not.toContain('\u200b'); // ZWSP
+    expect(prompt).not.toContain('\u2066'); // LRI
+    expect(prompt).not.toContain('\u2069'); // PDI
+    expect(prompt).not.toContain('\u2028'); // LS
+    expect(prompt).not.toContain('\u2029'); // PS
+    // The visible portions of the displayName survive (with whitespace
+    // separators where the control chars used to be).
+    expect(prompt).toContain('Bad');
+    expect(prompt).toContain('Name');
+    expect(prompt).toContain('Sneaky');
+    expect(prompt).toContain('Hidden');
+    // Array fields also sanitized (they go through sanitizeArray which
+    // calls sanitizeMentorField per item).
+    expect(prompt).toContain('SpeakingStyle: style one; two two');
+    expect(prompt).toContain('CoreValues: val newline; val sep');
+  });
+
   it('truncates mentor fields that exceed max length', async () => {
     // Exercises the `cleaned.length > maxLen` truncation branch
     const res = mockRes();

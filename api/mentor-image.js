@@ -15,7 +15,7 @@ const path = require('path');
 const https = require('https');
 const crypto = require('crypto');
 const { URL } = require('url');
-const { applyApiSecurity } = require('../lib/security.js');
+const { applyApiSecurity, sanitizeMentorField } = require('../lib/security.js');
 
 // Vercel serverless functions only allow writes under /tmp. Keep the repo-local
 // `public/assets/mentors` directory as a read-only fallback for pre-baked
@@ -54,12 +54,16 @@ function isAllowedUrl(url) {
 // NEW-5: the `name` query param is reflected back to the client in a few
 // error JSON paths. Reflect only a safe, length-capped form so abusive
 // callers can't smuggle large blobs / control chars / HTML through our
-// error responses. Callers always pass a string (validated upstream as
-// String(req.query.name).trim()), so no runtime type guard is needed.
+// error responses.
+//
+// R3 C-2 fix: this used to ship a local C0+DEL-only regex that missed
+// C1, bidi (U+202A-U+202E, U+2066-U+2069), zero-width (U+200B-U+200D,
+// U+2060, U+FEFF), and LS/PS (U+2028-U+2029) — the same blind spots the
+// R2 BYPASS-3 fix closed in lib/security.js. Now delegates to the shared
+// sanitizer so a hostile `?name=foo\u202ebar` cannot be reflected in the
+// 404/502 error JSON.
 function safeReflectName(name) {
-  // eslint-disable-next-line no-control-regex
-  const stripped = name.replace(/[\u0000-\u001f\u007f]/g, '').trim();
-  return stripped.length > 50 ? stripped.slice(0, 50) : stripped;
+  return sanitizeMentorField(name, 50);
 }
 
 function toSlug(name) {
