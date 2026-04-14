@@ -13,7 +13,6 @@
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
-const http = require('http');
 const crypto = require('crypto');
 const { URL } = require('url');
 const { applyApiSecurity } = require('../lib/security.js');
@@ -40,13 +39,27 @@ const MAX_REDIRECTS = 3;
 function isAllowedUrl(url) {
   try {
     const parsed = new URL(url);
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
+    // BYPASS-7: Wikimedia serves everything over HTTPS. Plain HTTP opens a
+    // MITM surface — an attacker on the path could swap the response body
+    // and we'd cache the poisoned image on disk. Reject http: outright.
+    if (parsed.protocol !== 'https:') return false;
     const host = parsed.hostname.toLowerCase();
     if (ALLOWED_HOSTS.has(host)) return true;
     return ALLOWED_HOST_SUFFIXES.some((suffix) => host.endsWith(suffix));
   } catch {
     return false;
   }
+}
+
+// NEW-5: the `name` query param is reflected back to the client in a few
+// error JSON paths. Reflect only a safe, length-capped form so abusive
+// callers can't smuggle large blobs / control chars / HTML through our
+// error responses. Callers always pass a string (validated upstream as
+// String(req.query.name).trim()), so no runtime type guard is needed.
+function safeReflectName(name) {
+  // eslint-disable-next-line no-control-regex
+  const stripped = name.replace(/[\u0000-\u001f\u007f]/g, '').trim();
+  return stripped.length > 50 ? stripped.slice(0, 50) : stripped;
 }
 
 function toSlug(name) {
@@ -103,8 +116,9 @@ function fetchBuffer(url, retries = 3, accept = 'image/*', redirectsLeft = MAX_R
       return;
     }
     const attempt = (n) => {
-      const mod = url.startsWith('https') ? https : http;
-      const req = mod.get(url, {
+      // isAllowedUrl above rejects any non-https: protocol, so all reachable
+      // URLs here are https. Use the https module directly.
+      const req = https.get(url, {
         headers: {
           'User-Agent': 'ProblemSolverBot/1.0 (educational; image cache)',
           Accept: accept,
@@ -252,14 +266,38 @@ module.exports = async function mentorImageHandler(req, res) {
     const ext = path.extname(cached);
     res.setHeader('Content-Type', mimeFromExt(ext));
     res.setHeader('Cache-Control', 'public, max-age=604800'); // 7 days
-    fs.createReadStream(cached).pipe(res);
+    // NEW-2: a broken pipe (client disconnected), a vanished cache file,
+    // or a filesystem I/O error will emit `error` on the read stream. The
+    // Round 1 code had no error handler, so any of those would crash the
+    // warm lambda instance (unhandled 'error' event). Attach an explicit
+    // handler that either finalizes a 500 or destroys a partial response.
+    const stream = fs.createReadStream(cached);
+    stream.on('error', (err) => {
+      // `err` is always an Error object (Node always emits one on 'error').
+      // `res.destroy` is always a function on Node http.ServerResponse.
+      console.warn('[mentor-image] cached stream error:', String(err));
+      if (!res.headersSent) {
+        try { res.status(500).json({ error: 'cached file read failed' }); }
+        catch { res.destroy(); }
+      } else {
+        // Headers already flushed — we can only tear down the socket.
+        if (typeof res.destroy === 'function') res.destroy(err);
+      }
+    });
+    // Also bail out cleanly if the response itself errors mid-pipe.
+    if (typeof res.on === 'function') {
+      res.on('error', () => {
+        if (typeof stream.destroy === 'function') stream.destroy();
+      });
+    }
+    stream.pipe(res);
     return;
   }
 
   // 2. Find image URL(s) from Wikipedia
   const imageUrls = await findWikipediaImageUrl(name);
   if (!imageUrls) {
-    res.status(404).json({ error: 'no image found', name });
+    res.status(404).json({ error: 'no image found', name: safeReflectName(name) });
     return;
   }
 
@@ -273,7 +311,7 @@ module.exports = async function mentorImageHandler(req, res) {
     result = null;
   }
   if (!result) {
-    res.status(502).json({ error: 'failed to fetch image', name });
+    res.status(502).json({ error: 'failed to fetch image', name: safeReflectName(name) });
     return;
   }
 

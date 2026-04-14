@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -18,7 +18,10 @@ import {
   faBookOpen,
   faBug
 } from '@fortawesome/free-solid-svg-icons';
-import Layout from '../layout/Layout';
+// BUNDLE-1: Layout pulls in Aurora + OGL (~708 KB). The default
+// `standalone` render path bypasses Layout entirely, so we lazy-load it
+// and only pay the cost when the full app shell is needed.
+const Layout = React.lazy(() => import('../layout/Layout'));
 import { useTheme } from '../../hooks/useTheme';
 import { MentorProfile, createCustomMentorProfile, getCartoonAvatarUrl, getSuggestedPeople } from '../../features/mentorTable/mentorProfiles';
 import { MentorSimulationResult } from '../../features/mentorTable/mentorEngine';
@@ -131,7 +134,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const [isSearching, setIsSearching] = useState(false);
   const [suggestions, setSuggestions] = useState<PersonOption[]>([]);
   const [result, setResult] = useState<MentorSimulationResult | null>(null);
-  const [activeResultIndex, setActiveResultIndex] = useState(0);
+  // RERENDER-5: activeResultIndex lives in a ref below — removed from state.
   // This component only runs client-side (the app has no SSR), so `window`
   // and `localStorage` are always available.
   const [showOnboarding, setShowOnboarding] = useState<boolean>(
@@ -167,7 +170,52 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const [debugPromptLoadingByMentorId, setDebugPromptLoadingByMentorId] = useState<Record<string, boolean>>({});
   const [debugPromptErrorByMentorId, setDebugPromptErrorByMentorId] = useState<Record<string, string>>({});
   const [saveNotice, setSaveNotice] = useState('');
+  // ERR-2: surface a retry-able error banner when handleGenerate throws
+  // (e.g. network failure) instead of silently dropping to an empty panel.
+  const [generateError, setGenerateError] = useState('');
   const conversationPanelRef = useRef<HTMLDivElement | null>(null);
+  // SR-4: focus the safety risk banner when it first appears.
+  const riskBannerRef = useRef<HTMLDivElement | null>(null);
+  const lastRiskSignatureRef = useRef<string>('');
+  // LEAK-1: guard against setState after unmount. handleGenerate and
+  // other async paths check this before state transitions.
+  const isMountedRef = useRef(true);
+  // LEAK-2/3/4: unified timer bag — every setTimeout gets tracked and
+  // cleared on unmount so no fire-and-forget timers leak.
+  const pendingTimersRef = useRef<Set<number>>(new Set());
+  // RERENDER-5: rotation tick used to drive setState every 4.2s, forcing
+  // the whole tree to re-render just to toggle a class. Now the tick
+  // walks mentorNodeRefs and toggles the active class imperatively.
+  const activeIndexRef = useRef(0);
+  const mentorNodeRefs = useRef<Array<HTMLDivElement | null>>([]);
+  // ARCH-3: coalesce rapid-fire addPerson calls for the same key so a
+  // double-click on the add button doesn't cancel the prior hydration.
+  const addPersonTimestampRef = useRef<Map<string, number>>(new Map());
+  // LEAK-1: provide a safe replacement for setTimeout that records
+  // handles and is auto-cleared on unmount. The unmount effect calls
+  // clearTimeout on every pending handle *before* React finishes tearing
+  // down, so a post-unmount `isMountedRef.current === false` check inside
+  // the callback is unreachable — if we're still running, we're mounted.
+  const scheduleTimeout = useCallback((fn: () => void, ms: number): number => {
+    const handle = window.setTimeout(() => {
+      pendingTimersRef.current.delete(handle);
+      fn();
+    }, ms);
+    pendingTimersRef.current.add(handle);
+    return handle;
+  }, []);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      // LEAK-2/3/4: fire-and-forget timers get swept here.
+      for (const handle of pendingTimersRef.current) {
+        window.clearTimeout(handle);
+      }
+      pendingTimersRef.current.clear();
+    };
+  }, []);
   // Bug #20: per-person hydration sequence — an addPerson call records its
   // sequence number; when the async image fetch resolves, we only apply the
   // result if that sequence is still the latest for the normalized key.
@@ -184,7 +232,10 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const ritualStep = phase === 'invite' ? 0 : phase === 'wish' ? 1 : 2;
   const localizedVibeTags = isZh ? vibeTagsZh : vibeTags;
 
-  const t = {
+  // RERENDER-3: stabilize the string bundle so it doesn't get rebuilt
+  // on every render. Callers that capture `t` in closures / deps will
+  // also stay stable across renders when language doesn't change.
+  const t = useMemo(() => ({
     heroTitle: isZh ? '名人桌 · 召唤房间' : 'Celebrity Mentor Table · Summoning Room',
     heroSub: isZh ? '这不是普通页面，而是一个互动舞台。' : 'Not a page. A stage.',
     summonGuests: isZh ? '召唤人物' : 'Summon Guests',
@@ -250,27 +301,43 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     next: isZh ? '下一步' : 'Next',
     getStarted: isZh ? '开始' : 'Get Started',
     dontShowAgain: isZh ? '下次不再显示' : "Don't show this again",
-    keepShowing: isZh ? '下次继续显示' : 'Keep showing on startup'
-  };
+    keepShowing: isZh ? '下次继续显示' : 'Keep showing on startup',
+    // ERR-2: retry-able error state for handleGenerate failures
+    generateFailed: isZh ? '召唤失败，请重试。' : 'Could not reach the mentors. Please retry.',
+    retry: isZh ? '重试' : 'Retry',
+    // MC-3: jump past the reveal timer
+    revealAll: isZh ? '立刻展示全部' : 'Reveal all now',
+    // ERR-1: 0-mentor continue guard
+    needAtLeastOne: isZh ? '至少选择一个人物才能继续。' : 'Please add at least one guest to continue.'
+  }), [isZh]);
 
   const uiLanguage: 'zh-CN' | 'en' = isZh ? 'zh-CN' : 'en';
 
-  const normalizeNameKey = (name: string) => name.trim().toLowerCase().replace(/\s+/g, ' ');
+  const normalizeNameKey = useCallback(
+    (name: string) => name.trim().toLowerCase().replace(/\s+/g, ' '),
+    []
+  );
 
-  // Resolve a raw name to its canonical display form, e.g. "lisa su" → "Lisa Su"
-  const resolveDisplayName = (name: string): string => {
+  // RERENDER-1 / ALGO-1: memoize caller-side wrappers on top of the
+  // (still O(n)) findVerifiedPerson lookup. Keyed on selectedPeople so
+  // they're stable inside other useMemo/useCallback deps.
+  const resolveDisplayName = useCallback((name: string): string => {
     try {
       const verified = findVerifiedPerson(name);
       if (verified) return verified.canonical;
     } catch { /* findVerifiedPerson may not be available */ }
     return name;
-  };
+    // findVerifiedPerson is imported once at module scope so its identity
+    // never changes — no dep needed. selectedPeople included so callers
+    // can safely pass it through deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPeople]);
 
-  const localizeName = (name: string) => {
+  const localizeName = useCallback((name: string) => {
     const canonical = resolveDisplayName(name);
     if (!isZh) return canonical;
     return getChineseDisplayName(canonical);
-  };
+  }, [isZh, resolveDisplayName]);
 
   const createInitialAvatar = (name: string) => {
     const canonical = resolveDisplayName(name);
@@ -350,10 +417,11 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     const currentSrc = chain[Math.min(currentAttempt, chain.length - 1)];
     const retries = imageRetryByKey[key] || 0;
 
-    // Wikimedia returns 429 under concurrent load — retry once after a delay
+    // Wikimedia returns 429 under concurrent load — retry once after a delay.
+    // LEAK-4: scheduleTimeout is unmount-safe.
     const isWikimedia = currentSrc?.includes('wikimedia.org') || currentSrc?.includes('wikipedia.org');
     if (isWikimedia && retries < 1) {
-      setTimeout(() => {
+      scheduleTimeout(() => {
         setImageRetryByKey((prev) => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
       }, 600 + currentAttempt * 400);
       return;
@@ -408,7 +476,11 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     // + latestUserText (1, if present). Divide by worst-case per-turn
     // entry count to get max turns we can fit.
     const SERVER_HISTORY_CAP = 49; // keep 1 entry headroom below server's 50
-    const hasLatest = latestUserText && latestUserText.trim().length > 0 ? 1 : 0;
+    // All three callers (handleGenerate, handleReplyAll, submitNoteToMentor)
+    // guard their `text` before invoking buildConversationHistory, so
+    // `latestUserText` is always a non-empty trimmed string here. The old
+    // `? 1 : 0` ternary had a dead false branch — inlined as 1.
+    const hasLatest = 1;
     const baseSlots = 1 + visibleReplies.length + hasLatest;
     // Worst-case per-turn size: 1 user + the largest replies array across all turns.
     // `turn.replies` is always an array per ConversationTurn type.
@@ -645,10 +717,28 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     };
   }, [personQuery]);
 
+  // RERENDER-5: imperative rotation — walks mentorNodeRefs and flips
+  // the speaker class directly, so the tick costs 0 React re-renders.
+  // MC-2: onFocus/onBlur mirror the hover pause so keyboard users can
+  // pause auto-rotation the same way mouse users do.
   useEffect(() => {
-    if (sessionMode !== 'live' || !result?.mentorReplies?.length || isConversationHovered) return;
+    const total = result?.mentorReplies?.length ?? 0;
+    if (sessionMode !== 'live' || total === 0 || isConversationHovered) return;
+    const applyActiveClass = (idx: number) => {
+      const nodes = mentorNodeRefs.current;
+      // Null-safety guard removed: `selectedMentors` cannot shrink while
+      // we're in the 'live' session phase (the remove-mentor button only
+      // renders in the 'invite' phase), so every ref slot we iterate here
+      // is always the live DOM node React committed. If a mentor-removal
+      // flow is ever added during session, restore `if (!node) continue;`.
+      for (let i = 0; i < nodes.length; i += 1) {
+        nodes[i]!.classList.toggle(styles.mentorNodeSpeaker, i === idx);
+      }
+    };
+    applyActiveClass(activeIndexRef.current);
     const timer = window.setInterval(() => {
-      setActiveResultIndex((idx) => (idx + 1) % result.mentorReplies.length);
+      activeIndexRef.current = (activeIndexRef.current + 1) % total;
+      applyActiveClass(activeIndexRef.current);
     }, 4200);
     return () => window.clearInterval(timer);
   }, [result?.mentorReplies.length, sessionMode, isConversationHovered]);
@@ -665,6 +755,22 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     if (phase !== 'session' || sessionMode !== 'live') return;
     scrollConversationToBottom();
   }, [phase, sessionMode, visibleReplyCount, noteReplies, conversationTurns, showGroupSolve, showSessionWrap]);
+
+  // SR-4: focus the risk banner on first appearance so screen-reader
+  // users land on the safety message immediately. Uses a stable string
+  // signature (level + text) to detect transitions rather than re-focus
+  // every render.
+  useEffect(() => {
+    if (!result) return;
+    const sig = `${result.safety.riskLevel}|${result.safety.emergencyMessage ?? ''}`;
+    if (result.safety.riskLevel === 'high' && sig !== lastRiskSignatureRef.current) {
+      lastRiskSignatureRef.current = sig;
+      // Rely on the ref having been attached by React before the effect runs.
+      riskBannerRef.current?.focus();
+    } else if (result.safety.riskLevel !== 'high') {
+      lastRiskSignatureRef.current = '';
+    }
+  }, [result]);
 
   // Note: an earlier defensive effect cleaned up `expandedReplyId` when the
   // expanded reply was no longer in the visible set. Every path that clears
@@ -703,6 +809,22 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     const rawName = typeof person === 'string' ? person : person.name;
     const trimmed = rawName.trim();
     if (!trimmed) return;
+
+    // ARCH-3: coalesce rapid double-clicks while a hydration for the
+    // same key is still in-flight, so the second invocation doesn't
+    // cancel the first one via a hydration-seq bump. We record the
+    // start time and only bail if < 200ms has elapsed AND the prior
+    // call hasn't yet recorded a completion timestamp (negative).
+    const coalesceKey = trimmed.toLowerCase();
+    const now = Date.now();
+    const lastStart = addPersonTimestampRef.current.get(coalesceKey) ?? 0;
+    if (lastStart > 0 && now - lastStart < 200) {
+      // Still clear the search input so a keyboard user who hammered
+      // Enter twice doesn't end up stuck with their query mid-air.
+      setPersonQuery('');
+      return;
+    }
+    addPersonTimestampRef.current.set(coalesceKey, now);
 
     // ── Resolve raw text to canonical name + image ──
     // e.g. "lisa" → "Lisa Su" with photo, "steve jobs" → "Steve Jobs" with photo
@@ -750,13 +872,16 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     });
 
     setLastSummonedName(name);
-    window.setTimeout(() => setLastSummonedName(''), 1800);
+    // LEAK-2: tracked timer so it's cleaned up if the component unmounts.
+    scheduleTimeout(() => setLastSummonedName(''), 1800);
     setPersonQuery('');
 
     const shouldHydrateProfile = !initialImage || !initialCandidates?.length || isLikelyFallbackAvatar(initialImage);
     if (shouldHydrateProfile) {
       try {
         const [fetchedImage, fetchedCandidates] = await Promise.all([fetchPersonImage(name), fetchPersonImageCandidates(name)]);
+        // LEAK-1: bail out if the component unmounted while we were awaiting.
+        if (!isMountedRef.current) return;
         // Bug #20: only apply if our hydration sequence is still the latest
         // for this person. A newer addPerson or removePerson call would have
         // bumped the seq. `.get()!` is safe — we set it unconditionally two
@@ -774,6 +899,9 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
         }
       } catch { /* remote image fetch failed — keep initial/fallback */ }
     }
+    // Mark this key as "hydration complete" so a legitimate re-add
+    // (e.g. after a remove) isn't blocked by the 200ms coalesce window.
+    addPersonTimestampRef.current.set(coalesceKey, -1);
   };
 
   const removePerson = (name: string) => {
@@ -826,6 +954,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     // removed as unreachable.
     const language = uiLanguage;
 
+    setGenerateError('');
     setIsGenerating(true);
     setPhase('session');
     setSessionMode('booting');
@@ -844,25 +973,42 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     setDebugPromptByMentorId({});
     setDebugPromptLoadingByMentorId({});
     setDebugPromptErrorByMentorId({});
+    activeIndexRef.current = 0;
 
-    const bootTimer = window.setTimeout(() => {
+    // LEAK-1: tracked boot timer so an unmount mid-boot doesn't flip
+    // sessionMode on a dead component.
+    const bootTimer = scheduleTimeout(() => {
       setSessionMode('live');
     }, 2600);
 
     try {
+      // USER-2: clamp by code-points (spread into an array) so we never
+      // cut a 4-byte UTF-16 surrogate pair in half.
+      const safeProblem = [...problem.trim()].slice(0, 5000).join('');
       const aiResult = await generateMentorAdvice({
-        problem: problem.trim(),
+        problem: safeProblem,
         language,
         mentors: selectedMentors,
-        conversationHistory: buildConversationHistory(problem.trim())
+        conversationHistory: buildConversationHistory(safeProblem)
       });
+      // LEAK-1: only commit state if we're still mounted.
+      if (!isMountedRef.current) return;
       setResult(aiResult);
-      setActiveResultIndex(0);
+      activeIndexRef.current = 0;
       setVisibleReplyCount(Math.min(1, aiResult.mentorReplies.length));
-    } finally {
-      setIsGenerating(false);
       window.clearTimeout(bootTimer);
+      setIsGenerating(false);
       setSessionMode('live');
+    } catch (err) {
+      // ERR-2: surface the failure instead of silently leaving the user
+      // with an empty conversation panel.
+      if (!isMountedRef.current) return;
+      window.clearTimeout(bootTimer);
+      setIsGenerating(false);
+      setGenerateError(err instanceof Error ? err.message : String(err));
+      // Drop back to the wish phase so the Retry button is reachable.
+      setPhase('wish');
+      setSessionMode('idle');
     }
   };
 
@@ -886,10 +1032,22 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
 
   const clampNumber = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
-  const getReplyByMentorName = (name: string) => {
-    const key = normalizeMentorKey(name);
-    return result?.mentorReplies.find((reply) => normalizeMentorKey(reply.mentorName) === key);
-  };
+  // ALGO-2: precompute a normalized-name → reply map so per-mentor
+  // lookups during render go from O(n) scan to O(1). Rebuilt only when
+  // the replies array identity changes.
+  const replyByNormalizedName = useMemo(() => {
+    const map = new Map<string, NonNullable<typeof result>['mentorReplies'][number]>();
+    if (!result?.mentorReplies) return map;
+    for (const reply of result.mentorReplies) {
+      map.set(reply.mentorName.trim().toLowerCase().replace(/\s+/g, '_'), reply);
+    }
+    return map;
+    // normalizeMentorKey is a pure inline function so we inline its body
+    // here to avoid making the dep array depend on its identity.
+  }, [result?.mentorReplies]);
+
+  const getReplyByMentorName = (name: string) =>
+    replyByNormalizedName.get(name.trim().toLowerCase().replace(/\s+/g, '_'));
 
   const truncateWithEllipsis = (text: string, maxChars: number): { text: string; isTruncated: boolean } => {
     const compact = text.replace(/\s+/g, ' ').trim();
@@ -954,8 +1112,9 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     };
   };
 
-  const activeReply = result?.mentorReplies?.[activeResultIndex];
-  const activeReplyName = localizeName(resolveMentorName(activeReply?.mentorName || ''));
+  // RERENDER-5: activeReply/activeReplyName removed — the speaker class
+  // is now toggled imperatively inside the rotation effect and does not
+  // need to flow through the render loop.
   const visibleReplies = (result?.mentorReplies || []).slice(0, visibleReplyCount);
   const pendingMentorReplies = (result?.mentorReplies || []).slice(visibleReplyCount);
 
@@ -994,12 +1153,24 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     }
   }, [openDebugMentorId, hoveredDebugMentorId, selectedMentors]);
 
+  // EFFECT-1: use refs for the "already-loaded / already-loading"
+  // snapshots so the effect doesn't need to re-run every time we flip
+  // those maps. Previously omitting them from deps left the effect with
+  // a stale closure; including them caused extra re-runs.
+  const debugPromptByMentorIdRef = useRef(debugPromptByMentorId);
+  const debugPromptLoadingByMentorIdRef = useRef(debugPromptLoadingByMentorId);
+  debugPromptByMentorIdRef.current = debugPromptByMentorId;
+  debugPromptLoadingByMentorIdRef.current = debugPromptLoadingByMentorId;
+
   useEffect(() => {
     if (!openDebugMentorId) return;
     const mentor = selectedMentors.find((item) => item.id === openDebugMentorId);
     if (!mentor) return;
-    if (debugPromptByMentorId[mentor.id]) return;
-    if (debugPromptLoadingByMentorId[mentor.id]) return;
+    // EFFECT-1: read the latest snapshots off the refs instead of the
+    // captured closure, so the effect avoids stale reads without needing
+    // both maps in its deps (which would cause extra re-runs).
+    if (debugPromptByMentorIdRef.current[mentor.id]) return;
+    if (debugPromptLoadingByMentorIdRef.current[mentor.id]) return;
 
     let cancelled = false;
     setDebugPromptLoadingByMentorId((prev) => ({ ...prev, [mentor.id]: true }));
@@ -1030,11 +1201,21 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
 
   const saveTakeawayMemory = () => {
     // Save button only renders under `sessionComplete && showSessionWrap`,
-    // which requires result.mentorReplies.length > 0. The defensive guard
-    // was unreachable and was removed.
+    // which requires result.mentorReplies.length > 0.
     // Bug #40: save all mentor takeaways instead of silently capping at 3.
-    // Users with 5+ mentor tables were losing 40-70% of their saved data.
-    const takeaways = result!.mentorReplies.map((reply) => reply.oneActionStep);
+    // USER-1: aggregate takeaways from both the initial mentorReplies
+    // AND any follow-up conversationTurns. Previously only round-1 data
+    // was saved, so follow-up advice was silently lost on save.
+    const takeaways: string[] = [];
+    for (const reply of result!.mentorReplies) {
+      if (reply.oneActionStep) takeaways.push(reply.oneActionStep);
+    }
+    for (const turn of conversationTurns) {
+      if (turn.user) takeaways.push(`${t.you}: ${turn.user}`);
+      for (const reply of turn.replies) {
+        if (reply.text) takeaways.push(`${localizeName(reply.mentorName)}: ${reply.text}`);
+      }
+    }
     const memory: MemoryCard = {
       // Bug #22: collision-safe id via uniqueId.
       id: uniqueId('memory'),
@@ -1044,7 +1225,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     };
     setMemories((prev) => [memory, ...prev]);
     setSaveNotice(`${t.savedSuccess} ${t.savedInDrawer}`);
-    window.setTimeout(() => setSaveNotice(''), 2600);
+    // LEAK-3: tracked timer so an unmount mid-notice doesn't setState on a dead component.
+    scheduleTimeout(() => setSaveNotice(''), 2600);
     setMemoryDrawerOpen(true);
   };
 
@@ -1071,7 +1253,10 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
         }
       ];
 
-  const suggestionDeckEntries: SuggestionDeckEntry[] = selectedMentors
+  // RERENDER-2: memoize the deck entries so we don't rebuild the full
+  // SuggestionDeckEntry array on every render. Keyed on the inputs the
+  // map depends on.
+  const suggestionDeckEntries: SuggestionDeckEntry[] = useMemo(() => selectedMentors
     .map<SuggestionDeckEntry | null>((mentor, index) => {
       // selectedMentors mirrors selectedPeople 1:1 via useMemo, so
       // selectedPeople[index] is always defined here. The `|| mentor.displayName`
@@ -1117,10 +1302,13 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
 
       return null;
     })
-    .filter((item): item is SuggestionDeckEntry => item !== null);
+    .filter((item): item is SuggestionDeckEntry => item !== null),
+    [selectedMentors, selectedPeople, result, phase, sessionMode, visibleReplyCount, visibleReplies, sessionComplete, getReplyByMentorName, localizeName, t.mentorTyping]);
 
   const content = (
-      <section className={styles.roomPage}>
+      // SR-1: explicit main landmark so screen-reader users can jump
+      // directly to the page's primary content.
+      <section role="main" aria-label={t.heroTitle} className={styles.roomPage}>
         <div className={`${styles.roomScene} ${sessionMode === 'booting' ? styles.ritualBooting : ''}`}>
           <div className={styles.backLayer} />
           <div className={styles.midLayer} />
@@ -1134,26 +1322,35 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
 
           <div className={styles.topBar}>
             <div className={styles.phaseTrack}>
-              {phaseTitles.map((p, idx) => (
-                <button
-                  type="button"
-                  key={p.id}
-                  onClick={() => {
-                    if (p.id !== 'session') {
-                      setPhase(p.id);
-                      setResult(null);
-                      setSessionMode('idle');
-                      setExpandedReplyId('');
-                      setExpandedSuggestion(null);
-                      setOpenDebugMentorId('');
-                      setHoveredDebugMentorId('');
-                    }
-                  }}
-                  className={`${styles.phasePill} ${idx <= ritualStep ? styles.phasePillDone : ''}`}
-                >
-                  {idx + 1}. {p.label}
-                </button>
-              ))}
+              {phaseTitles.map((p, idx) => {
+                // KB-7: the "Open Circle" pill is visually present but has
+                // no click handler until the session phase is reached.
+                // Disable it + aria-disabled so keyboard users skip it.
+                const sessionPillDisabled = p.id === 'session' && phase !== 'session';
+                return (
+                  <button
+                    type="button"
+                    key={p.id}
+                    disabled={sessionPillDisabled}
+                    aria-disabled={sessionPillDisabled || undefined}
+                    tabIndex={sessionPillDisabled ? -1 : 0}
+                    onClick={() => {
+                      if (p.id !== 'session') {
+                        setPhase(p.id);
+                        setResult(null);
+                        setSessionMode('idle');
+                        setExpandedReplyId('');
+                        setExpandedSuggestion(null);
+                        setOpenDebugMentorId('');
+                        setHoveredDebugMentorId('');
+                      }
+                    }}
+                    className={`${styles.phasePill} ${idx <= ritualStep ? styles.phasePillDone : ''}`}
+                  >
+                    {idx + 1}. {p.label}
+                  </button>
+                );
+              })}
             </div>
             <div className={styles.topBarActions}>
               <div className={styles.guestCount}>{isZh ? '人物数' : 'Guests'}: {selectedPeople.length}</div>
@@ -1198,7 +1395,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
             <aside className={styles.panel}>
               {phase === 'invite' && (
                 <div className={styles.block}>
-                  <h2><FontAwesomeIcon icon={faUsers} /> {t.summoningRitual}</h2>
+                  <h2 id="mentor-invite-heading"><FontAwesomeIcon icon={faUsers} /> {t.summoningRitual}</h2>
                   <div className={styles.searchBox}>
                     <FontAwesomeIcon icon={faMagnifyingGlass} className={styles.searchIcon} />
                     <input
@@ -1213,6 +1410,14 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                       }}
                       placeholder={t.invitePlaceholder}
                       className={styles.personInput}
+                      // SR-8: explicit label so SR users hear a name, not "edit".
+                      aria-label={t.invitePlaceholder}
+                      aria-labelledby="mentor-invite-heading"
+                      // KB-6: combobox semantics for the search → menu pair.
+                      role="combobox"
+                      aria-expanded={Boolean(personQuery.trim() && suggestions.length > 0)}
+                      aria-controls="mentor-suggestion-menu"
+                      aria-autocomplete="list"
                     />
                     <button
                       type="button"
@@ -1224,14 +1429,29 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                       <FontAwesomeIcon icon={faPlus} />
                     </button>
                     {personQuery.trim() && (
-                      <div className={styles.suggestionMenu}>
+                      // KB-6: listbox paired with the combobox input above.
+                      <div
+                        id="mentor-suggestion-menu"
+                        className={styles.suggestionMenu}
+                        role="listbox"
+                        aria-label={t.invitePlaceholder}
+                      >
                         {suggestions.map((s) => {
                           const desc = isZh ? (s.descriptionZh || s.description) : s.description;
                           return (
-                            <button type="button" key={s.name} className={styles.suggestionItem} onClick={() => addPerson(s)}>
+                            <button
+                              type="button"
+                              key={s.name}
+                              className={styles.suggestionItem}
+                              onClick={() => addPerson(s)}
+                              role="option"
+                              aria-selected={false}
+                            >
                               <img
                                 src={imageSrcFor(s.name, s.imageUrl, s.candidateImageUrls)}
-                                alt={s.name}
+                                // SR-5: decorative avatar — the adjacent text
+                                // already names the person.
+                                alt=""
                                 className={styles.suggestionAvatar}
                                 referrerPolicy="no-referrer"
                                 onError={() => markImageBroken(s.name, s.imageUrl, s.candidateImageUrls)}
@@ -1298,15 +1518,33 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                     })}
                   </div>
 
-                  <button type="button" data-testid="mentor-continue-wish" className={styles.primaryCta} onClick={() => setPhase('wish')}>
+                  {/* ERR-1: block the continue button when no mentors picked.
+                      Inline error announces it to AT users. */}
+                  <button
+                    type="button"
+                    data-testid="mentor-continue-wish"
+                    className={styles.primaryCta}
+                    disabled={selectedPeople.length === 0}
+                    aria-describedby={selectedPeople.length === 0 ? 'mentor-continue-error' : undefined}
+                    onClick={() => setPhase('wish')}
+                  >
                     {t.continueToWish}
                   </button>
+                  {selectedPeople.length === 0 && (
+                    <p
+                      id="mentor-continue-error"
+                      role="alert"
+                      style={{ color: '#9b2121', fontSize: '0.85rem', margin: '6px 0 0' }}
+                    >
+                      {t.needAtLeastOne}
+                    </p>
+                  )}
                 </div>
               )}
 
               {phase === 'wish' && (
                 <div className={styles.block}>
-                  <h2><FontAwesomeIcon icon={faBookOpen} /> {t.placeArtifact}</h2>
+                  <h2 id="mentor-wish-heading"><FontAwesomeIcon icon={faBookOpen} /> {t.placeArtifact}</h2>
                   <div className={styles.artifactInput}>
                     <textarea
                       data-testid="mentor-problem-input"
@@ -1315,8 +1553,51 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                       onChange={(e) => setProblem(e.target.value)}
                       placeholder={t.artifactPlaceholder}
                       rows={7}
+                      // SR-9: heading points the label at the textarea.
+                      aria-labelledby="mentor-wish-heading"
+                      aria-label={t.placeArtifact}
                     />
                   </div>
+                  {/* ERR-2: retry banner surfaces network failures from
+                      handleGenerate instead of silently dropping to an
+                      empty panel. */}
+                  {generateError && (
+                    <div
+                      role="alert"
+                      aria-live="assertive"
+                      data-testid="mentor-generate-error"
+                      style={{
+                        background: '#fff3f3',
+                        border: '1px solid #ffc1c1',
+                        color: '#9b2121',
+                        borderRadius: 10,
+                        padding: '10px 12px',
+                        marginTop: 8,
+                        fontSize: '0.9rem',
+                      }}
+                    >
+                      <div>{t.generateFailed}</div>
+                      <div style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: 4 }}>{generateError}</div>
+                      <button
+                        type="button"
+                        data-testid="mentor-generate-retry"
+                        onClick={() => { setGenerateError(''); handleGenerate(); }}
+                        style={{
+                          marginTop: 8,
+                          border: '1px solid #9b2121',
+                          background: '#fff',
+                          color: '#9b2121',
+                          borderRadius: 8,
+                          padding: '6px 12px',
+                          fontWeight: 700,
+                          minHeight: 36,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {t.retry}
+                      </button>
+                    </div>
+                  )}
                   <button
                     type="button"
                     data-testid="mentor-begin-session"
@@ -1324,7 +1605,6 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                     disabled={isGenerating || !problem.trim() || selectedMentors.length === 0}
                     onClick={handleGenerate}
                   >
-                    {/* isGenerating never evaluates truthy at render time here: handleGenerate sets both isGenerating=true AND phase='session' in the same React batch, so the wish-phase button unmounts before the truthy label could render. The t.generating arm was dead and was removed. */}
                     <FontAwesomeIcon icon={faLightbulb} /> {t.beginSession}
                   </button>
                 </div>
@@ -1334,7 +1614,27 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                 <div className={styles.sessionSidebarStack}>
                   <div className={styles.disclaimer}>
                     <div className={styles.disclaimerLine}><FontAwesomeIcon icon={faCircleInfo} /> {t.aiDisclaimer}</div>
-                    <div className={styles.sourceTag}>{t.source}: {result?.meta.source === 'llm' ? t.llmApi : t.localFallback}</div>
+                    {/* ERR-3: hover explainer so users understand why the
+                        source is labelled "Local Fallback" (offline / API
+                        unreachable). ERR-4: visible badge surfacing the
+                        pass-note silent fallback path. */}
+                    <div
+                      className={styles.sourceTag}
+                      title={
+                        result?.meta.source === 'llm'
+                          ? (isZh ? '由 LLM 接口实时生成' : 'Generated live by the LLM API')
+                          : (isZh
+                              ? '后端不可用，已使用本地回退模板'
+                              : 'Backend unavailable — using a local fallback template')
+                      }
+                    >
+                      {t.source}: {result?.meta.source === 'llm' ? t.llmApi : t.localFallback}
+                      {result?.meta.source !== 'llm' && (
+                        <span style={{ marginLeft: 6, fontWeight: 700, color: '#9b6600' }}>
+                          {isZh ? '(离线)' : '(offline)'}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className={styles.sessionChatHeader}>
@@ -1357,10 +1657,46 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                     ref={conversationPanelRef}
                     data-testid="mentor-conversation-panel"
                     className={styles.conversationPanel}
+                    // SR-2: polite live region so screen readers announce
+                    // new mentor replies without interrupting.
+                    aria-live="polite"
+                    aria-atomic={false}
+                    aria-label={t.chatWindow}
+                    // MC-2: focus events mirror hover so keyboard users can
+                    // pause auto-rotation the same way mouse users do.
                     onMouseEnter={() => setIsConversationHovered(true)}
                     onMouseLeave={() => setIsConversationHovered(false)}
+                    onFocus={() => setIsConversationHovered(true)}
+                    onBlur={() => setIsConversationHovered(false)}
+                    tabIndex={0}
                   >
-                    <div className={styles.conversationHint}>{t.hoverPause}</div>
+                    <div className={styles.conversationHint}>
+                      {t.hoverPause}
+                      {/* MC-3: skip the reveal timer. */}
+                      {result?.mentorReplies?.length && visibleReplyCount < result.mentorReplies.length ? (
+                        <>
+                          {' '}
+                          <button
+                            type="button"
+                            data-testid="mentor-reveal-all"
+                            onClick={() => setVisibleReplyCount(result.mentorReplies.length)}
+                            style={{
+                              marginLeft: 8,
+                              border: '1px solid rgba(255,255,255,0.6)',
+                              background: 'rgba(255,255,255,0.12)',
+                              color: '#ffffff',
+                              borderRadius: 8,
+                              padding: '4px 8px',
+                              fontSize: '0.78rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {t.revealAll}
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
 
                     {sessionMode !== 'live' && (
                       <div className={styles.conversationRowLeft}>
@@ -1637,7 +1973,9 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                     mentorReply &&
                     !visibleReplies.some((reply) => reply.mentorId === mentorReply.mentorId)
                   );
-                  const isSpeaker = activeReplyName === displayName && sessionMode === 'live';
+                  // RERENDER-5: speaker highlight is toggled imperatively
+                  // by the rotation effect; the render loop no longer wires
+                  // up an isSpeaker boolean at all.
                   const flipped = Boolean(flippedCards[displayName]);
                   const marker = '✎';
                   const categoryClass = styles[`entrance${getMentorCategory(displayName)[0].toUpperCase()}${getMentorCategory(displayName).slice(1)}`];
@@ -1645,7 +1983,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                   return (
                     <div
                       key={`${displayName}-${mentor.id}`}
-                      className={`${styles.mentorNode} ${isSpeaker ? styles.mentorNodeSpeaker : ''} ${categoryClass}`}
+                      ref={(el) => { mentorNodeRefs.current[index] = el; }}
+                      className={`${styles.mentorNode} ${categoryClass}`}
                       style={seatStyle(index, selectedMentors.length)}
                     >
                       {mentorWaitingForReply && (
@@ -1653,27 +1992,31 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                       )}
                       <button
                         type="button"
-                        className={`${styles.namePlate} ${isSpeaker ? styles.namePlateActive : ''}`}
+                        className={styles.namePlate}
                         onClick={() => setFlippedCards((prev) => ({ ...prev, [displayName]: !prev[displayName] }))}
                       >
                         {flipped ? `${displayName} · ${localizedVibeTags[index % localizedVibeTags.length]}` : displayName}
                       </button>
                       <div
                         className={styles.mentorAvatarWrap}
+                        // KB-5: mirror hover state on focus so keyboard users
+                        // can also reveal the debug icon.
                         onMouseEnter={() => setHoveredDebugMentorId(mentor.id)}
                         onMouseLeave={() => setHoveredDebugMentorId((prev) => (prev === mentor.id ? '' : prev))}
+                        onFocus={() => setHoveredDebugMentorId(mentor.id)}
+                        onBlur={() => setHoveredDebugMentorId((prev) => (prev === mentor.id ? '' : prev))}
                       >
-                        <button
-                          type="button"
-                          className={`${styles.mentorAvatar} ${isSpeaker ? styles.mentorAvatarActive : ''}`}
-                        >
+                        {/* SR-6: mentor avatar was wrapped in a <button>
+                            with no onClick, which announced a useless
+                            button to SR users. Replaced with a plain div. */}
+                        <div className={styles.mentorAvatar}>
                           <img
                             src={findImage(displayName)}
                             alt={displayName}
                             referrerPolicy="no-referrer"
                             onError={() => markImageBroken(resolveMentorName(displayName), selectedPeople[index]?.imageUrl, selectedPeople[index]?.candidateImageUrls)}
                           />
-                        </button>
+                        </div>
                         {(hoveredDebugMentorId === mentor.id || openDebugMentorId === mentor.id) && (
                           <button
                             type="button"
@@ -1767,8 +2110,22 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                 </div>
 
                 {expandedSuggestion && (
+                  // KB-4: dialog semantics + Escape handler.
                   <div
                     className={styles.replyExpandOverlay}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={expandedSuggestion.mentorName}
+                    tabIndex={-1}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        e.stopPropagation();
+                        setExpandedSuggestion(null);
+                      }
+                    }}
+                    ref={(el) => {
+                      if (el && !el.contains(document.activeElement)) el.focus();
+                    }}
                     onClick={() => setExpandedSuggestion(null)}
                   >
                     <button
@@ -1793,8 +2150,23 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                 )}
 
                 {phase === 'session' && sessionMode === 'live' && expandedReply && (
+                  // KB-4: dialog semantics + Escape handler.
                   <div
                     className={styles.replyExpandOverlay}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={localizeName(resolveMentorName(expandedReply.mentorName))}
+                    tabIndex={-1}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        e.stopPropagation();
+                        setExpandedReplyId('');
+                        setExpandedSuggestion(null);
+                      }
+                    }}
+                    ref={(el) => {
+                      if (el && !el.contains(document.activeElement)) el.focus();
+                    }}
                     onClick={() => {
                       setExpandedReplyId('');
                       setExpandedSuggestion(null);
@@ -1902,7 +2274,17 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
               )}
 
               {result?.safety.riskLevel === 'high' && (
-                <div className={styles.riskBanner}>
+                // SR-4: safety-critical — assertive alert so screen readers
+                // interrupt whatever else they were reading. tabIndex + ref
+                // so focus can be moved programmatically on first appearance.
+                <div
+                  ref={riskBannerRef}
+                  className={styles.riskBanner}
+                  role="alert"
+                  aria-live="assertive"
+                  tabIndex={-1}
+                  data-testid="mentor-risk-banner"
+                >
                   <FontAwesomeIcon icon={faTriangleExclamation} />
                   <span>{result.safety.emergencyMessage}</span>
                 </div>
@@ -1915,7 +2297,17 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
           <FontAwesomeIcon icon={faBookOpen} /> {t.memories} ({memories.length})
         </button>
 
-        {saveNotice && <div data-testid="mentor-save-notice" className={styles.saveNotice}>{saveNotice}</div>}
+        {saveNotice && (
+          // SR-3: polite status announcement (non-interrupting).
+          <div
+            data-testid="mentor-save-notice"
+            className={styles.saveNotice}
+            role="status"
+            aria-live="polite"
+          >
+            {saveNotice}
+          </div>
+        )}
 
         {memoryDrawerOpen && (
           <div data-testid="mentor-memory-drawer" className={styles.memoryDrawer}>
@@ -1938,9 +2330,30 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
         )}
 
         {showOnboarding && (
-          <div className={styles.onboardingOverlay}>
+          // KB-3: proper dialog semantics + keyboard escape.
+          <div
+            className={styles.onboardingOverlay}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mentor-onboarding-title"
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.stopPropagation();
+                finishOnboarding();
+              }
+            }}
+            ref={(el) => {
+              // Auto-focus the dialog so Escape and Tab land inside it.
+              if (el && !el.contains(document.activeElement)) {
+                const primary = el.querySelector<HTMLButtonElement>(
+                  `.${styles.onboardingBtnPrimary}`
+                );
+                primary?.focus();
+              }
+            }}
+          >
             <div className={styles.onboardingCard}>
-              <h3>{localizedOnboardingSlides[currentSlide].title}</h3>
+              <h3 id="mentor-onboarding-title">{localizedOnboardingSlides[currentSlide].title}</h3>
               <p>{localizedOnboardingSlides[currentSlide].body}</p>
               {currentSlide === localizedOnboardingSlides.length - 1 && (
                 <div className={styles.onboardingChoiceBoxes}>
@@ -1997,7 +2410,13 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   // Layout wrapper is used when this page is mounted inside the app shell.
   // In this repo `main.tsx` always renders it with `standalone` so the Layout
   // path is only reached from unit tests (which mock Layout).
-  return standalone ? content : <Layout>{content}</Layout>;
+  // BUNDLE-1: Layout is lazy — Suspense fallback lets us defer the
+  // Aurora+OGL chunk until after first paint.
+  return standalone ? content : (
+    <Suspense fallback={null}>
+      <Layout>{content}</Layout>
+    </Suspense>
+  );
 };
 
 export default MentorTablePage;

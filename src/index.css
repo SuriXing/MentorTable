@@ -84,3 +84,38 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* ================================================================
+ * Global accessibility baselines (R2 a11y findings KB-1, KB-2, MC-1)
+ * ================================================================ */
+
+/* KB-2: global :focus-visible for every interactive element so keyboard
+ * users always get a visible focus indicator. Uses outline so it stacks
+ * with any component-level box-shadow, offset so it doesn't clip avatars
+ * or rounded buttons, and a theme-aware color. */
+button:focus-visible,
+a:focus-visible,
+textarea:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible,
+[role="dialog"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--primary-color, #5B7BFA);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-color, #5B7BFA) 28%, transparent);
+}
+
+/* MC-1: honor user's OS-level prefers-reduced-motion — kill infinite
+ * animations, collapse transitions, and stop scroll-behavior smooth.
+ * Individual components (Aurora.tsx) additionally skip their rAF loop. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
