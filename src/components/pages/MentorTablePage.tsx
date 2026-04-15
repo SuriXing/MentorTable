@@ -23,6 +23,7 @@ import {
 // and only pay the cost when the full app shell is needed.
 const Layout = React.lazy(() => import('../layout/Layout'));
 import { useTheme } from '../../hooks/useTheme';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { MentorProfile, createCustomMentorProfile, getCartoonAvatarUrl, getSuggestedPeople } from '../../features/mentorTable/mentorProfiles';
 import { MentorSimulationResult } from '../../features/mentorTable/mentorEngine';
 import { fetchMentorDebugPrompt, generateMentorAdvice, MentorConversationMessage } from '../../features/mentorTable/mentorApi';
@@ -217,6 +218,34 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
       pendingTimersRef.current.clear();
     };
   }, []);
+
+  // R3 I-4: proper focus-trap + focus-return for the 3 modal dialogs.
+  // Each hook is called unconditionally (React rules-of-hooks) and the
+  // `active` flag tells it when the dialog is currently mounted. When
+  // `active` is false, the hook is a no-op: no focus stolen, no listeners.
+  //
+  // The ref returned by each hook is attached to the corresponding dialog
+  // element in the JSX below. See src/hooks/useFocusTrap.ts for the
+  // full contract.
+  const onboardingTrapRef = useFocusTrap<HTMLDivElement>({
+    active: showOnboarding,
+    onClose: () => finishOnboarding(),
+  });
+  const expandedSuggestionTrapRef = useFocusTrap<HTMLDivElement>({
+    active: Boolean(expandedSuggestion),
+    onClose: () => setExpandedSuggestion(null),
+  });
+  // Note: use expandedReplyId (plain state) rather than the derived
+  // `expandedReply` const, because that const is declared further down
+  // in the function body — reading it here would hit a TDZ error.
+  const expandedReplyTrapRef = useFocusTrap<HTMLDivElement>({
+    active: expandedReplyId !== '',
+    onClose: () => {
+      setExpandedReplyId('');
+      setExpandedSuggestion(null);
+    },
+  });
+
   // Bug #20: per-person hydration sequence — an addPerson call records its
   // sequence number; when the async image fetch resolves, we only apply the
   // result if that sequence is still the latest for the normalized key.
@@ -2116,22 +2145,15 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                 </div>
 
                 {expandedSuggestion && (
-                  // KB-4: dialog semantics + Escape handler.
+                  // KB-4 + R3 I-4: proper dialog semantics + focus trap
+                  // + focus return via useFocusTrap hook.
                   <div
                     className={styles.replyExpandOverlay}
                     role="dialog"
                     aria-modal="true"
                     aria-label={expandedSuggestion.mentorName}
                     tabIndex={-1}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') {
-                        e.stopPropagation();
-                        setExpandedSuggestion(null);
-                      }
-                    }}
-                    ref={(el) => {
-                      if (el && !el.contains(document.activeElement)) el.focus();
-                    }}
+                    ref={expandedSuggestionTrapRef}
                     onClick={() => setExpandedSuggestion(null)}
                   >
                     <button
@@ -2156,23 +2178,16 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                 )}
 
                 {phase === 'session' && sessionMode === 'live' && expandedReply && (
-                  // KB-4: dialog semantics + Escape handler.
+                  // KB-4 + R3 I-4: proper dialog semantics + focus trap
+                  // + focus return via useFocusTrap hook. Escape handling
+                  // and auto-focus are both done inside the hook.
                   <div
                     className={styles.replyExpandOverlay}
                     role="dialog"
                     aria-modal="true"
                     aria-label={localizeName(resolveMentorName(expandedReply.mentorName))}
                     tabIndex={-1}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') {
-                        e.stopPropagation();
-                        setExpandedReplyId('');
-                        setExpandedSuggestion(null);
-                      }
-                    }}
-                    ref={(el) => {
-                      if (el && !el.contains(document.activeElement)) el.focus();
-                    }}
+                    ref={expandedReplyTrapRef}
                     onClick={() => {
                       setExpandedReplyId('');
                       setExpandedSuggestion(null);
@@ -2336,27 +2351,15 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
         )}
 
         {showOnboarding && (
-          // KB-3: proper dialog semantics + keyboard escape.
+          // KB-3 + R3 I-4: proper dialog semantics + focus trap + focus
+          // return via useFocusTrap. Auto-focus and Escape are both
+          // handled inside the hook.
           <div
             className={styles.onboardingOverlay}
             role="dialog"
             aria-modal="true"
             aria-labelledby="mentor-onboarding-title"
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                e.stopPropagation();
-                finishOnboarding();
-              }
-            }}
-            ref={(el) => {
-              // Auto-focus the dialog so Escape and Tab land inside it.
-              if (el && !el.contains(document.activeElement)) {
-                const primary = el.querySelector<HTMLButtonElement>(
-                  `.${styles.onboardingBtnPrimary}`
-                );
-                primary?.focus();
-              }
-            }}
+            ref={onboardingTrapRef}
           >
             <div className={styles.onboardingCard}>
               <h3 id="mentor-onboarding-title">{localizedOnboardingSlides[currentSlide].title}</h3>
