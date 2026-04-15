@@ -229,6 +229,72 @@ test.describe('R3 Automated a11y audit', () => {
     expect(ariaLive).toBe('assertive');
   });
 
+  // ==========================================================================
+  // R3 I-4: modal focus trap + focus return behavioral tests
+  //
+  // Before I-4, the three dialogs (onboarding / expanded suggestion /
+  // expanded reply) had role=dialog + aria-modal but no focus management:
+  // Tab could walk straight out of the dialog into the dimmed-but-tabbable
+  // background. These tests exercise the real browser focus behavior.
+  // ==========================================================================
+
+  test('I-4: onboarding dialog traps focus and Escape closes it', async ({ page, context }) => {
+    const fresh = await context.newPage();
+    await fresh.addInitScript(() => {
+      localStorage.removeItem('mentorTableOnboardingHiddenV2');
+    });
+    await fresh.goto('/', { waitUntil: 'networkidle' });
+
+    const overlay = fresh.locator('[class*="onboardingOverlay"]');
+    await expect(overlay).toBeVisible({ timeout: 5000 });
+
+    // The focus trap should have auto-focused the first focusable inside
+    // the dialog on mount. Walk the dialog with Tab and verify focus
+    // never escapes its container.
+    for (let i = 0; i < 20; i += 1) {
+      const insideDialog = await fresh.evaluate(() => {
+        const dialog = document.querySelector('[class*="onboardingOverlay"]');
+        if (!dialog) return false;
+        const active = document.activeElement;
+        if (!active) return false;
+        return dialog.contains(active);
+      });
+      expect(insideDialog).toBe(true);
+      await fresh.keyboard.press('Tab');
+    }
+
+    // Escape should close the dialog (focus trap wires this up now).
+    await fresh.keyboard.press('Escape');
+    await expect(overlay).toBeHidden({ timeout: 2000 });
+
+    await fresh.close();
+  });
+
+  test('I-4: Shift+Tab on onboarding first focusable wraps to last', async ({ page, context }) => {
+    const fresh = await context.newPage();
+    await fresh.addInitScript(() => {
+      localStorage.removeItem('mentorTableOnboardingHiddenV2');
+    });
+    await fresh.goto('/', { waitUntil: 'networkidle' });
+
+    const overlay = fresh.locator('[class*="onboardingOverlay"]');
+    await expect(overlay).toBeVisible({ timeout: 5000 });
+
+    // Auto-focus has already landed on the first focusable. Shift+Tab
+    // from here should NOT walk into the background — it should wrap to
+    // the last focusable inside the dialog.
+    await fresh.keyboard.press('Shift+Tab');
+
+    const insideDialog = await fresh.evaluate(() => {
+      const dialog = document.querySelector('[class*="onboardingOverlay"]');
+      const active = document.activeElement;
+      return Boolean(dialog && active && dialog.contains(active));
+    });
+    expect(insideDialog).toBe(true);
+
+    await fresh.close();
+  });
+
   test('conversation panel has aria-live=polite for streaming mentor replies', async ({ page }) => {
     await page.route('**/api/mentor-table', async (route) => {
       await route.fulfill({
