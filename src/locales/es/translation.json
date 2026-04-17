@@ -201,5 +201,30 @@
   "checkWithCode": "Usa tu código de acceso en cualquier momento para revisar respuestas y actualizaciones",
   "dismiss": "Cerrar",
   "privacyWarningTitle": "Aviso Importante de Privacidad",
-  "privacyWarningText": "Sabemos que puedes estar sintiéndote muy emocional en este momento, pero por favor recuerda: NO incluyas nombres reales, ubicaciones específicas, o detalles identificativos sobre ti o sobre otros. Esto protege la privacidad de todos y podría evitarte problemas aún peores. Mantén tu compartir anónimo y seguro."
+  "privacyWarningText": "Sabemos que puedes estar sintiéndote muy emocional en este momento, pero por favor recuerda: NO incluyas nombres reales, ubicaciones específicas, o detalles identificativos sobre ti o sobre otros. Esto protege la privacidad de todos y podría evitarte problemas aún peores. Mantén tu compartir anónimo y seguro.",
+  "mt": {
+    "summonGuests": "Invocar invitados",
+    "restart": "Reiniciar",
+    "beginSession": "Abrir la mesa ✨",
+    "generating": "Invocando...",
+    "newTable": "Iniciar nueva mesa",
+    "generateFailed": "No se pudo contactar a los mentores. Por favor, reintenta.",
+    "retry": "Reintentar",
+    "addPerson": "Añadir persona",
+    "noResults": "Sin resultados — presiona Enter para añadir como mentor personalizado",
+    "searching": "Buscando..."
+  },
+  "errorBoundary": {
+    "title": "Algo salió mal.",
+    "message": "La página encontró un error inesperado. Por favor, recarga; si persiste, intenta desactivar la navegación privada o borrar los datos del sitio.",
+    "tryAgain": "Reintentar"
+  },
+  "language": "Idioma",
+  "languageNames": {
+    "en": "English",
+    "zh-CN": "中文",
+    "ja": "日本語",
+    "ko": "한국어",
+    "es": "Español"
+  }
 }

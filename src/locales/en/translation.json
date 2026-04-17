@@ -201,5 +201,30 @@
   "checkWithCode": "Use your access code anytime to check replies and updates",
   "dismiss": "Dismiss",
   "privacyWarningTitle": "Important Privacy Notice",
-  "privacyWarningText": "We know you may be feeling very emotional right now, but please remember: DO NOT include real names, specific locations, or identifying details about yourself or others. This protects everyone's privacy and could prevent you from getting into even worse troubles. Keep your sharing anonymous and safe."
+  "privacyWarningText": "We know you may be feeling very emotional right now, but please remember: DO NOT include real names, specific locations, or identifying details about yourself or others. This protects everyone's privacy and could prevent you from getting into even worse troubles. Keep your sharing anonymous and safe.",
+  "mt": {
+    "summonGuests": "Summon Guests",
+    "restart": "Restart",
+    "beginSession": "Open the Circle \u2728",
+    "generating": "Summoning...",
+    "newTable": "Start a new table",
+    "generateFailed": "Could not reach the mentors. Please retry.",
+    "retry": "Retry",
+    "addPerson": "Add person",
+    "noResults": "No results \u2014 press Enter to add as custom mentor",
+    "searching": "Searching..."
+  },
+  "errorBoundary": {
+    "title": "Something went wrong.",
+    "message": "The page hit an unexpected error. Please reload; if it keeps happening, try disabling private browsing or clearing site data.",
+    "tryAgain": "Try again"
+  },
+  "language": "Language",
+  "languageNames": {
+    "en": "English",
+    "zh-CN": "\u4e2d\u6587",
+    "ja": "\u65e5\u672c\u8a9e",
+    "ko": "\ud55c\uad6d\uc5b4",
+    "es": "Espa\u00f1ol"
+  }
 }

@@ -177,6 +177,10 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const [imageAttemptByKey, setImageAttemptByKey] = useState<Record<string, number>>({});
   const [imageRetryByKey, setImageRetryByKey] = useState<Record<string, number>>({});
   const [expandedReplyId, setExpandedReplyId] = useState('');
+  // R2-FIX: don't shout validation errors on first paint. Only surface
+  // "needAtLeastOne" after the user has interacted with the guest form
+  // (tried to continue or touched the input).
+  const [inviteTouched, setInviteTouched] = useState(false);
   const [expandedSuggestion, setExpandedSuggestion] = useState<ExpandedSuggestionCard | null>(null);
   const [isRoundGenerating, setIsRoundGenerating] = useState(false);
   const [hoveredDebugMentorId, setHoveredDebugMentorId] = useState('');
@@ -893,7 +897,11 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     addPersonTimestampRef.current.set(coalesceKey, now);
 
     // ── Resolve raw text to canonical name + image ──
-    // e.g. "lisa" → "Lisa Su" with photo, "steve jobs" → "Steve Jobs" with photo
+    // R2-FIX: Autocomplete was silently overwriting typed input on Enter
+    // (e.g. "Bob" → "海绵宝宝"). Only promote to a verified canonical name
+    // if the typed text is an exact (case-insensitive) match for one of
+    // the canonical forms or known aliases. Otherwise honor the user's
+    // raw input and treat it as a custom mentor.
     let name = typeof person === 'string' ? trimmed : person.name;
     let initialImage = typeof person === 'string' ? undefined : person.imageUrl;
     let initialCandidates = typeof person === 'string' ? undefined : person.candidateImageUrls;
@@ -902,9 +910,15 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
       try {
         const verified = findVerifiedPerson(trimmed);
         if (verified) {
-          name = verified.canonical;
-          initialImage = verified.imageUrl;
-          initialCandidates = verified.candidateImageUrls;
+          // R2-FIX: only accept the canonical swap when the typed text
+          // matches the canonical name exactly (case-insensitive). For
+          // fuzzy/alias hits (e.g. "Bob" → "海绵宝宝"), keep the user's
+          // typed text so we never silently replace their input.
+          if (trimmed.toLowerCase() === verified.canonical.toLowerCase()) {
+            name = verified.canonical;
+            initialImage = verified.imageUrl;
+            initialCandidates = verified.candidateImageUrls;
+          }
         }
       } catch { /* findVerifiedPerson may not be available due to module cache */ }
     }
@@ -1010,7 +1024,14 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
 
   const finishOnboarding = () => {
     setShowOnboarding(false);
-    localStorage.setItem(ONBOARDING_KEY, dontShowOnboardingAgain ? '1' : '0');
+    // R2-FIX: always persist `onboardingDismissed` so the modal doesn't
+    // re-appear on reload, regardless of the "don't show again" checkbox
+    // (which controls a separate preference). Wrap in try/catch because
+    // Safari Private Browsing throws SecurityError on localStorage writes.
+    try {
+      localStorage.setItem(ONBOARDING_KEY, dontShowOnboardingAgain ? '1' : '0');
+      localStorage.setItem('onboardingDismissed', 'true');
+    } catch { /* Safari Private — state only persists for this session */ }
   };
 
   const handleGenerate = async () => {
@@ -1397,27 +1418,37 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
           <div className={styles.topBar}>
             <div className={styles.phaseTrack}>
               {phaseTitles.map((p, idx) => {
-                // KB-7: the "Open Circle" pill is visually present but has
-                // no click handler until the session phase is reached.
-                // Disable it + aria-disabled so keyboard users skip it.
-                const sessionPillDisabled = p.id === 'session' && phase !== 'session';
+                // R2-FIX: pill #3 ("Open Circle") was previously always
+                // disabled unless phase==='session', making the core flow
+                // unreachable through the phase track. Now it is only
+                // disabled when the form prerequisites aren't met (need
+                // at least one guest + a problem). Clicking it advances
+                // the phase or kicks off generation.
+                const canBeginSession =
+                  selectedPeople.length > 0 && problem.trim().length > 0;
+                const sessionPillDisabled =
+                  p.id === 'session' && phase !== 'session' && !canBeginSession;
                 return (
                   <button
                     type="button"
                     key={p.id}
-                    disabled={sessionPillDisabled}
+                    disabled={sessionPillDisabled || (p.id === 'session' && isGenerating)}
                     aria-disabled={sessionPillDisabled || undefined}
                     tabIndex={sessionPillDisabled ? -1 : 0}
                     onClick={() => {
-                      if (p.id !== 'session') {
-                        setPhase(p.id);
-                        setResult(null);
-                        setSessionMode('idle');
-                        setExpandedReplyId('');
-                        setExpandedSuggestion(null);
-                        setOpenDebugMentorId('');
-                        setHoveredDebugMentorId('');
+                      if (p.id === 'session') {
+                        if (phase !== 'session' && canBeginSession && !isGenerating) {
+                          handleGenerate();
+                        }
+                        return;
                       }
+                      setPhase(p.id);
+                      setResult(null);
+                      setSessionMode('idle');
+                      setExpandedReplyId('');
+                      setExpandedSuggestion(null);
+                      setOpenDebugMentorId('');
+                      setHoveredDebugMentorId('');
                     }}
                     className={`${styles.phasePill} ${idx <= ritualStep ? styles.phasePillDone : ''}`}
                   >
@@ -1601,13 +1632,17 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                     type="button"
                     data-testid="mentor-continue-wish"
                     className={styles.primaryCta}
-                    disabled={selectedPeople.length === 0}
+                    aria-disabled={selectedPeople.length === 0}
                     aria-describedby={selectedPeople.length === 0 ? 'mentor-continue-error' : undefined}
-                    onClick={() => setPhase('wish')}
+                    onClick={() => {
+                      setInviteTouched(true);
+                      if (selectedPeople.length === 0) return;
+                      setPhase('wish');
+                    }}
                   >
                     {t.continueToWish}
                   </button>
-                  {selectedPeople.length === 0 && (
+                  {inviteTouched && selectedPeople.length === 0 && (
                     <p
                       id="mentor-continue-error"
                       role="alert"

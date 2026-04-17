@@ -6,6 +6,7 @@ import './index.css';
 import MentorTablePage from './components/pages/MentorTablePage';
 import ThemePicker from './components/shared/ThemePicker';
 import ThemeModeToggle from './components/shared/ThemeModeToggle';
+import LanguageSwitcher from './components/shared/LanguageSwitcher';
 import ErrorBoundary from './components/shared/ErrorBoundary';
 import { initBrowserCompatibility } from './utils/browserDetection';
 
@@ -27,6 +28,7 @@ if (root) {
            * 🎨 picker + ☀️/🌙 toggle never appear on the main site. */}
           <ThemeModeToggle />
           <ThemePicker />
+          <LanguageSwitcher />
         </ErrorBoundary>
       </MemoryRouter>
     </React.StrictMode>

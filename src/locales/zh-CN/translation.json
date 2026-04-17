@@ -139,17 +139,11 @@
   "send": "发送",
   "justNow": "刚刚",
   "minutesAgo": "{{count}} 分钟前",
-  "minutesAgo_plural": "{{count}} 分钟前",
   "hoursAgo": "{{count}} 小时前",
-  "hoursAgo_plural": "{{count}} 小时前",
   "daysAgo": "{{count}} 天前",
-  "daysAgo_plural": "{{count}} 天前",
   "weeksAgo": "{{count}} 周前",
-  "weeksAgo_plural": "{{count}} 周前",
   "monthsAgo": "{{count}} 个月前",
-  "monthsAgo_plural": "{{count}} 个月前",
   "yearsAgo": "{{count}} 年前",
-  "yearsAgo_plural": "{{count}} 年前",
   "tag": {
     "anxiety": "焦虑",
     "depression": "抑郁",
@@ -201,5 +195,30 @@
   "checkWithCode": "随时使用您的访问代码来查看回复和更新",
   "dismiss": "关闭",
   "privacyWarningTitle": "重要隐私提醒",
-  "privacyWarningText": "我们知道您现在可能感到非常情绪化，但请记住：请勿包含真实姓名、具体位置或关于您自己或他人的身份识别细节。这样可以保护每个人的隐私，并可能防止您陷入更严重的麻烦。请保持您的分享匿名和安全。"
+  "privacyWarningText": "我们知道您现在可能感到非常情绪化，但请记住：请勿包含真实姓名、具体位置或关于您自己或他人的身份识别细节。这样可以保护每个人的隐私，并可能防止您陷入更严重的麻烦。请保持您的分享匿名和安全。",
+  "mt": {
+    "summonGuests": "召唤人物",
+    "restart": "重新开始",
+    "beginSession": "开启圆桌 ✨",
+    "generating": "正在召唤...",
+    "newTable": "开启新圆桌",
+    "generateFailed": "召唤失败，请重试。",
+    "retry": "重试",
+    "addPerson": "添加人物",
+    "noResults": "未找到结果，按回车添加自定义名人",
+    "searching": "搜索中..."
+  },
+  "errorBoundary": {
+    "title": "页面出错了。",
+    "message": "页面发生了意外错误。请刷新页面；如果问题持续，请尝试关闭隐私浏览或清除网站数据。",
+    "tryAgain": "重试"
+  },
+  "language": "语言",
+  "languageNames": {
+    "en": "English",
+    "zh-CN": "中文",
+    "ja": "日本語",
+    "ko": "한국어",
+    "es": "Español"
+  }
 }
