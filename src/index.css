@@ -53,7 +53,7 @@
   --light-gray: #6b7280;
   --lighter-gray: color-mix(in srgb, var(--primary-color) 12%, transparent);
   --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
-  --aurora-opacity: 0.45;
+  --aurora-opacity: 0.25;
 }
 
 html {
