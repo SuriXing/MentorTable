@@ -207,13 +207,18 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
 
   useEffect(() => {
     isMountedRef.current = true;
+    // Capture the ref's Set into effect scope so the cleanup closes over the
+    // same Set we're tracking into. The Set's identity never changes at
+    // runtime — we only ever mutate its contents — so this is safe and
+    // satisfies the ref-in-cleanup lint rule.
+    const timers = pendingTimersRef.current;
     return () => {
       isMountedRef.current = false;
       // LEAK-2/3/4: fire-and-forget timers get swept here.
-      for (const handle of pendingTimersRef.current) {
+      for (const handle of timers) {
         window.clearTimeout(handle);
       }
-      pendingTimersRef.current.clear();
+      timers.clear();
     };
   }, []);
 
@@ -1079,8 +1084,10 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     // here to avoid making the dep array depend on its identity.
   }, [result?.mentorReplies]);
 
-  const getReplyByMentorName = (name: string) =>
-    replyByNormalizedName.get(name.trim().toLowerCase().replace(/\s+/g, '_'));
+  const getReplyByMentorName = useCallback(
+    (name: string) => replyByNormalizedName.get(name.trim().toLowerCase().replace(/\s+/g, '_')),
+    [replyByNormalizedName]
+  );
 
   const truncateWithEllipsis = (text: string, maxChars: number): { text: string; isTruncated: boolean } => {
     const compact = text.replace(/\s+/g, ' ').trim();
@@ -1156,6 +1163,9 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   );
   const expandedReply = visibleReplies.find((reply) => reply.mentorId === expandedReplyId) || null;
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- resolveMentorName
+  // reads only `selectedPeople` (already a dep); localizeName is memoized and
+  // firing on its identity change would be spurious. Deps intentionally minimal.
   const groupSolveText = useMemo(() => {
     if (!result?.mentorReplies?.length) return '';
     // Bug #41: i18n-safe separator. Bug #40 (indicator for extras): include
@@ -1167,6 +1177,9 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
       return `${name}: ${reply.oneActionStep}`;
     });
     return lines.join(separator);
+  // resolveMentorName reads only `selectedPeople` (already a dep); localizeName
+  // is memoized via useCallback. Adding them would re-fire spuriously.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result?.mentorReplies, selectedPeople, isZh]);
 
   const openDebugMentor = selectedMentors.find((mentor) => mentor.id === openDebugMentorId) || null;
@@ -1336,7 +1349,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
       return null;
     })
     .filter((item): item is SuggestionDeckEntry => item !== null),
-    [selectedMentors, selectedPeople, result, phase, sessionMode, visibleReplyCount, visibleReplies, sessionComplete, getReplyByMentorName, localizeName, t.mentorTyping]);
+    [selectedMentors, selectedPeople, phase, sessionMode, visibleReplies, sessionComplete, getReplyByMentorName, localizeName, t.mentorTyping]);
 
   const content = (
       // SR-1: explicit main landmark so screen-reader users can jump
