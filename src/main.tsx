@@ -4,6 +4,8 @@ import { MemoryRouter } from 'react-router-dom';
 import './i18n';
 import './index.css';
 import MentorTablePage from './components/pages/MentorTablePage';
+import ThemePicker from './components/shared/ThemePicker';
+import ThemeModeToggle from './components/shared/ThemeModeToggle';
 import { initBrowserCompatibility } from './utils/browserDetection';
 
 // R2A FIX-CRITIQUE-1: browserDetection was dead code in production — nothing
@@ -18,6 +20,11 @@ if (root) {
     <React.StrictMode>
       <MemoryRouter>
         <MentorTablePage standalone />
+        {/* Mount theme controls at app root so they're reachable from the
+         * standalone render path (which bypasses Layout). Without this the
+         * 🎨 picker + ☀️/🌙 toggle never appear on the main site. */}
+        <ThemeModeToggle />
+        <ThemePicker />
       </MemoryRouter>
     </React.StrictMode>
   );
