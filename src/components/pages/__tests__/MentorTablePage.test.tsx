@@ -57,12 +57,6 @@ vi.mock('../../../hooks/useTheme', () => ({
   useTheme: vi.fn(),
 }));
 
-vi.mock('../../layout/Layout', () => ({
-  default: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="mock-layout">{children}</div>
-  ),
-}));
-
 // FontAwesome can be slow in tests — stub it to a simple span.
 vi.mock('@fortawesome/react-fontawesome', () => ({
   FontAwesomeIcon: ({ icon }: { icon: { iconName?: string } }) => (
@@ -576,13 +570,6 @@ describe('MentorTablePage (unit)', () => {
 
     const btn = screen.getByTestId('mentor-begin-session') as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
-  });
-
-  it('renders through the Layout wrapper when standalone is false', async () => {
-    // R2-BUNDLE-1: Layout is now lazy-loaded, so the first paint renders
-    // the Suspense fallback (null). We wait for the mock Layout to appear.
-    render(<MentorTablePage />);
-    expect(await screen.findByTestId('mock-layout')).toBeInTheDocument();
   });
 
   it('fetches debug prompt when a mentor is hovered and inspect button clicked', async () => {

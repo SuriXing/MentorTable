@@ -137,7 +137,7 @@ const ThemePicker: React.FC = () => {
                       width: 20,
                       height: 20,
                       borderRadius: '50%',
-                      background: `linear-gradient(135deg, ${theme.aurora[0]}, ${theme.aurora[1]}, ${theme.aurora[2]})`,
+                      background: `linear-gradient(135deg, ${theme.primaryDark}, ${theme.primary}, ${theme.primaryLight})`,
                       boxShadow: `0 0 12px ${theme.swatch}66`,
                       flexShrink: 0,
                     }}
@@ -155,7 +155,7 @@ const ThemePicker: React.FC = () => {
           width: 48,
           height: 48,
           borderRadius: '50%',
-          background: `linear-gradient(135deg, ${THEMES[themeId].aurora[0]}, ${THEMES[themeId].aurora[1]}, ${THEMES[themeId].aurora[2]})`,
+          background: `linear-gradient(135deg, ${THEMES[themeId].primaryDark}, ${THEMES[themeId].primary}, ${THEMES[themeId].primaryLight})`,
           border: '1px solid rgba(91, 123, 250, 0.4)',
           cursor: 'pointer',
           boxShadow: `0 4px 20px ${THEMES[themeId].swatch}55, 0 2px 8px rgba(0, 0, 0, 0.4)`,

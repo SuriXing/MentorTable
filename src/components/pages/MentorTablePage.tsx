@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -18,10 +18,8 @@ import {
   faBookOpen,
   faBug
 } from '@fortawesome/free-solid-svg-icons';
-// BUNDLE-1: Layout pulls in Aurora + OGL (~708 KB). The default
-// `standalone` render path bypasses Layout entirely, so we lazy-load it
-// and only pay the cost when the full app shell is needed.
-const Layout = React.lazy(() => import('../layout/Layout'));
+// BUNDLE-1: Layout + Aurora + OGL were deleted (dead code under the
+// `standalone` render path). Theme controls are mounted directly in main.tsx.
 import { useTheme } from '../../hooks/useTheme';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { MentorProfile, createCustomMentorProfile, getCartoonAvatarUrl, getSuggestedPeople } from '../../features/mentorTable/mentorProfiles';
@@ -2416,16 +2414,12 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
       </section>
   );
 
-  // Layout wrapper is used when this page is mounted inside the app shell.
-  // In this repo `main.tsx` always renders it with `standalone` so the Layout
-  // path is only reached from unit tests (which mock Layout).
-  // BUNDLE-1: Layout is lazy — Suspense fallback lets us defer the
-  // Aurora+OGL chunk until after first paint.
-  return standalone ? content : (
-    <Suspense fallback={null}>
-      <Layout>{content}</Layout>
-    </Suspense>
-  );
+  // Layout wrapper was removed (Aurora/OGL deleted — dead code in the
+  // `standalone` render path). Both branches now render the same content;
+  // the `standalone` prop is kept for API compatibility with callers/tests
+  // but no longer changes behavior.
+  void standalone;
+  return content;
 };
 
 export default MentorTablePage;
