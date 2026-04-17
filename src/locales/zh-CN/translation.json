@@ -34,7 +34,7 @@
   "emptyAccessCode": "访问码为空，返回 null",
   "queryCheck": "查询检查：",
   "noMatchingPost": "未找到匹配的帖子",
-  "postRetrieveStatus": "帖子检索状态：{{found ? '已找到' : '未找到'}}",
+  "postRetrieveStatus": "帖子检索状态：{{found ? 'found' : 'not found'}}",
   "enterAccessCode": "输入访问码",
   "testAccessCode": "测试访问码",
   "copy": "复制",
