@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import Aurora from '../shared/Aurora';
 import ThemePicker from '../shared/ThemePicker';
+import ThemeModeToggle from '../shared/ThemeModeToggle';
 import { useTheme } from '../../hooks/useTheme';
 import '../../styles/Layout.css';
 
@@ -23,6 +24,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <main className="main-content">
         {children}
       </main>
+      <ThemeModeToggle />
       <ThemePicker />
     </div>
   );
