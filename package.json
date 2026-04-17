@@ -23,6 +23,7 @@
     "build": "vite build",
     "type-check": "tsc --noEmit",
     "preview": "vite preview --host --strictPort --port 5001",
+    "lint": "eslint src --ext ts,tsx --rulesdir eslint-rules",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "cypress run",
