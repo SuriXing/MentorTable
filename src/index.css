@@ -19,6 +19,9 @@
   --text-secondary: #a7adc2;
   --text-muted: #6b7080;
   --text-color: #e8ebf5;
+  --text-on-primary: #f5f7ff; /* off-pure-white for use on primary/dark surfaces */
+  --brand-navy: #1f3f7d;       /* consolidated navy accent (light-mode headings) */
+  --brand-navy-muted: #46618f; /* softer navy for secondary text */
   --aurora-opacity: 0.35;
 
   /* Legacy aliases referenced by older page CSS */
@@ -33,8 +36,9 @@
   --border-radius: 12px;
 }
 
-/* Light mode overrides */
-:root[data-theme-mode="light"] {
+/* Light mode overrides — support both [data-theme-mode] (app) and [data-theme] (audit/system) attributes */
+:root[data-theme-mode="light"],
+:root[data-theme="light"] {
   --bg-page: #ffffff;
   --bg-surface: rgba(255, 255, 255, 0.85);
   --bg-surface-solid: #ffffff;
@@ -44,6 +48,7 @@
   --text-secondary: #4b5563;
   --text-muted: #9ca3af;
   --text-color: #1f2937;
+  --text-on-primary: #f5f7ff;
   --background-color: #ffffff;
   --light-gray: #6b7280;
   --lighter-gray: color-mix(in srgb, var(--primary-color) 12%, transparent);
@@ -68,6 +73,19 @@ textarea, input[type="text"], input[type="email"], input[type="password"], input
 
 textarea::placeholder, input::placeholder {
   color: var(--text-secondary);
+}
+
+/* Buttons and inputs inherit theme text color so UA defaults (black in dark mode, etc.) don't leak. */
+button,
+input,
+select,
+textarea {
+  color: inherit;
+}
+
+/* Canonical paragraph size — collapses 14.08/13.6/16px drift into one scale. */
+p {
+  font-size: 1rem;
 }
 
 body {
