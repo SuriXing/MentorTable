@@ -1872,6 +1872,8 @@
 
 .onboardingCard {
   width: min(560px, 92vw);
+  max-width: 100%;
+  box-sizing: border-box;
   min-height: 320px;
   border-radius: 16px;
   border: 1px solid #d4def2;
