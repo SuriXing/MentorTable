@@ -6,7 +6,8 @@ module.exports = {
   ignorePatterns: ['dist', 'node_modules', 'coverage', '.eslintrc.cjs', 'eslint-rules'],
   rules: {
     // Loaded via --rulesdir eslint-rules in the lint script.
-    // Start as 'warn' so the repo can pass CI while drift is cleaned up.
-    'no-missing-i18n-key': 'warn',
+    // Ratcheted to 'error' — test fixtures are excluded via file-level
+    // eslint-disable comment in translationHelper.test.ts.
+    'no-missing-i18n-key': 'error',
   },
 };
