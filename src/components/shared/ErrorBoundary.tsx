@@ -1,4 +1,5 @@
 import React from 'react';
+import i18n from '../../i18n';
 
 interface Props {
   children: React.ReactNode;
@@ -11,10 +12,16 @@ interface State {
 }
 
 /**
- * Bug-bash round 1: top-level error boundary so that render-time crashes
- * (e.g. Safari Private Browsing `SecurityError` on `localStorage.getItem`,
- * or any unexpected throw in the monster MentorTablePage render tree) do
- * not produce a silent white screen.
+ * Top-level error boundary for render-time crashes.
+ *
+ * R2-FIX: "Try again" previously just flipped `hasError` back to false,
+ * which re-rendered the same broken tree and re-triggered the boundary
+ * in an infinite loop. Now it forces a full page reload so the app
+ * re-boots with fresh state.
+ *
+ * R2-FIX: fallback copy is localized via i18next with English
+ * defaultValues. i18n may not be initialized at first render in the
+ * worst case, but defaultValue guarantees sane English fallback.
  */
 export default class ErrorBoundary extends React.Component<Props, State> {
   state: State = { hasError: false, error: null };
@@ -29,8 +36,22 @@ export default class ErrorBoundary extends React.Component<Props, State> {
   }
 
   private handleReset = (): void => {
-    this.setState({ hasError: false, error: null });
+    // Full reload: resetting state alone re-renders the same broken
+    // subtree and loops the boundary. Reload clears the crash cleanly.
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+    } else {
+      this.setState({ hasError: false, error: null });
+    }
   };
+
+  private tr(key: string, fallback: string): string {
+    try {
+      return String(i18n.t(key, { defaultValue: fallback }));
+    } catch {
+      return fallback;
+    }
+  }
 
   render(): React.ReactNode {
     if (this.state.hasError) {
@@ -46,10 +67,14 @@ export default class ErrorBoundary extends React.Component<Props, State> {
             lineHeight: 1.5
           }}
         >
-          <h1 style={{ fontSize: '1.25rem', marginBottom: 12 }}>Something went wrong.</h1>
+          <h1 style={{ fontSize: '1.25rem', marginBottom: 12 }}>
+            {this.tr('errorBoundary.title', 'Something went wrong.')}
+          </h1>
           <p style={{ opacity: 0.8, marginBottom: 16 }}>
-            The page hit an unexpected error. Please reload; if it keeps happening, try disabling
-            private browsing or clearing site data.
+            {this.tr(
+              'errorBoundary.message',
+              'The page hit an unexpected error. Please reload; if it keeps happening, try disabling private browsing or clearing site data.'
+            )}
           </p>
           {this.state.error?.message && (
             <pre
@@ -76,7 +101,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
               cursor: 'pointer'
             }}
           >
-            Try again
+            {this.tr('errorBoundary.tryAgain', 'Try again')}
           </button>
         </div>
       );

@@ -145,7 +145,10 @@ const buildMockResult = (overrides: Partial<any> = {}) => ({
 
 async function addBillGates() {
   const input = screen.getByTestId('mentor-person-input') as HTMLInputElement;
-  fireEvent.change(input, { target: { value: 'Bill' } });
+  // R2-FIX: autocomplete no longer silently overwrites typed text. To
+  // resolve to the canonical "Bill Gates" profile (custom_bill_gates
+  // mentor id), the user must type the canonical name, not just "Bill".
+  fireEvent.change(input, { target: { value: 'Bill Gates' } });
   // Press Enter to add
   fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
   await waitFor(() => {
@@ -222,7 +225,7 @@ describe('MentorTablePage (unit)', () => {
   it('adds a mentor via the + button click', async () => {
     render(<MentorTablePage standalone />);
     const input = screen.getByTestId('mentor-person-input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'Bill' } });
+    fireEvent.change(input, { target: { value: 'Bill Gates' } });
     fireEvent.click(screen.getByTestId('mentor-add-person'));
     await waitFor(() => expect(input.value).toBe(''));
     expect(getGuestStrong()).toContain('Bill Gates');
@@ -565,7 +568,7 @@ describe('MentorTablePage (unit)', () => {
     // Jump straight to wish phase by adding a mentor first then continuing
     // but keeping problem empty.
     const input = screen.getByTestId('mentor-person-input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'Bill' } });
+    fireEvent.change(input, { target: { value: 'Bill Gates' } });
     fireEvent.keyDown(input, { key: 'Enter' });
     fireEvent.click(screen.getByTestId('mentor-continue-wish'));
 
@@ -697,7 +700,7 @@ describe('MentorTablePage (unit)', () => {
   it('renders a suggestion row for the search query and can pick a suggestion', async () => {
     render(<MentorTablePage standalone />);
     const input = screen.getByTestId('mentor-person-input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'Bill' } });
+    fireEvent.change(input, { target: { value: 'Bill Gates' } });
 
     // Wait for the suggestion menu entries to render (local results are sync)
     await waitFor(() => {
@@ -1163,7 +1166,7 @@ describe('MentorTablePage (unit)', () => {
     };
     render(<MentorTablePage standalone />);
     const input = screen.getByTestId('mentor-person-input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'Bill' } });
+    fireEvent.change(input, { target: { value: 'Bill Gates' } });
     await waitFor(
       () => {
         const items = document.querySelectorAll('[class*="suggestionItem"]');
@@ -1650,7 +1653,7 @@ describe('MentorTablePage (unit)', () => {
   it('onError on suggestion avatar calls markImageBroken', async () => {
     render(<MentorTablePage standalone />);
     const input = screen.getByTestId('mentor-person-input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'Bill' } });
+    fireEvent.change(input, { target: { value: 'Bill Gates' } });
     await waitFor(() => {
       const items = document.querySelectorAll('[class*="suggestionItem"]');
       expect(items.length).toBeGreaterThan(0);
@@ -2029,7 +2032,7 @@ describe('MentorTablePage (unit)', () => {
       // Drive invite → wish → session, advancing timers to flush
       // microtasks + the booting → live transition.
       const input = screen.getByTestId('mentor-person-input') as HTMLInputElement;
-      fireEvent.change(input, { target: { value: 'Bill' } });
+      fireEvent.change(input, { target: { value: 'Bill Gates' } });
       fireEvent.keyDown(input, { key: 'Enter' });
       fireEvent.change(input, { target: { value: 'Kobe Bryant' } });
       fireEvent.keyDown(input, { key: 'Enter' });
@@ -2085,7 +2088,7 @@ describe('MentorTablePage (unit)', () => {
       );
       render(<MentorTablePage standalone />);
       const input = screen.getByTestId('mentor-person-input') as HTMLInputElement;
-      fireEvent.change(input, { target: { value: 'Bill' } });
+      fireEvent.change(input, { target: { value: 'Bill Gates' } });
       fireEvent.keyDown(input, { key: 'Enter' });
       fireEvent.click(screen.getByTestId('mentor-continue-wish'));
       fireEvent.change(screen.getByTestId('mentor-problem-input'), {
@@ -3034,7 +3037,7 @@ describe('MentorTablePage (branch closure — final pass)', () => {
       });
     const { unmount } = render(<MentorTablePage standalone />);
     const input = screen.getByTestId('mentor-person-input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'Bill' } });
+    fireEvent.change(input, { target: { value: 'Bill Gates' } });
     // Let debounce fire
     await new Promise((r) => setTimeout(r, 200));
     // Unmount before resolve
@@ -3052,7 +3055,7 @@ describe('MentorTablePage (branch closure — final pass)', () => {
       });
     const { unmount } = render(<MentorTablePage standalone />);
     const input = screen.getByTestId('mentor-person-input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'Bill' } });
+    fireEvent.change(input, { target: { value: 'Bill Gates' } });
     await new Promise((r) => setTimeout(r, 200));
     unmount();
     rejectRemote(new Error('network'));

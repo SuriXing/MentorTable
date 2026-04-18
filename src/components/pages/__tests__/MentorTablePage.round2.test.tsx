@@ -357,10 +357,14 @@ describe('R2 motion — MC-3 reveal-all button', () => {
 // ================= Errors =================
 
 describe('R2 errors — ERR-1 continue blocks 0-mentor sessions', () => {
-  it('continue button is disabled with 0 mentors and shows inline error', () => {
+  it('continue button is disabled with 0 mentors; inline error appears only after interaction', () => {
     render(<MentorTablePage standalone />);
     const btn = screen.getByTestId('mentor-continue-wish') as HTMLButtonElement;
-    expect(btn.disabled).toBe(true);
+    expect(btn.getAttribute('aria-disabled')).toBe('true');
+    expect(document.getElementById('mentor-continue-error')).toBeNull();
+    act(() => {
+      btn.click();
+    });
     const err = document.getElementById('mentor-continue-error');
     expect(err).toBeTruthy();
     expect(err!.getAttribute('role')).toBe('alert');
@@ -368,9 +372,9 @@ describe('R2 errors — ERR-1 continue blocks 0-mentor sessions', () => {
 
   it('continue button enables once a mentor is added', async () => {
     render(<MentorTablePage standalone />);
-    await addPerson('Bill');
+    await addPerson('Bill Gates');
     const btn = screen.getByTestId('mentor-continue-wish') as HTMLButtonElement;
-    expect(btn.disabled).toBe(false);
+    expect(btn.getAttribute('aria-disabled')).toBe('false');
   });
 });
 
