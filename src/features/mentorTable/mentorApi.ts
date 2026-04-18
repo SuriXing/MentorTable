@@ -36,8 +36,17 @@ function allowLocalMentorFallbackEndpoint(): boolean {
   return Boolean(import.meta.env.DEV);
 }
 
+// Bug-bash round 1: `Number(env || 35000)` returned NaN when the env var was
+// set to a non-numeric string (e.g. "35s"). setTimeout(…, NaN) fires on the
+// next tick, so every request was aborted before fetch opened. Clamp to the
+// fallback when the parsed number is not a finite positive integer.
+function toTimeoutMs(raw: unknown, fallback: number): number {
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
 export async function generateMentorAdvice(input: MentorApiRequest): Promise<MentorSimulationResult> {
-  const requestTimeoutMs = Number(import.meta.env.VITE_MENTOR_API_TIMEOUT_MS || 35000);
+  const requestTimeoutMs = toTimeoutMs(import.meta.env.VITE_MENTOR_API_TIMEOUT_MS, 35000);
   const endpoints = uniqueNonEmpty([
     import.meta.env.VITE_MENTOR_API_URL as string | undefined,
     '/api/mentor-table',
@@ -101,7 +110,7 @@ export async function generateMentorAdvice(input: MentorApiRequest): Promise<Men
 }
 
 export async function fetchMentorDebugPrompt(input: MentorDebugPromptRequest): Promise<string> {
-  const requestTimeoutMs = Number(import.meta.env.VITE_MENTOR_API_TIMEOUT_MS || 35000);
+  const requestTimeoutMs = toTimeoutMs(import.meta.env.VITE_MENTOR_API_TIMEOUT_MS, 35000);
   const endpoints = uniqueNonEmpty([
     import.meta.env.VITE_MENTOR_DEBUG_API_URL as string | undefined,
     '/api/mentor-debug-prompt',

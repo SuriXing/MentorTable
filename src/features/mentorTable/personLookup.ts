@@ -1315,19 +1315,23 @@ function withAvatarFallback(person: PersonOption): PersonOption {
 }
 
 async function fetchJson<T>(url: string): Promise<T | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 5000);
     const response = await fetch(url, {
       signal: controller.signal,
       headers: { Accept: 'application/json' }
     });
-    clearTimeout(timer);
     if (!response.ok) return null;
     const data = (await response.json()) as T;
     return data;
   } catch {
     return null;
+  } finally {
+    // Bug-bash round 1: previously clearTimeout only ran on the success
+    // branch, so a fetch/json rejection leaked the 5 s timer (20+ timers on
+    // offline-typing). finally guarantees cleanup.
+    clearTimeout(timer);
   }
 }
 

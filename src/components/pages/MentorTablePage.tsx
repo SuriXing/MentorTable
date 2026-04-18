@@ -1,3 +1,4 @@
+// TODO: 73 more isZh ternaries to migrate, see .bugbash/mt-ux.md
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -121,7 +122,7 @@ function getMentorCategory(name: string): 'tech' | 'sports' | 'artist' | 'leader
 
 const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = false }) => {
   const navigate = useNavigate();
-  const { i18n } = useTranslation();
+  const { i18n, t: tI18n } = useTranslation();
   const isZh = i18n.language?.toLowerCase().startsWith('zh');
   // Apply stored theme (primary color + light/dark mode) on mount
   useTheme();
@@ -138,10 +139,24 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   // This component only runs client-side (the app has no SSR), so `window`
   // and `localStorage` are always available.
   const [showOnboarding, setShowOnboarding] = useState<boolean>(
-    () => localStorage.getItem(ONBOARDING_KEY) !== '1'
+    // Bug-bash round 1: Safari Private Browsing throws SecurityError on
+    // localStorage access. Fall back to showing onboarding on failure.
+    () => {
+      try {
+        return localStorage.getItem(ONBOARDING_KEY) !== '1';
+      } catch {
+        return true;
+      }
+    }
   );
   const [dontShowOnboardingAgain, setDontShowOnboardingAgain] = useState<boolean>(
-    () => localStorage.getItem(ONBOARDING_KEY) === '1'
+    () => {
+      try {
+        return localStorage.getItem(ONBOARDING_KEY) === '1';
+      } catch {
+        return false;
+      }
+    }
   );
   const [currentSlide, setCurrentSlide] = useState(0);
   const [flippedCards, setFlippedCards] = useState<Record<string, boolean>>({});
@@ -271,20 +286,23 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const t = useMemo(() => ({
     heroTitle: isZh ? '名人桌 · 召唤房间' : 'Celebrity Mentor Table · Summoning Room',
     heroSub: isZh ? '这不是普通页面，而是一个互动舞台。' : 'Not a page. A stage.',
-    summonGuests: isZh ? '召唤人物' : 'Summon Guests',
+    // Bug-bash round 1: migrate 10 most user-visible ternaries to t() with
+    // new namespaced keys. Falls back to the isZh branch if the key isn't
+    // defined in the active locale yet.
+    summonGuests: tI18n('mt.summonGuests', { defaultValue: isZh ? '召唤人物' : 'Summon Guests' }),
     placeArtifact: isZh ? '放下你的问题卡' : 'Place Your Artifact',
     openCircle: isZh ? '开启圆桌' : 'Open Circle',
     edit: isZh ? '编辑' : 'Edit',
     shuffle: isZh ? '换座位' : 'Shuffle',
-    restart: isZh ? '重新开始' : 'Restart',
+    restart: tI18n('mt.restart', { defaultValue: isZh ? '重新开始' : 'Restart' }),
     summoningRitual: isZh ? '召唤仪式' : 'Summoning Ritual',
     invitePlaceholder: isZh ? '输入对象（名人/MBTI/角色）' : 'Enter target (celebrity/MBTI/character)',
     flip: isZh ? '翻面' : 'flip',
     keepGoing: isZh ? '继续加油' : 'keep going',
     continueToWish: isZh ? '继续' : 'Continue',
     artifactPlaceholder: isZh ? '写下你现在最困扰的问题，圆桌会听见。' : 'Write what’s weighing on you. The table will listen.',
-    beginSession: isZh ? '开启圆桌 ✨' : 'Open the Circle ✨',
-    generating: isZh ? '正在召唤...' : 'Summoning...',
+    beginSession: tI18n('mt.beginSession', { defaultValue: isZh ? '开启圆桌 ✨' : 'Open the Circle ✨' }),
+    generating: tI18n('mt.generating', { defaultValue: isZh ? '正在召唤...' : 'Summoning...' }),
     sessionInProgress: isZh ? '会话进行中。' : 'Session in progress.',
     source: isZh ? '来源' : 'Source',
     llmApi: isZh ? 'LLM 接口' : 'LLM API',
@@ -316,7 +334,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     sessionComplete: isZh ? '会话完成。' : 'Session complete.',
     tonightTakeaway: isZh ? '今晚总结' : 'Tonight’s takeaway',
     save: isZh ? '保存聊天' : 'Save Chat',
-    newTable: isZh ? '开启新圆桌' : 'Start a new table',
+    newTable: tI18n('mt.newTable', { defaultValue: isZh ? '开启新圆桌' : 'Start a new table' }),
     memories: isZh ? '记忆抽屉' : 'Memories',
     memoryDrawer: isZh ? '记忆抽屉' : 'Memory Drawer',
     savedInDrawer: isZh ? '已保存到右下角“记忆抽屉”。' : 'Saved to the Memories drawer in the bottom-right.',
@@ -336,13 +354,13 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     dontShowAgain: isZh ? '下次不再显示' : "Don't show this again",
     keepShowing: isZh ? '下次继续显示' : 'Keep showing on startup',
     // ERR-2: retry-able error state for handleGenerate failures
-    generateFailed: isZh ? '召唤失败，请重试。' : 'Could not reach the mentors. Please retry.',
-    retry: isZh ? '重试' : 'Retry',
+    generateFailed: tI18n('mt.generateFailed', { defaultValue: isZh ? '召唤失败，请重试。' : 'Could not reach the mentors. Please retry.' }),
+    retry: tI18n('mt.retry', { defaultValue: isZh ? '重试' : 'Retry' }),
     // MC-3: jump past the reveal timer
     revealAll: isZh ? '立刻展示全部' : 'Reveal all now',
     // ERR-1: 0-mentor continue guard
     needAtLeastOne: isZh ? '至少选择一个人物才能继续。' : 'Please add at least one guest to continue.'
-  }), [isZh]);
+  }), [isZh, tI18n]);
 
   const uiLanguage: 'zh-CN' | 'en' = isZh ? 'zh-CN' : 'en';
 
@@ -610,6 +628,11 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
       if (aiReply?.likelyResponse) {
         mentorReply = aiReply.likelyResponse;
       }
+    } catch (err) {
+      // Bug-bash round 1: surface mentor API failures to the user instead of
+      // swallowing them. Fallback text from generateMentorFollowup is still
+      // used so the thread has some response.
+      setGenerateError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsRoundGenerating(false);
     }
@@ -670,6 +693,11 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
       ]);
       setReplyAllDraft('');
       scrollConversationToBottom();
+    } catch (err) {
+      // Bug-bash round 1: previously this try/finally had no catch — a
+      // malformed response from res.json() bubbled as SyntaxError and the
+      // user's message was silently dropped. Surface via generateError.
+      setGenerateError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsRoundGenerating(false);
     }
@@ -1457,8 +1485,10 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                       placeholder={t.invitePlaceholder}
                       className={styles.personInput}
                       // SR-8: explicit label so SR users hear a name, not "edit".
+                      // Bug-bash round 1: drop aria-labelledby (pointed at
+                      // "Summoning Ritual" heading — misleading for a text
+                      // input) and keep only aria-label.
                       aria-label={t.invitePlaceholder}
-                      aria-labelledby="mentor-invite-heading"
                       // KB-6: combobox semantics for the search → menu pair.
                       role="combobox"
                       aria-expanded={Boolean(personQuery.trim() && suggestions.length > 0)}
@@ -1469,7 +1499,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                       type="button"
                       data-testid="mentor-add-person"
                       className={styles.addBtn}
-                      aria-label={isZh ? '添加人物' : 'Add person'}
+                      aria-label={String(tI18n('mt.addPerson', { defaultValue: isZh ? '添加人物' : 'Add person' }))}
                       onClick={() => addPerson(personQuery)}
                     >
                       <FontAwesomeIcon icon={faPlus} />
@@ -1509,9 +1539,9 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                             </button>
                           );
                         })}
-                        {isSearching && <div className={styles.searchingRow}>{isZh ? '搜索中...' : 'Searching...'}</div>}
+                        {isSearching && <div className={styles.searchingRow}>{tI18n('mt.searching', { defaultValue: isZh ? '搜索中...' : 'Searching...' })}</div>}
                         {!isSearching && suggestions.length === 0 && (
-                          <div className={styles.searchingRow}>{isZh ? '未找到结果，按回车添加自定义名人' : 'No results — press Enter to add as custom mentor'}</div>
+                          <div className={styles.searchingRow}>{tI18n('mt.noResults', { defaultValue: isZh ? '未找到结果，按回车添加自定义名人' : 'No results — press Enter to add as custom mentor' })}</div>
                         )}
                       </div>
                     )}
@@ -1547,6 +1577,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                           <button
                             type="button"
                             className={styles.flipMiniBtn}
+                            aria-label={isZh ? `翻转卡片 ${localizeName(person.name)}` : `Flip ${localizeName(person.name)} card`}
                             onClick={() => setFlippedCards((prev) => ({ ...prev, [person.name]: !prev[person.name] }))}
                           >
                             {t.flip}

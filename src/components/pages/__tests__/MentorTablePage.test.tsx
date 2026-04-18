@@ -43,7 +43,8 @@ const mentorTestState = (globalThis as any).__mentorTestState;
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k: string) => k,
+    t: (k: string, opts?: { defaultValue?: string }) =>
+      opts && typeof opts.defaultValue === 'string' ? opts.defaultValue : k,
     i18n: {
       get language() {
         return (globalThis as any).__mentorTestState.language;
