@@ -1,3 +1,5 @@
+/* eslint-disable no-missing-i18n-key -- this file contains test fixtures with
+ * synthetic keys that intentionally don't exist in the canonical EN catalog. */
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 // --- Mocks ---------------------------------------------------------------
