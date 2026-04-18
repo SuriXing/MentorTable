@@ -2130,7 +2130,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                         onClick={(e) => {
                           e.stopPropagation();
                           setExpandedSuggestion(null);
-                          setExpandedReplyId(entry.replyId);
+                          // narrowing doesn't survive the closure — rebind
+                          setExpandedReplyId(entry.replyId || '');
                         }}
                       >
                         <header>{entry.displayName}</header>

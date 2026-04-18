@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/rules-of-hooks -- `useSpy` is a vi.fn mock for
+ * i18next's `.use()` method, not a React hook. */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // Store a reference to the mock methods so assertions can reach them
