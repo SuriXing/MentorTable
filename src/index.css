@@ -22,7 +22,6 @@
   --text-on-primary: #f5f7ff; /* off-pure-white for use on primary/dark surfaces */
   --brand-navy: #1f3f7d;       /* consolidated navy accent (light-mode headings) */
   --brand-navy-muted: #46618f; /* softer navy for secondary text */
-  --aurora-opacity: 0.35;
 
   /* Legacy aliases referenced by older page CSS */
   --color-primary: var(--primary-color);
@@ -53,7 +52,6 @@
   --light-gray: #6b7280;
   --lighter-gray: color-mix(in srgb, var(--primary-color) 12%, transparent);
   --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
-  --aurora-opacity: 0.25;
 }
 
 html {
@@ -125,8 +123,7 @@ select:focus-visible,
 }
 
 /* MC-1: honor user's OS-level prefers-reduced-motion — kill infinite
- * animations, collapse transitions, and stop scroll-behavior smooth.
- * Individual components (Aurora.tsx) additionally skip their rAF loop. */
+ * animations, collapse transitions, and stop scroll-behavior smooth. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
