@@ -1559,6 +1559,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                                 // SR-5: decorative avatar — the adjacent text
                                 // already names the person.
                                 alt=""
+                                width={40}
+                                height={40}
                                 className={styles.suggestionAvatar}
                                 referrerPolicy="no-referrer"
                                 onError={() => markImageBroken(s.name, s.imageUrl, s.candidateImageUrls)}
@@ -1593,6 +1595,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                           <img
                             src={imageSrcFor(person.name, person.imageUrl, person.candidateImageUrls)}
                             alt={person.name}
+                            width={96}
+                            height={96}
                             className={styles.guestAvatar}
                             referrerPolicy="no-referrer"
                             onError={() => markImageBroken(person.name, person.imageUrl, person.candidateImageUrls)}
@@ -2125,6 +2129,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                           <img
                             src={findImage(displayName)}
                             alt={displayName}
+                            width={64}
+                            height={64}
                             referrerPolicy="no-referrer"
                             onError={() => markImageBroken(resolveMentorName(displayName), selectedPeople[index]?.imageUrl, selectedPeople[index]?.candidateImageUrls)}
                           />

@@ -5,6 +5,12 @@
   "engines": {
     "node": ">=24"
   },
+  "browserslist": [
+    "Chrome >= 120",
+    "Edge >= 120",
+    "Firefox >= 120",
+    "Safari >= 17"
+  ],
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^6.7.2",
     "@fortawesome/free-solid-svg-icons": "^6.7.2",
@@ -46,6 +52,7 @@
     "eslint-plugin-react-hooks": "^4.6.2",
     "express": "^4.18.2",
     "jsdom": "^21.1.1",
+    "rollup-plugin-visualizer": "^7.0.1",
     "typescript": "^5.0.2",
     "vite": "^6.4.2",
     "vite-plugin-istanbul": "^7.2.1",
