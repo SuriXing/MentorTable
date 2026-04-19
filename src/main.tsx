@@ -24,10 +24,18 @@ initBrowserCompatibility();
 // chrome and lazy-loading them would cause a flash of missing UI.
 const MentorTablePage = lazy(() => import('./components/pages/MentorTablePage'));
 
-// Layout-preserving skeleton: occupies the same viewport box as the real
-// page so the chunk swap is CLS-free. role=status + aria-live so AT users
-// hear the loading state without a visual spinner.
+// Layout-preserving skeleton: matches MentorTablePage's silhouette (hero
+// strip, top action bar, workspace grid) so the chunk swap is CLS-free.
+// role=status + aria-live so AT users hear the loading state. Inline
+// styles only — no Tailwind in this project, no extra deps (KISS).
 function PageSkeleton() {
+  const block: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.06)',
+    borderRadius: 8,
+  };
+  const pulse: React.CSSProperties = {
+    animation: 'mt-skeleton-pulse 1.4s ease-in-out infinite',
+  };
   return (
     <div
       role="status"
@@ -36,17 +44,37 @@ function PageSkeleton() {
       style={{
         minHeight: '100vh',
         width: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
         background: 'var(--bg, #0b1020)',
         color: 'var(--text-muted, #9aa3b2)',
         fontFamily: 'system-ui, -apple-system, sans-serif',
-        fontSize: 14,
-        letterSpacing: '0.04em',
+        display: 'flex',
+        flexDirection: 'column',
+        boxSizing: 'border-box',
+        padding: '24px clamp(16px, 4vw, 48px)',
+        gap: 20,
       }}
     >
-      <span>Loading…</span>
+      <style>{`@keyframes mt-skeleton-pulse{0%,100%{opacity:.55}50%{opacity:.9}}`}</style>
+      {/* hero strip */}
+      <div style={{ ...block, ...pulse, height: 56, width: '40%' }} />
+      {/* top action bar */}
+      <div style={{ display: 'flex', gap: 12 }}>
+        <div style={{ ...block, ...pulse, height: 36, flex: 1 }} />
+        <div style={{ ...block, ...pulse, height: 36, width: 120 }} />
+      </div>
+      {/* workspace: left column (people grid) + right column (session) */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)',
+          gap: 20,
+          flex: 1,
+        }}
+      >
+        <div style={{ ...block, ...pulse, minHeight: 360 }} />
+        <div style={{ ...block, ...pulse, minHeight: 360 }} />
+      </div>
+      <span style={{ position: 'absolute', left: -9999 }}>Loading…</span>
     </div>
   );
 }

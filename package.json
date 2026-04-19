@@ -6,10 +6,12 @@
     "node": ">=24"
   },
   "browserslist": [
-    "Chrome >= 120",
-    "Edge >= 120",
-    "Firefox >= 120",
-    "Safari >= 17"
+    ">0.2%",
+    "last 2 versions",
+    "Firefox ESR",
+    "not dead",
+    "not op_mini all",
+    "not ie 11"
   ],
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^6.7.2",

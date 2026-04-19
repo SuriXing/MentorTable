@@ -7,6 +7,9 @@ import path from 'path';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const shouldInstrument = process.env.VITE_COVERAGE === '1';
+  // F13/F18: visualizer is opt-in only (ANALYZE=1) AND writes outside
+  // dist/ so it can never be served from the CDN even when enabled.
+  const shouldAnalyze = process.env.ANALYZE === '1';
 
   return {
     plugins: [
@@ -17,18 +20,16 @@ export default defineConfig(({ mode }) => {
         extension: ['.ts', '.tsx'],
         requireEnv: false,
       }),
-      // U4.1: bundle composition evidence. HTML for humans, JSON for the
-      // verify-gate; gzip+brotli sizes match what the CDN actually serves.
-      visualizer({
-        filename: 'dist/stats.html',
+      shouldAnalyze && visualizer({
+        filename: '.bundle-stats/stats.html',
         template: 'treemap',
         gzipSize: true,
         brotliSize: true,
         sourcemap: true,
         emitFile: false,
       }),
-      visualizer({
-        filename: 'dist/stats.json',
+      shouldAnalyze && visualizer({
+        filename: '.bundle-stats/stats.json',
         template: 'raw-data',
         gzipSize: true,
         brotliSize: true,
@@ -57,11 +58,11 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: 'dist',
-      sourcemap: true,
-      // U4.1: pin to evergreen 2024+ baselines (Chrome/Edge/Firefox 120,
-      // Safari 17). Avoids `esnext` (no transpile, breaks older Safari)
-      // and the wide ES2015 target that bloats output.
-      target: ['chrome120', 'firefox120', 'safari17', 'edge120'],
+      // F14: do NOT ship sourcemaps publicly. Opt-in via SOURCEMAP=1 for
+      // local debugging or error-tool uploads.
+      sourcemap: process.env.SOURCEMAP === '1',
+      // F11: target derived from package.json "browserslist" — do NOT
+      // hardcode evergreen-only here (excluded ~70% of CN users).
       rollupOptions: {
         output: {
           // U4.1: vendor-split for cache-friendly long-term hashing. App
@@ -73,15 +74,17 @@ export default defineConfig(({ mode }) => {
               id.includes('/react/') ||
               id.includes('/react-dom/') ||
               id.includes('/react-router') ||
+              id.includes('/@remix-run/') ||
               id.includes('/scheduler/')
             ) return 'vendor-react';
-            if (id.includes('/@supabase/')) return 'vendor-supabase';
             if (
               id.includes('/i18next') ||
               id.includes('/react-i18next')
             ) return 'vendor-i18n';
             if (id.includes('/@fortawesome/')) return 'vendor-icons';
-            return undefined;
+            // F16: catch-all so any new dep lands in vendor-misc instead
+            // of silently fattening the entry chunk.
+            return 'vendor-misc';
           },
         },
       },
