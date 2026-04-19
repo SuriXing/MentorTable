@@ -48,6 +48,8 @@ export default defineConfig(({ mode }) => {
       coverage: {
         provider: 'v8',
         reporter: ['text', 'text-summary', 'json-summary', 'json'],
+        // U3.1: count every file in include even if no test imports it.
+        all: true,
         include: [
           'src/features/**/*.ts',
           'src/utils/**/*.ts',
@@ -57,15 +59,31 @@ export default defineConfig(({ mode }) => {
           'src/i18n.ts',
           'api/**/*.js',
           'lib/**/*.js',
+          'server.js',
         ],
         exclude: [
+          // Type-only files have no executable code.
           '**/*.d.ts',
+          // Test files themselves should not count toward source coverage.
           '**/*.test.*',
+          '**/__tests__/**',
+          // index.ts barrels are pure re-exports — no logic to cover.
           '**/index.ts',
+          // Browser entrypoint: invokes ReactDOM.render once at boot.
+          // Excluded from unit coverage; exercised by Cypress/Playwright e2e.
           'src/main.tsx',
+          // Pure TypeScript type declarations.
           'src/types/**',
+          // Static i18n JSON resource bundles — no executable code.
           'src/locales/**',
         ],
+        thresholds: {
+          lines: 95,
+          branches: 95,
+          functions: 95,
+          statements: 95,
+          autoUpdate: false,
+        },
       },
     },
   };
