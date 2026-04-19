@@ -46,7 +46,7 @@ export default defineConfig(({ mode }) => {
       environment: 'jsdom',
       exclude: ['e2e/**', 'node_modules/**', 'cypress/**'],
       coverage: {
-        provider: 'c8',
+        provider: 'v8',
         reporter: ['text', 'text-summary', 'json-summary', 'json'],
         include: [
           'src/features/**/*.ts',
