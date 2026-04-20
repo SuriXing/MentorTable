@@ -5,7 +5,12 @@ import { visualizer } from 'rollup-plugin-visualizer';
 import path from 'path';
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '');
+  // F6: previously loadEnv(..., '') exposed ALL shell env vars (incl.
+  // LLM_API_KEY, DASHSCOPE_*) into the client bundle via the define block
+  // below. Restrict to the VITE_ prefix so server-only secrets stay out
+  // of the bundle. src/ only reads process.env.NODE_ENV, which Vite
+  // injects automatically.
+  const env = loadEnv(mode, process.cwd(), 'VITE_');
   const shouldInstrument = process.env.VITE_COVERAGE === '1';
   // F13/F18: visualizer is opt-in only (ANALYZE=1) AND writes outside
   // dist/ so it can never be served from the CDN even when enabled.

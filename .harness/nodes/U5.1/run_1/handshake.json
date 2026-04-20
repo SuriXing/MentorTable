@@ -1,0 +1,16 @@
+{
+  "node": "U5.1",
+  "type": "build",
+  "summary": "Tightened CSP (dropped unsafe-inline/unsafe-eval from script-src; removed https: wildcards), added HSTS + Permissions-Policy, fixed F6 client-bundle env leak (loadEnv prefix '' -> 'VITE_'), audited rate-limit (in-memory documented), 0 npm vulns, no .env tracked, no secrets in dist/.",
+  "verdict": "PASS",
+  "artifacts": [
+    "vercel.json",
+    "vite.config.mts",
+    ".harness/nodes/U5.1/run_1/eval.md"
+  ],
+  "totals": {
+    "critical": 0,
+    "warning": 1,
+    "suggestion": 1
+  }
+}
