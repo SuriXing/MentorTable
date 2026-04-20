@@ -363,7 +363,11 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     // MC-3: jump past the reveal timer
     revealAll: isZh ? '立刻展示全部' : 'Reveal all now',
     // ERR-1: 0-mentor continue guard
-    needAtLeastOne: isZh ? '至少选择一个人物才能继续。' : 'Please add at least one guest to continue.'
+    needAtLeastOne: isZh ? '至少选择一个人物才能继续。' : 'Please add at least one guest to continue.',
+    // R2/F39: empty-state copy via t map (was inline isZh ternaries — works
+    // but breaks DRY with the rest of the bilingual surface).
+    emptyIntroTitle: isZh ? '邀请你的第一位名人' : 'Invite your first mentor',
+    emptyIntroHint: isZh ? '在上方搜索框输入名字，按回车即可入席。' : 'Type a name above and press Enter to seat them.'
   }), [isZh, tI18n]);
 
   const uiLanguage: 'zh-CN' | 'en' = isZh ? 'zh-CN' : 'en';
@@ -1620,12 +1624,10 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                           <circle cx="98" cy="38" r="10" fill="currentColor" opacity="0.55" />
                         </svg>
                         <p className={styles.emptyIntroTitle}>
-                          {isZh ? '邀请你的第一位名人' : 'Invite your first mentor'}
+                          {t.emptyIntroTitle}
                         </p>
                         <p className={styles.emptyIntroHint}>
-                          {isZh
-                            ? '在上方搜索框输入名字，按回车即可入席。'
-                            : 'Type a name above and press Enter to seat them.'}
+                          {t.emptyIntroHint}
                         </p>
                       </div>
                     )}
@@ -1680,12 +1682,17 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
 
                   {/* ERR-1: block the continue button when no mentors picked.
                       Inline error announces it to AT users. */}
+                  {/* R2/F38: real `disabled` (not just aria) at 0 mentors —
+                      kills inverted-hierarchy dead-end click. + CTA stays
+                      visually dominant when there's nothing to continue to. */}
                   <button
                     type="button"
                     data-testid="mentor-continue-wish"
                     className={styles.primaryCta}
+                    disabled={selectedPeople.length === 0}
                     aria-disabled={selectedPeople.length === 0}
                     aria-describedby={selectedPeople.length === 0 ? 'mentor-continue-error' : undefined}
+                    style={selectedPeople.length === 0 ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
                     onClick={() => {
                       setInviteTouched(true);
                       if (selectedPeople.length === 0) return;
@@ -2494,6 +2501,18 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
             ref={onboardingTrapRef}
           >
             <div className={styles.onboardingCard}>
+              {/* R2/F34: Skip button always visible — share-link visitors
+                  must be able to bypass the 3-slide tour to reach the form.
+                  Bilingual hardcode (i18n keys for onboarding don't exist
+                  yet — tech debt for U7.x). */}
+              <button
+                type="button"
+                className={styles.onboardingSkipBtn}
+                onClick={finishOnboarding}
+                aria-label={isZh ? '跳过引导' : 'Skip onboarding'}
+              >
+                {isZh ? '跳过 / Skip' : 'Skip / 跳过'}
+              </button>
               <h3 id="mentor-onboarding-title">{localizedOnboardingSlides[currentSlide].title}</h3>
               <p>{localizedOnboardingSlides[currentSlide].body}</p>
               {currentSlide === localizedOnboardingSlides.length - 1 && (

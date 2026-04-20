@@ -45,6 +45,40 @@ export default class ErrorBoundary extends React.Component<Props, State> {
     }
   };
 
+  // R2/F35: copy diagnostics to clipboard instead of mailto:?subject= with
+  // no recipient (was a fake feedback channel). KISS — no operational
+  // dependency on a real inbox. Falls back to a hidden textarea + execCommand
+  // for non-secure contexts where navigator.clipboard is undefined.
+  private handleCopyDiagnostics = (): void => {
+    const errMsg = this.state.error?.message || '';
+    const stack = this.state.error?.stack || '';
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent : 'n/a';
+    const payload = `[名人桌 / Mentor Table] Crash report\nTime: ${new Date().toISOString()}\nUA: ${ua}\nError: ${errMsg}\nStack:\n${stack}`;
+    const nav = typeof navigator !== 'undefined' ? navigator : undefined;
+    if (nav?.clipboard?.writeText) {
+      nav.clipboard.writeText(payload).catch(() => this.fallbackCopy(payload));
+      return;
+    }
+    this.fallbackCopy(payload);
+  };
+
+  private fallbackCopy(text: string): void {
+    if (typeof document === 'undefined') return;
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand('copy');
+    } catch {
+      /* user can still see the textarea contents in DevTools */
+    }
+    document.body.removeChild(ta);
+  }
+
   private tr(key: string, fallback: string): string {
     try {
       return String(i18n.t(key, { defaultValue: fallback }));
@@ -57,10 +91,6 @@ export default class ErrorBoundary extends React.Component<Props, State> {
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback;
       const errMsg = this.state.error?.message || '';
-      const reportSubject = encodeURIComponent('[名人桌 / Mentor Table] Crash report');
-      const reportBody = encodeURIComponent(
-        `Time: ${new Date().toISOString()}\nUA: ${typeof navigator !== 'undefined' ? navigator.userAgent : 'n/a'}\nError: ${errMsg}`
-      );
       // U7.1: positional ordering matters — ErrorBoundary.test.tsx clicks the
       // LAST button to assert handleReset fires. Keep "Try again" last.
       return (
@@ -116,19 +146,21 @@ export default class ErrorBoundary extends React.Component<Props, State> {
             </pre>
           )}
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 16, flexWrap: 'wrap' }}>
-            <a
-              href={`mailto:?subject=${reportSubject}&body=${reportBody}`}
+            <button
+              type="button"
+              onClick={this.handleCopyDiagnostics}
               style={{
                 padding: '8px 14px',
                 borderRadius: 6,
                 border: '1px solid color-mix(in srgb, currentColor 30%, transparent)',
+                background: 'transparent',
                 color: 'inherit',
-                textDecoration: 'none',
+                cursor: 'pointer',
                 fontSize: '0.9rem'
               }}
             >
-              {this.tr('errorBoundary.report', 'Report / 报告问题')}
-            </a>
+              {this.tr('errorBoundary.copyDiagnostics', 'Copy diagnostics / 复制错误信息')}
+            </button>
             <button
               type="button"
               onClick={this.handleReset}

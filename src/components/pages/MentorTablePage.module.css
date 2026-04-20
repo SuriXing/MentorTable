@@ -1894,6 +1894,33 @@
   padding: 20px;
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+
+/* R2/F34: skip button — top-right of every onboarding slide so share-link
+ * visitors can bypass the tour to reach the form. */
+.onboardingSkipBtn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: 1px solid #cfd8e8;
+  color: #5b6b85;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  line-height: 1.4;
+  z-index: 1;
+}
+.onboardingSkipBtn:hover {
+  background: #f3f6fb;
+  color: #1f3f7d;
+  border-color: #b9c6dc;
+}
+.onboardingSkipBtn:focus-visible {
+  outline: 2px solid #5B7BFA;
+  outline-offset: 2px;
 }
 
 .onboardingCard h3 {
@@ -2521,14 +2548,6 @@
   transition: background 220ms ease, color 220ms ease, transform 160ms ease;
 }
 
-/* Mentor card entrance fade+slide when first added to selectedPeople.
- * Existing inline style sets animationDelay so cards stagger.
- * The keyframe is no-op under reduced motion (duration→1ms). */
-.guestCard {
-  animation: mt-guest-enter 320ms ease both;
-}
-
-@keyframes mt-guest-enter {
-  from { opacity: 0; transform: translateY(6px) scale(0.98); }
-  to   { opacity: 1; transform: translateY(0)   scale(1); }
-}
+/* R2/F33: removed duplicate .guestCard rule + its keyframe —
+ * was silently overriding the original summonIn animation at :362 and
+ * breaking .guestCardSummon composition at :374. */
