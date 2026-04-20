@@ -4,6 +4,14 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- U4.1: warm the upstream LLM origin early. Mentor calls go through
+         our own /api proxy (same-origin), but the proxy fans out to
+         dashscope.aliyuncs.com — getting DNS + TLS started during shell
+         paint shaves 100-300ms off first mentor response on cold loads.
+         Project does not use Supabase; preconnect target adjusted to the
+         actual upstream. -->
+    <link rel="preconnect" href="https://dashscope.aliyuncs.com" crossorigin />
+    <link rel="dns-prefetch" href="https://dashscope.aliyuncs.com" />
     <title>名人桌 — Mentor Table</title>
   </head>
   <body>

@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import istanbul from 'vite-plugin-istanbul';
+import { visualizer } from 'rollup-plugin-visualizer';
 import path from 'path';
 
 export default defineConfig(({ mode }) => {
@@ -15,6 +16,24 @@ export default defineConfig(({ mode }) => {
         exclude: ['node_modules', 'test/', '**/*.test.*', '**/*.spec.*'],
         extension: ['.ts', '.tsx'],
         requireEnv: false,
+      }),
+      // U4.1: bundle composition evidence. HTML for humans, JSON for the
+      // verify-gate; gzip+brotli sizes match what the CDN actually serves.
+      visualizer({
+        filename: 'dist/stats.html',
+        template: 'treemap',
+        gzipSize: true,
+        brotliSize: true,
+        sourcemap: true,
+        emitFile: false,
+      }),
+      visualizer({
+        filename: 'dist/stats.json',
+        template: 'raw-data',
+        gzipSize: true,
+        brotliSize: true,
+        sourcemap: true,
+        emitFile: false,
       }),
     ].filter(Boolean),
     resolve: {
@@ -39,7 +58,33 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       sourcemap: true,
-      target: 'es2015',
+      // U4.1: pin to evergreen 2024+ baselines (Chrome/Edge/Firefox 120,
+      // Safari 17). Avoids `esnext` (no transpile, breaks older Safari)
+      // and the wide ES2015 target that bloats output.
+      target: ['chrome120', 'firefox120', 'safari17', 'edge120'],
+      rollupOptions: {
+        output: {
+          // U4.1: vendor-split for cache-friendly long-term hashing. App
+          // code churns; vendors don't. A lib bump invalidates one vendor
+          // chunk, not the whole entry.
+          manualChunks: (id: string) => {
+            if (!id.includes('node_modules')) return undefined;
+            if (
+              id.includes('/react/') ||
+              id.includes('/react-dom/') ||
+              id.includes('/react-router') ||
+              id.includes('/scheduler/')
+            ) return 'vendor-react';
+            if (id.includes('/@supabase/')) return 'vendor-supabase';
+            if (
+              id.includes('/i18next') ||
+              id.includes('/react-i18next')
+            ) return 'vendor-i18n';
+            if (id.includes('/@fortawesome/')) return 'vendor-icons';
+            return undefined;
+          },
+        },
+      },
     },
     test: {
       globals: true,
