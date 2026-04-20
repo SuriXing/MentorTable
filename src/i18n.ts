@@ -93,6 +93,14 @@ const options: InitOptions = {
 
 i18nInstance.init(options);
 
+// U6.1: sync <html lang> on initial mount. languageChanged fires only on
+// switch, so without this the document keeps the static `lang="en"` from
+// index.html even when the user has zh-CN/ja/ko/es persisted — which
+// breaks screen-reader pronunciation and axe's html-has-lang check.
+if (typeof document !== 'undefined') {
+  document.documentElement.lang = i18nInstance.language || getCurrentLanguage();
+}
+
 // If the detected language is one of the lazy locales, kick off the load
 // immediately so the first render on a ja/ko/es detected browser resolves
 // with the right resource bundle. If it fails (split-chunk fetch error),
