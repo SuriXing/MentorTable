@@ -1,5 +1,7 @@
 const {
   applyApiSecurity,
+  enforceLlmBreaker,
+  recordLlmCall,
   redactSensitive,
   sanitizeMentorField,
   sanitizeMentorFieldArray,
@@ -1312,6 +1314,11 @@ const mentorTableHandler = async (req, res) => {
     rateLimit: { capacity: 20, refillPerSecond: 0.3 },
   })) return;
 
+  // F19: global LLM cost ceiling. Per-IP rate limit above is best-effort and
+  // does not bound autoscale cost. The breaker + LLM_DISABLED kill switch
+  // give the operator a real ceiling and a sub-minute mitigation path.
+  if (!enforceLlmBreaker(req, res)) return;
+
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
@@ -1411,6 +1418,10 @@ const mentorTableHandler = async (req, res) => {
     const perMentor = await Promise.all(
       mentors.map(async (mentor) => {
         try {
+          // F19: count this fan-out against the per-instance hourly LLM
+          // budget. Recorded just before dispatch so even if upstream
+          // errors out the call counts (it still consumed quota / time).
+          recordLlmCall(1);
           const output = await requestMentorReplyFromLLM({
             mentor,
             problem,
