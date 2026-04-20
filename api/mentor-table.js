@@ -6,6 +6,7 @@ const {
   sanitizeMentorField,
   sanitizeMentorFieldArray,
 } = require('../lib/security.js');
+const { log, truncateErrorMessage } = require('../lib/logger.js');
 
 const RESPONSE_SCHEMA_VERSION = 'mentor_table.v1';
 
@@ -1158,6 +1159,13 @@ async function requestMentorReplyFromLLM({
   const timeout = setTimeout(() => controller.abort(), upstreamTimeoutMs);
   let response;
   try {
+    log('info', 'api_request', {
+      handler: 'mentor-table',
+      stage: 'upstream_start',
+      mentorId: mentor.id,
+      model,
+    });
+    // eslint-disable-next-line no-console
     console.log(`[mentor-api] upstream request start mentor=${mentor.id} model=${model}`);
     response = await callChatCompletions({
       url: chatCompletionsUrl,
@@ -1182,6 +1190,14 @@ async function requestMentorReplyFromLLM({
     clearTimeout(timeout);
   }
 
+  log('info', 'api_ok', {
+    handler: 'mentor-table',
+    stage: 'upstream_response',
+    mentorId: mentor.id,
+    status: response.status,
+    latency_ms: Date.now() - startedAt,
+  });
+  // eslint-disable-next-line no-console
   console.log(
     `[mentor-api] upstream response mentor=${mentor.id} status=${response.status} elapsed=${Date.now() - startedAt}ms`
   );
@@ -1195,6 +1211,14 @@ async function requestMentorReplyFromLLM({
     } catch {
       errorText = '<unreadable>';
     }
+    log('error', 'api_error', {
+      handler: 'mentor-table',
+      stage: 'upstream_non_ok',
+      mentorId: mentor.id,
+      status: response.status,
+      bodyTruncated: String(errorText).slice(0, 200),
+    });
+    // eslint-disable-next-line no-console
     console.error(
       `[mentor-api] upstream non-ok mentor=${mentor.id} status=${response.status} body=${String(errorText).slice(0, 500)}`
     );
@@ -1523,6 +1547,12 @@ const mentorTableHandler = async (req, res) => {
     res.status(200).json(finalized);
   } catch (error) {
     // Log the full error server-side for debugging.
+    log('error', 'api_error', {
+      handler: 'mentor-table',
+      errorName: error instanceof Error ? error.name : typeof error,
+      errorMessageTruncated: truncateErrorMessage(error, 200),
+    });
+    // eslint-disable-next-line no-console
     console.error('[mentor-api] error:', error);
     // Never pass through non-Error throws to the client — they may contain
     // arbitrary caller-controlled text and bypass the structured error surface.

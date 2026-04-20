@@ -4,6 +4,7 @@ const {
   sanitizeMentorField,
   sanitizeMentorFieldArray,
 } = require('../lib/security.js');
+const { log, truncateErrorMessage } = require('../lib/logger.js');
 
 const ALLOWED_LANGUAGES = new Set(['zh-CN', 'en']);
 
@@ -97,7 +98,15 @@ module.exports = async (req, res) => {
     const prompt = buildMentorPromptBlock(mentor, language);
     res.status(200).json({ prompt });
   } catch (error) {
-    // Log the full error server-side for debugging.
+    // Log the full error server-side for debugging (structured, PII-safe).
+    log('error', 'api_error', {
+      handler: 'mentor-debug-prompt',
+      errorName: error instanceof Error ? error.name : typeof error,
+      errorMessageTruncated: truncateErrorMessage(error, 200),
+    });
+    // Legacy console.error kept so existing spyOn(console, 'error') test
+    // hooks keep working while the line is also emitted as JSON above.
+    // eslint-disable-next-line no-console
     console.error('[mentor-debug-prompt] error:', error);
     // Never pass raw thrown values to the client (bug #4 from R2B).
     // NEW-4: share the redactor from lib/security.js so this handler inherits

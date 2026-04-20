@@ -16,6 +16,7 @@ const https = require('https');
 const crypto = require('crypto');
 const { URL } = require('url');
 const { applyApiSecurity, sanitizeMentorField } = require('../lib/security.js');
+const { log, truncateErrorMessage } = require('../lib/logger.js');
 
 // Vercel serverless functions only allow writes under /tmp. Keep the repo-local
 // `public/assets/mentors` directory as a read-only fallback for pre-baked
@@ -279,6 +280,13 @@ module.exports = async function mentorImageHandler(req, res) {
     stream.on('error', (err) => {
       // `err` is always an Error object (Node always emits one on 'error').
       // `res.destroy` is always a function on Node http.ServerResponse.
+      log('warn', 'api_error', {
+        handler: 'mentor-image',
+        stage: 'cached_stream',
+        errorName: err instanceof Error ? err.name : typeof err,
+        errorMessageTruncated: truncateErrorMessage(err, 200),
+      });
+      // eslint-disable-next-line no-console
       console.warn('[mentor-image] cached stream error:', String(err));
       if (!res.headersSent) {
         try { res.status(500).json({ error: 'cached file read failed' }); }
@@ -329,6 +337,13 @@ module.exports = async function mentorImageHandler(req, res) {
     const cachePath = path.join(WRITABLE_CACHE_DIR, slug + ext);
     fs.writeFileSync(cachePath, result.buffer);
   } catch (err) {
+    log('warn', 'api_error', {
+      handler: 'mentor-image',
+      stage: 'cache_write',
+      errorCode: err && err.code ? err.code : undefined,
+      errorMessageTruncated: truncateErrorMessage(err, 200),
+    });
+    // eslint-disable-next-line no-console
     console.warn('[mentor-image] cache write failed:', err && err.code ? err.code : err);
   }
 
