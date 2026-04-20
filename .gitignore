@@ -16,5 +16,6 @@ cypress/screenshots/
 test-results/
 .nyc_output/
 coverage/
+.bundle-stats/
 supabase/
 *.tsbuildinfo
