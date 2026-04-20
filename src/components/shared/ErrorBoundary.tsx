@@ -9,6 +9,7 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  copied: boolean;
 }
 
 /**
@@ -24,15 +25,23 @@ interface State {
  * worst case, but defaultValue guarantees sane English fallback.
  */
 export default class ErrorBoundary extends React.Component<Props, State> {
-  state: State = { hasError: false, error: null };
+  state: State = { hasError: false, error: null, copied: false };
+  private copyResetTimer: ReturnType<typeof setTimeout> | null = null;
 
   static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+    return { hasError: true, error, copied: false };
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
     // eslint-disable-next-line no-console
     console.error('[ErrorBoundary] captured render error:', error, info);
+  }
+
+  componentWillUnmount(): void {
+    if (this.copyResetTimer) {
+      clearTimeout(this.copyResetTimer);
+      this.copyResetTimer = null;
+    }
   }
 
   private handleReset = (): void => {
@@ -41,7 +50,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
     if (typeof window !== 'undefined') {
       window.location.reload();
     } else {
-      this.setState({ hasError: false, error: null });
+      this.setState({ hasError: false, error: null, copied: false });
     }
   };
 
@@ -49,6 +58,17 @@ export default class ErrorBoundary extends React.Component<Props, State> {
   // no recipient (was a fake feedback channel). KISS — no operational
   // dependency on a real inbox. Falls back to a hidden textarea + execCommand
   // for non-secure contexts where navigator.clipboard is undefined.
+  // R3/F46: surface an inline "Copied ✓ / 已复制" success state so the copy
+  // isn't silent. Auto-clears after ~2s.
+  private flashCopied = (): void => {
+    this.setState({ copied: true });
+    if (this.copyResetTimer) clearTimeout(this.copyResetTimer);
+    this.copyResetTimer = setTimeout(() => {
+      this.setState({ copied: false });
+      this.copyResetTimer = null;
+    }, 2000);
+  };
+
   private handleCopyDiagnostics = (): void => {
     const errMsg = this.state.error?.message || '';
     const stack = this.state.error?.stack || '';
@@ -56,10 +76,17 @@ export default class ErrorBoundary extends React.Component<Props, State> {
     const payload = `[名人桌 / Mentor Table] Crash report\nTime: ${new Date().toISOString()}\nUA: ${ua}\nError: ${errMsg}\nStack:\n${stack}`;
     const nav = typeof navigator !== 'undefined' ? navigator : undefined;
     if (nav?.clipboard?.writeText) {
-      nav.clipboard.writeText(payload).catch(() => this.fallbackCopy(payload));
+      nav.clipboard.writeText(payload).then(
+        () => this.flashCopied(),
+        () => {
+          this.fallbackCopy(payload);
+          this.flashCopied();
+        }
+      );
       return;
     }
     this.fallbackCopy(payload);
+    this.flashCopied();
   };
 
   private fallbackCopy(text: string): void {
@@ -149,17 +176,20 @@ export default class ErrorBoundary extends React.Component<Props, State> {
             <button
               type="button"
               onClick={this.handleCopyDiagnostics}
+              aria-live="polite"
               style={{
                 padding: '8px 14px',
                 borderRadius: 6,
                 border: '1px solid color-mix(in srgb, currentColor 30%, transparent)',
-                background: 'transparent',
+                background: this.state.copied ? 'color-mix(in srgb, currentColor 8%, transparent)' : 'transparent',
                 color: 'inherit',
                 cursor: 'pointer',
                 fontSize: '0.9rem'
               }}
             >
-              {this.tr('errorBoundary.copyDiagnostics', 'Copy diagnostics / 复制错误信息')}
+              {this.state.copied
+                ? this.tr('errorBoundary.copied', '已复制 / Copied ✓')
+                : this.tr('errorBoundary.copyDiagnostics', 'Copy diagnostics / 复制错误信息')}
             </button>
             <button
               type="button"
@@ -177,6 +207,14 @@ export default class ErrorBoundary extends React.Component<Props, State> {
               {this.tr('errorBoundary.tryAgain', 'Try again / 重试')}
             </button>
           </div>
+          {/* R3/F46: tell users where to paste. Static bilingual hint —
+              tech-debt placeholder until a real issue-tracker handle exists. */}
+          <p style={{ opacity: 0.65, fontSize: '0.75rem', marginTop: 12 }}>
+            {this.tr(
+              'errorBoundary.pasteHint',
+              '可粘贴到小红书反馈帖 / Paste into your issue report'
+            )}
+          </p>
         </div>
       );
     }
