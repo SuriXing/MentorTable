@@ -177,10 +177,10 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const [imageAttemptByKey, setImageAttemptByKey] = useState<Record<string, number>>({});
   const [imageRetryByKey, setImageRetryByKey] = useState<Record<string, number>>({});
   const [expandedReplyId, setExpandedReplyId] = useState('');
-  // R2-FIX: don't shout validation errors on first paint. Only surface
-  // "needAtLeastOne" after the user has interacted with the guest form
-  // (tried to continue or touched the input).
-  const [inviteTouched, setInviteTouched] = useState(false);
+  // R3/F44: inviteTouched was dead — the CTA is `disabled` (F38) so
+  // onClick never fires to set it, and the error hint stayed hidden. Render
+  // the hint unconditionally while selectedPeople.length === 0 so the user
+  // understands *why* the button is disabled.
   const [expandedSuggestion, setExpandedSuggestion] = useState<ExpandedSuggestionCard | null>(null);
   const [isRoundGenerating, setIsRoundGenerating] = useState(false);
   const [hoveredDebugMentorId, setHoveredDebugMentorId] = useState('');
@@ -357,6 +357,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     getStarted: isZh ? '开始' : 'Get Started',
     dontShowAgain: isZh ? '下次不再显示' : "Don't show this again",
     keepShowing: isZh ? '下次继续显示' : 'Keep showing on startup',
+    // R3/F50: i18n-wire the onboarding Skip label (was hardcoded bilingual).
+    skipOnboarding: tI18n('mt.skipOnboarding', { defaultValue: isZh ? '跳过' : 'Skip' }),
     // ERR-2: retry-able error state for handleGenerate failures
     generateFailed: tI18n('mt.generateFailed', { defaultValue: isZh ? '召唤失败，请重试。' : 'Could not reach the mentors. Please retry.' }),
     retry: tI18n('mt.retry', { defaultValue: isZh ? '重试' : 'Retry' }),
@@ -1041,13 +1043,20 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
 
   const finishOnboarding = () => {
     setShowOnboarding(false);
-    // R2-FIX: always persist `onboardingDismissed` so the modal doesn't
-    // re-appear on reload, regardless of the "don't show again" checkbox
-    // (which controls a separate preference). Wrap in try/catch because
-    // Safari Private Browsing throws SecurityError on localStorage writes.
+    // R3/F48: always persist ONBOARDING_KEY='1' on dismiss UNLESS the user
+    // explicitly toggled "keep showing" on slide 3 (`dontShowOnboardingAgain`
+    // is initialized from the stored key — so `false` means either
+    // never-set or the user actively asked to keep seeing the tour).
+    // A Skip-tapper never reaches slide 3, so default-persist dismissal.
+    // The explicit "keep showing" case is when the user is on slide 3 AND
+    // toggled it off — we honor that by writing '0'. Dead
+    // 'onboardingDismissed' write removed (no reader).
+    const persistValue =
+      currentSlide === localizedOnboardingSlides.length - 1 && !dontShowOnboardingAgain
+        ? '0'
+        : '1';
     try {
-      localStorage.setItem(ONBOARDING_KEY, dontShowOnboardingAgain ? '1' : '0');
-      localStorage.setItem('onboardingDismissed', 'true');
+      localStorage.setItem(ONBOARDING_KEY, persistValue);
     } catch { /* Safari Private — state only persists for this session */ }
   };
 
@@ -1682,9 +1691,11 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
 
                   {/* ERR-1: block the continue button when no mentors picked.
                       Inline error announces it to AT users. */}
-                  {/* R2/F38: real `disabled` (not just aria) at 0 mentors —
-                      kills inverted-hierarchy dead-end click. + CTA stays
-                      visually dominant when there's nothing to continue to. */}
+                  {/* R3/F44+F45: `disabled` silences onClick (R2/F38), so the
+                      error hint is rendered unconditionally while the guest
+                      list is empty — it tells the user *why* the CTA is
+                      disabled. Inline opacity removed; the CSS
+                      `:disabled { opacity: 0.72 }` rule (CC-5, WCAG 3:1) wins. */}
                   <button
                     type="button"
                     data-testid="mentor-continue-wish"
@@ -1692,16 +1703,14 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                     disabled={selectedPeople.length === 0}
                     aria-disabled={selectedPeople.length === 0}
                     aria-describedby={selectedPeople.length === 0 ? 'mentor-continue-error' : undefined}
-                    style={selectedPeople.length === 0 ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
                     onClick={() => {
-                      setInviteTouched(true);
                       if (selectedPeople.length === 0) return;
                       setPhase('wish');
                     }}
                   >
                     {t.continueToWish}
                   </button>
-                  {inviteTouched && selectedPeople.length === 0 && (
+                  {selectedPeople.length === 0 && (
                     <p
                       id="mentor-continue-error"
                       role="alert"
@@ -2503,15 +2512,15 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
             <div className={styles.onboardingCard}>
               {/* R2/F34: Skip button always visible — share-link visitors
                   must be able to bypass the 3-slide tour to reach the form.
-                  Bilingual hardcode (i18n keys for onboarding don't exist
-                  yet — tech debt for U7.x). */}
+                  R3/F50: label now routed through the `t` i18n bundle
+                  (`mt.skipOnboarding`). */}
               <button
                 type="button"
                 className={styles.onboardingSkipBtn}
                 onClick={finishOnboarding}
                 aria-label={isZh ? '跳过引导' : 'Skip onboarding'}
               >
-                {isZh ? '跳过 / Skip' : 'Skip / 跳过'}
+                {t.skipOnboarding}
               </button>
               <h3 id="mentor-onboarding-title">{localizedOnboardingSlides[currentSlide].title}</h3>
               <p>{localizedOnboardingSlides[currentSlide].body}</p>

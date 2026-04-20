@@ -357,15 +357,18 @@ describe('R2 motion — MC-3 reveal-all button', () => {
 // ================= Errors =================
 
 describe('R2 errors — ERR-1 continue blocks 0-mentor sessions', () => {
-  it('continue button is disabled (real disabled attr + aria-disabled) with 0 mentors', () => {
-    // R2/F38: button is now truly disabled at 0 mentors (not just aria) —
-    // kills inverted-hierarchy dead-end click. The inline error path is
-    // therefore unreachable via click; the disabled state IS the signal.
+  it('continue button is disabled + inline error is present with 0 mentors', () => {
+    // R3/F44: button is truly disabled at 0 mentors (kills inverted-
+    // hierarchy dead-end click) AND the inline error renders unconditionally
+    // so users understand *why* the CTA is inactive. R2 silenced the
+    // error — this test now asserts it's reachable.
     render(<MentorTablePage standalone />);
     const btn = screen.getByTestId('mentor-continue-wish') as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
     expect(btn.getAttribute('aria-disabled')).toBe('true');
-    expect(document.getElementById('mentor-continue-error')).toBeNull();
+    const hint = document.getElementById('mentor-continue-error');
+    expect(hint).not.toBeNull();
+    expect(hint?.getAttribute('role')).toBe('alert');
   });
 
   it('continue button enables once a mentor is added', async () => {

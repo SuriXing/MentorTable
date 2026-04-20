@@ -1898,20 +1898,26 @@
 }
 
 /* R2/F34: skip button — top-right of every onboarding slide so share-link
- * visitors can bypass the tour to reach the form. */
+ * visitors can bypass the tour to reach the form.
+ * R3/F49: WCAG 2.5.8 — min 44×44 tap target for mobile-first consumer UX. */
 .onboardingSkipBtn {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 8px;
+  right: 8px;
   background: transparent;
   border: 1px solid #cfd8e8;
   color: #5b6b85;
   border-radius: 999px;
-  padding: 4px 12px;
-  font-size: 0.78rem;
+  padding: 10px 18px;
+  font-size: 0.9rem;
   cursor: pointer;
   line-height: 1.4;
   z-index: 1;
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .onboardingSkipBtn:hover {
   background: #f3f6fb;
