@@ -287,3 +287,104 @@ For a faster operator-side kill (no code edit), block the
 `/_vercel/insights/event` path at the CDN/firewall, or set
 `window.va = () => {}` before the analytics script loads via a custom
 `<script>` injection.
+
+## Deployment Pipeline
+
+Owner: U9.1. Last reviewed: 2026/04/21.
+
+### Configuration source
+
+We use **`vercel.ts`** at the repo root, not `vercel.json`. The Vercel CLI
+auto-compiles `vercel.ts` → `vercel.json` during `vercel build`,
+`vercel dev`, and `vercel deploy` via the `@vercel/config` package
+(devDependency, v0.2.x).
+
+To preview the compiled JSON locally:
+
+```bash
+npx @vercel/config compile     # print to stdout
+npx @vercel/config validate    # type-check + summary
+npx @vercel/config generate    # write vercel.json (DO NOT COMMIT)
+```
+
+If you ever need to roll back to JSON: `npx @vercel/config generate >
+vercel.json`, delete `vercel.ts` + the devDependency, and commit. (Not
+recommended — the TS form is the source of truth.)
+
+### Rolling Releases (production)
+
+Production traffic is shifted to a new deployment in three stages:
+
+| Stage | Traffic | Hold |
+|-------|---------|------|
+| 1     | 10%     | 5 minutes  |
+| 2     | 50%     | 10 minutes |
+| 3     | 100%    | —          |
+
+**Where this is configured.** As of `@vercel/config@0.2.1`, rolling
+release stages are NOT exposed in the TypeScript schema. Configure them in
+the Vercel dashboard:
+
+1. Project → **Settings** → **Deployment Protection** → **Rolling Releases**.
+2. Set stages 10% / 5m, 50% / 10m, 100%.
+3. Save. The setting applies to all subsequent production promotions.
+
+A `// TODO` in `vercel.ts` tracks this so we move it back into code once
+the schema supports it.
+
+**Rollback path.** Two equivalent options — pick whichever is faster in
+the moment:
+
+- **Dashboard (one-click):** Project → **Deployments** → find the
+  previous green production deploy → **⋯** → **Promote to Production**.
+  Vercel atomically re-aliases `mentor-table.vercel.app` to the older
+  build. Rolling release does NOT re-stage on rollback — traffic flips
+  100% immediately, which is what you want during an incident.
+- **CLI:** `vercel rollback <previous-deployment-url>` (requires
+  `vercel login` + project link). Same behaviour, scriptable.
+
+After rollback: open an incident note, then bisect the bad deploy on a
+preview branch before re-promoting.
+
+### CI gates (block merge)
+
+`.github/workflows/ci.yml` runs on every `pull_request` and must be green
+before merge:
+
+1. `npm ci`
+2. `npm run lint`
+3. `npm run type-check`
+4. `npm test -- --coverage` — coverage gate **≥95%** (configured in
+   `vite.config.mts`; do not bypass without writing the missing tests).
+5. `npm run build`
+6. `npm run test:e2e` (Cypress + Playwright browsers installed via
+   `npx playwright install --with-deps chromium` and `npx cypress install`).
+
+To make this a hard merge gate (one-time, in GitHub UI):
+
+> Settings → Branches → Branch protection rules → `main` → **Require
+> status checks to pass** → add `Lint • Type-check • Test • Build • E2E`.
+
+`.github/workflows/lighthouse.yml` runs Lighthouse CI against the Vercel
+preview URL on each PR and posts a comment with the report links. It uses
+`patrickedqvist/wait-for-vercel-preview@v1.3.2` to discover the preview
+URL; this requires no extra secret beyond the default `GITHUB_TOKEN`. To
+add Lighthouse as a hard gate, add a `lighthouserc.json` with score
+budgets and check **Require status checks to pass** for the Lighthouse
+job too.
+
+### Verifying CI catches a broken commit
+
+To prove the gate works (do this once after any major workflow edit):
+
+```bash
+git checkout -b ci-self-test
+# Introduce a deliberate type error:
+node -e "require('fs').appendFileSync('src/main.tsx', '\nconst x: number = \"oops\";\n')"
+git add -A && git commit -m "test: deliberately break type-check"
+git push -u origin ci-self-test
+gh pr create --fill
+# Expect: type-check step red, merge button disabled.
+gh pr close --delete-branch
+```
+
