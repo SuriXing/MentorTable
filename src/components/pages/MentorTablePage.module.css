@@ -172,7 +172,7 @@
    * ≥4.5:1 across every theme palette. The accent color survives via the
    * 1px border and (via overrides) the dark-mode background. Previously the
    * lighter palettes (forest/teal/sunset/purple) failed WCAG AA at ~1.7-3:1. */
-  border: 1px solid color-mix(in srgb, var(--primary-color) 35%, #cad9f8);
+  border: 1px solid color-mix(in srgb, var(--primary-color) 65%, transparent);
   color: var(--text-primary, #1f2937);
   background: #fff;
   border-radius: 10px;
@@ -2428,4 +2428,107 @@
 :global(html[data-theme-mode="dark"]) .panel,
 :global(html[data-theme-mode="dark"]) .topBar {
   border-color: color-mix(in srgb, var(--primary-color) 22%, transparent);
+}
+
+/* ================================================================
+ * U7.1 — Polish layer: empty state, typing indicator, micro-interactions.
+ * All motion is gated by the universal prefers-reduced-motion kill in
+ * src/index.css:127, which forces animation/transition durations to 1ms.
+ * ================================================================ */
+
+/* Empty intro illustration shown in the invite phase when no guests
+ * are seated yet. Anchors the otherwise-blank panel and tells the
+ * user exactly what to do next. */
+.emptyIntro {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 28px 16px 12px;
+  color: var(--text-secondary, #6b7280);
+  gap: 6px;
+}
+
+.emptyIntroIllustration {
+  color: var(--primary-color, #5B7BFA);
+  margin-bottom: 8px;
+  animation: mt-empty-float 4.2s ease-in-out infinite;
+}
+
+.emptyIntroTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary, #1f2937);
+  margin: 0;
+}
+
+.emptyIntroHint {
+  font-size: 0.86rem;
+  margin: 0;
+  opacity: 0.85;
+}
+
+@keyframes mt-empty-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+
+/* Replace the "blink" typing indicator with three bouncing dots
+ * appended via ::after on the .conversationLoading <p>. Cleaner
+ * read on slow LLM streams and matches modern chat conventions. */
+.conversationLoading p::after {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow:
+    8px 0 0 0 currentColor,
+    16px 0 0 0 currentColor;
+  animation: mt-typing-bounce 1.1s ease-in-out infinite;
+  vertical-align: middle;
+}
+
+@keyframes mt-typing-bounce {
+  0%, 100% { opacity: 0.3; transform: translateY(0); }
+  50%      { opacity: 1;   transform: translateY(-2px); }
+}
+
+/* Micro-interactions: subtle hover lift on the primary CTA + ghost
+ * button. Translateforms are GPU-cheap and the transition is short
+ * enough that reduced-motion users (1ms via global) effectively get
+ * the resting state. */
+.primaryCta,
+.ghostBtn {
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.primaryCta:hover:not([aria-disabled="true"]),
+.ghostBtn:hover {
+  transform: translateY(-1px);
+}
+
+.primaryCta:active,
+.ghostBtn:active {
+  transform: translateY(0);
+}
+
+/* Phase pill state transitions — pending → active → done */
+.phasePill {
+  transition: background 220ms ease, color 220ms ease, transform 160ms ease;
+}
+
+/* Mentor card entrance fade+slide when first added to selectedPeople.
+ * Existing inline style sets animationDelay so cards stagger.
+ * The keyframe is no-op under reduced motion (duration→1ms). */
+.guestCard {
+  animation: mt-guest-enter 320ms ease both;
+}
+
+@keyframes mt-guest-enter {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
 }
