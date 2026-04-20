@@ -111,6 +111,48 @@ describe('ErrorBoundary', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
+  it('reports client_error to window.va with truncated fields and no full stack (U8.1)', () => {
+    // Ensure window.va is a mock BEFORE the boundary catches the error.
+    const track = vi.fn();
+    const origVa = (window as unknown as { va?: unknown }).va;
+    (window as unknown as { va: { track: typeof track } }).va = { track };
+    try {
+      const longMsg = 'X'.repeat(1000); // longer than the 200-char cap
+      render(
+        <ErrorBoundary>
+          <Boom msg={longMsg} />
+        </ErrorBoundary>
+      );
+      // componentDidCatch should have invoked va.track exactly once.
+      expect(track).toHaveBeenCalledTimes(1);
+      const [event, payload] = track.mock.calls[0];
+      expect(event).toBe('client_error');
+      expect(payload).toBeTruthy();
+      // Required shape: name, message (≤200 chars), component_stack (≤500 chars).
+      expect(typeof payload.name).toBe('string');
+      expect(payload.name.length).toBeGreaterThan(0);
+      // Source uses `message_first_200_chars` / `component_stack_first_500`.
+      // Accept either key naming so the contract test survives a rename.
+      const message = payload.message ?? payload.message_first_200_chars;
+      const componentStack = payload.component_stack ?? payload.component_stack_first_500;
+      expect(typeof message).toBe('string');
+      expect(message.length).toBeLessThanOrEqual(200);
+      // The 1000-char message must have been truncated, not passed through.
+      expect(message.length).toBe(200);
+      expect(typeof componentStack).toBe('string');
+      expect(componentStack.length).toBeLessThanOrEqual(500);
+      // No full stack trace leaked — payload must NOT contain an unbounded
+      // `stack` field, which would echo file paths and user strings.
+      expect(payload).not.toHaveProperty('stack');
+    } finally {
+      if (origVa === undefined) {
+        delete (window as unknown as { va?: unknown }).va;
+      } else {
+        (window as unknown as { va: unknown }).va = origVa;
+      }
+    }
+  });
+
   it('omits the <pre> when error has empty message', () => {
     const Empty: React.FC = () => {
       throw new Error('');

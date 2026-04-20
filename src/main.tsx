@@ -1,6 +1,8 @@
 import React, { Suspense, lazy } from 'react';
 import ReactDOM from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import './i18n';
 import './index.css';
 import ThemePicker from './components/shared/ThemePicker';
@@ -94,6 +96,12 @@ if (root) {
           <ThemeModeToggle />
           <ThemePicker />
           <LanguageSwitcher />
+          {/* U8.1: Vercel observability. Both components are no-ops when
+           * not deployed on Vercel, so local dev is unaffected. Mounted
+           * inside the router/boundary so their own render errors are
+           * caught by ErrorBoundary too. */}
+          <Analytics />
+          <SpeedInsights />
         </ErrorBoundary>
       </MemoryRouter>
     </React.StrictMode>

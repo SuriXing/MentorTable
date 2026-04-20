@@ -35,6 +35,24 @@ export default class ErrorBoundary extends React.Component<Props, State> {
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
     // eslint-disable-next-line no-console
     console.error('[ErrorBoundary] captured render error:', error, info);
+    // U8.1: report to Vercel Analytics as a custom event. Guarded so SSR /
+    // tests without window.va are no-ops. We intentionally truncate
+    // message and component stack — full stacks can leak file paths and
+    // user-authored strings, and Vercel Analytics caps event payload size.
+    if (typeof window !== 'undefined') {
+      try {
+        const w = window as unknown as {
+          va?: { track?: (event: string, props: Record<string, unknown>) => void };
+        };
+        w.va?.track?.('client_error', {
+          name: error?.name || 'Error',
+          message_first_200_chars: (error?.message || '').slice(0, 200),
+          component_stack_first_500: (info?.componentStack || '').slice(0, 500),
+        });
+      } catch {
+        /* never let analytics reporting crash the boundary */
+      }
+    }
   }
 
   componentWillUnmount(): void {

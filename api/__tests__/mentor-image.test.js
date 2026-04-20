@@ -995,11 +995,15 @@ describe('fetchBuffer redirect following', () => {
     const res = mockRes();
     await handler(mockReq({ query: { name: 'RO Person' } }), res);
 
-    // Write attempt was logged via console.warn with the EROFS code
+    // Write attempt was logged via console.warn with the EROFS code.
+    // U8.1: the structured logger's 'warn' level also routes through
+    // console.warn, so the legacy "[mentor-image] cache write failed" line
+    // is the SECOND warn call, not the first.
     expect(warnSpy).toHaveBeenCalled();
-    const warnArgs = warnSpy.mock.calls[0];
-    expect(warnArgs[0]).toMatch(/cache write failed/);
-    expect(warnArgs[1]).toBe('EROFS');
+    const legacyCall = warnSpy.mock.calls.find((c) => typeof c[0] === 'string' && c[0].includes('cache write failed'));
+    expect(legacyCall).toBeTruthy();
+    expect(legacyCall[0]).toMatch(/cache write failed/);
+    expect(legacyCall[1]).toBe('EROFS');
     // Image still served from the in-memory buffer
     expect(res._headers['Content-Type']).toBe('image/jpeg');
     expect(res._body).toBeTruthy();
@@ -1059,7 +1063,9 @@ describe('fetchBuffer redirect following', () => {
     await handler(mockReq({ query: { name: 'No Code' } }), res);
 
     expect(warnSpy).toHaveBeenCalled();
-    expect(warnSpy.mock.calls[0][1]).toBe('string-error-no-code');
+    const legacyCall = warnSpy.mock.calls.find((c) => typeof c[0] === 'string' && c[0].includes('cache write failed'));
+    expect(legacyCall).toBeTruthy();
+    expect(legacyCall[1]).toBe('string-error-no-code');
     expect(res._body).toBeTruthy();
   });
 
