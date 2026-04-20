@@ -10,6 +10,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# F90: explicit least-privilege token. The verify job only needs to read repo.
+permissions:
+  contents: read
+
 jobs:
   verify:
     name: Lint • Type-check • Test • Build • E2E
@@ -43,13 +47,35 @@ jobs:
       - name: Build
         run: npm run build
 
+      # E2E uses TWO frameworks (per repo layout):
+      #   - Playwright   (e2e/*.spec.ts)            — primary, has webServer wiring
+      #   - Cypress      (cypress/e2e/*.cy.js)      — single critical-flow smoke
+      # Playwright manages its own webServer via playwright.config.ts.
+      # Cypress needs the dev server too, so we let Playwright start them and
+      # reuse via reuseExistingServer. We start them once explicitly here so
+      # the Cypress step has a known-good baseURL.
+
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium webkit
 
       - name: Install Cypress binary
         run: npx cypress install
 
-      - name: E2E tests
-        run: npm run test:e2e
+      - name: Start app servers (vite :3001 + api :8787)
+        run: |
+          nohup node server.js > /tmp/api.log 2>&1 &
+          nohup npx vite --port 3001 --host 127.0.0.1 > /tmp/vite.log 2>&1 &
+          npx -y wait-on http://127.0.0.1:8787/api/health http://127.0.0.1:3001 -t 60000
+
+      # F80, F103: Playwright actually runs now (was installed but never invoked).
+      - name: Playwright tests
+        run: npx playwright test
+        env:
+          CI: 'true'
+
+      # F101: Cypress now has cypress.config.ts at repo root and a running
+      # webserver above. `cypress run` will pick up cypress/e2e/**.cy.js.
+      - name: Cypress tests
+        run: npx cypress run
         env:
           CI: 'true'

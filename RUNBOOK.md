@@ -357,8 +357,13 @@ before merge:
 4. `npm test -- --coverage` — coverage gate **≥95%** (configured in
    `vite.config.mts`; do not bypass without writing the missing tests).
 5. `npm run build`
-6. `npm run test:e2e` (Cypress + Playwright browsers installed via
-   `npx playwright install --with-deps chromium` and `npx cypress install`).
+6. **E2E** — both frameworks run, in this order, against a single
+   shared dev server (`vite` on `:3001`, `node server.js` on `:8787`)
+   started by the workflow before either runner:
+   - `npx playwright test` — primary suite (`e2e/*.spec.ts`,
+     Chromium + WebKit per `playwright.config.ts`).
+   - `npx cypress run` — single critical-flow smoke
+     (`cypress/e2e/mentor-table.cy.js`, config at `cypress.config.ts`).
 
 To make this a hard merge gate (one-time, in GitHub UI):
 
@@ -366,12 +371,14 @@ To make this a hard merge gate (one-time, in GitHub UI):
 > status checks to pass** → add `Lint • Type-check • Test • Build • E2E`.
 
 `.github/workflows/lighthouse.yml` runs Lighthouse CI against the Vercel
-preview URL on each PR and posts a comment with the report links. It uses
+preview URL on each PR, asserts score budgets from `lighthouserc.json`
+(perf ≥0.90, a11y ≥0.95, best-practices ≥0.95, SEO ≥0.90 — matches
+OUT-6), and posts a comment with report links. It uses
 `patrickedqvist/wait-for-vercel-preview@v1.3.2` to discover the preview
-URL; this requires no extra secret beyond the default `GITHUB_TOKEN`. To
-add Lighthouse as a hard gate, add a `lighthouserc.json` with score
-budgets and check **Require status checks to pass** for the Lighthouse
-job too.
+URL; this requires no extra secret beyond the default `GITHUB_TOKEN`.
+The job fails (red X on the PR) if any budget is missed. To make it a
+hard merge gate: Settings → Branches → branch protection on `main` →
+**Require status checks** → add `Lighthouse audit on Vercel preview`.
 
 ### Verifying CI catches a broken commit
 
@@ -387,4 +394,32 @@ gh pr create --fill
 # Expect: type-check step red, merge button disabled.
 gh pr close --delete-branch
 ```
+
+### Rollback drill (rehearse before you need it at 2am)
+
+Do this once per quarter on a low-traffic window so muscle memory is real,
+not theoretical. Total time: ~2 minutes.
+
+```bash
+# 1. Capture current prod for the post-drill restore.
+CURRENT=$(vercel ls --prod | awk '/Ready/ {print $2; exit}')
+echo "current prod: $CURRENT"
+
+# 2. Pick the deployment immediately prior — that's the rollback target.
+PREVIOUS=$(vercel ls --prod | awk '/Ready/ {print $2}' | sed -n '2p')
+echo "rollback target: $PREVIOUS"
+
+# 3. Promote the previous deployment.
+vercel rollback "$PREVIOUS" --yes
+
+# 4. Verify alias flipped (sha should match $PREVIOUS, not $CURRENT).
+curl -sS https://mentor-table.vercel.app/api/health | jq .sha
+
+# 5. Restore — promote what was prod before the drill.
+vercel rollback "$CURRENT" --yes
+curl -sS https://mentor-table.vercel.app/api/health | jq .sha
+```
+
+If step 4 doesn't flip the sha within ~10s, the dashboard path is the
+fallback: Deployments → previous → ⋯ → Promote to Production.
 
