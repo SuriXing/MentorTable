@@ -1,0 +1,31 @@
+{
+  "node": "U5.1",
+  "type": "build",
+  "summary": "U5.1 R2: F19 LLM circuit breaker + LLM_DISABLED kill switch wired into /api/mentor-table; F20 git-history audit clean (no rotation needed); F21 LTAI redaction pattern + tests; F22 stripControlChars rename with back-compat aliases; F23 Vercel XFF trust-boundary doc; F24 HSTS preload commitment; F25 Permissions-Policy expanded to 12 features; F26 dist/ verified by secret value (not just env name); F27 SRI deferred with rationale. docs/SECURITY.md created.",
+  "verdict": "PASS",
+  "artifacts": [
+    "lib/security.js",
+    "api/mentor-table.js",
+    "vercel.json",
+    "lib/__tests__/security.test.js",
+    "docs/SECURITY.md",
+    ".harness/nodes/U5.1/run_2/eval.md"
+  ],
+  "totals": { "critical": 0, "warning": 1, "suggestion": 1 },
+  "notes": {
+    "warning": "F19 residual risk: distributed-IP attack capped at instance_count * LLM_HOURLY_BUDGET. Operator must trigger LLM_DISABLED=1 within minutes if abuse fires. Upgrade path to Upstash global counter is documented in docs/SECURITY.md but deferred for KISS.",
+    "suggestion": "F27 SRI deferred — same-origin asset model + CSP script-src 'self' already cover supply-chain threat for current architecture. Revisit if any 3rd-party CDN is added."
+  },
+  "verifyGate": {
+    "lint": "PASS",
+    "typeCheck": "PASS",
+    "tests": "924/924 PASS, 99.52% statements (gate >=95%)",
+    "build": "PASS",
+    "audit": "0 vulnerabilities",
+    "f21Test": "69/69 PASS in lib/__tests__/security",
+    "f25Header": "12-feature Permissions-Policy confirmed",
+    "f19Smoke": "LLM_DISABLED env parsed",
+    "f20Audit": "git history clean — dist/ never committed"
+  },
+  "f20AuditVerdict": "CLEAN — no rotation needed"
+}
