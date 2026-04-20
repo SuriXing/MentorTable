@@ -124,10 +124,12 @@
 }
 
 .phasePill {
-  /* CC-1: original #c8d8f7 on white failed 3:1 non-text contrast. */
+  /* CC-1: original #c8d8f7 on white failed 3:1 non-text contrast.
+   * U6.1: text uses --text-primary so contrast holds across all theme
+   * palettes (purple/teal/sunset/forest primaries failed 4.5:1 on white). */
   border: 1px solid #89a4dc;
   background: #fff;
-  color: var(--primary-color);
+  color: var(--text-primary, #1f2937);
   border-radius: 999px;
   /* MV-3: >=0.85rem for body text */
   font-size: 0.85rem;
@@ -166,8 +168,12 @@
 }
 
 .ghostBtn {
-  border: 1px solid #cad9f8;
-  color: var(--primary-color);
+  /* U6.1: text uses --text-primary so contrast on the white background stays
+   * ≥4.5:1 across every theme palette. The accent color survives via the
+   * 1px border and (via overrides) the dark-mode background. Previously the
+   * lighter palettes (forest/teal/sunset/purple) failed WCAG AA at ~1.7-3:1. */
+  border: 1px solid color-mix(in srgb, var(--primary-color) 35%, #cad9f8);
+  color: var(--text-primary, #1f2937);
   background: #fff;
   border-radius: 10px;
   padding: 6px 10px;
