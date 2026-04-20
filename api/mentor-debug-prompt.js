@@ -104,10 +104,10 @@ module.exports = async (req, res) => {
       errorName: error instanceof Error ? error.name : typeof error,
       errorMessageTruncated: truncateErrorMessage(error, 200),
     });
-    // Legacy console.error kept so existing spyOn(console, 'error') test
-    // hooks keep working while the line is also emitted as JSON above.
-    // eslint-disable-next-line no-console
-    console.error('[mentor-debug-prompt] error:', error);
+    // F57 (U8.1 R2): removed the parallel `console.error('[mentor-debug-prompt] error:', error)`
+    // duplicate that emitted the raw Error (full stack trace incl. file
+    // paths). The structured log above is the sole record; message is
+    // truncated to 200 chars via `truncateErrorMessage`.
     // Never pass raw thrown values to the client (bug #4 from R2B).
     // NEW-4: share the redactor from lib/security.js so this handler inherits
     // the BYPASS-1 fix (broader secret coverage, no UUID over-redaction).

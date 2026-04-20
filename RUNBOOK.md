@@ -92,6 +92,11 @@ Local dev reads from `.env` at repo root (gitignored). Never commit keys.
 | `MENTOR_API_PORT` | No | local only | Dev Express port. Default: `8787`. |
 | `MENTOR_API_HOST` | No | local only | Dev Express host. Default: `127.0.0.1`. |
 | `VITE_COVERAGE` | No | local only | Set to `1` to enable Istanbul coverage in the Vite dev build. |
+| `VITE_MENTOR_API_URL` | No | **build time (Vite inlines)** | Override the production `/api/mentor-table` endpoint URL at build time. Read in `src/features/mentorTable/mentorApi.ts`. Changing it requires a rebuild + redeploy. |
+| `VITE_MENTOR_DEBUG_API_URL` | No | **build time (Vite inlines)** | Override the `/api/mentor-debug-prompt` endpoint URL. Same build-time semantics as above. |
+| `VITE_MENTOR_API_TIMEOUT_MS` | No | **build time (Vite inlines)** | Client-side fetch timeout (ms) for mentor API calls. Default in code: `30000`. Build time only. |
+| `VITE_MENTOR_NOTE_COORDINATE_ALL` | No | **build time (Vite inlines)** | Feature flag: `1` to enable cross-mentor note coordination on `MentorTablePage`. Build time only. |
+| `COLLECT_UI_COVERAGE` | No | local only (Playwright) | Set to `1` to collect Istanbul UI coverage during `playwright` runs. Read in `playwright.config.ts`. |
 | `ANALYZE` | No | local only | Set to `1` to emit bundle-stats HTML/JSON outside `dist/`. |
 | `SOURCEMAP` | No | local only | Set to `1` to emit prod source maps (off by default — never ship publicly). |
 
@@ -125,12 +130,12 @@ vercel logs <domain> --since 15m | grep -E '"status":429|Rate limit exceeded'
 **Remediation.**
 
 ```bash
-# Option 1: raise the bucket (per-instance) — redeploy-free via env edit.
-vercel env add RATE_LIMIT_CAPACITY   # if/when wired; currently hardcoded default 30
-# Option 2: confirm it's a real flood, not a single hot client. Look at
+# F64 (U8.1 R2): rate-limit cap is hardcoded at 30 in lib/security.js;
+# changing it requires a code edit + deploy. There is no env-var override.
+# Option 1 (real flood): confirm it's not a single hot client. Look at
 # distinct x-forwarded-for first-hop addresses in the past 15m:
 vercel logs <domain> --since 15m | grep -oE '"xff":"[^"]+"' | sort -u | wc -l
-# Option 3: if the flood is hitting LLM endpoints, flip the kill switch:
+# Option 2: if the flood is hitting LLM endpoints, flip the kill switch:
 vercel env add LLM_DISABLED production   # value: 1
 vercel redeploy <last-good-deployment-url>  # or wait for next deploy
 ```
@@ -222,3 +227,63 @@ vercel inspect <deployment-url> --logs
 # 4. As a nuclear option, roll back per the "Rollback" section above if
 #    the timeout regression correlates with a specific deployment.
 ```
+
+## Analytics & Privacy
+
+**What we collect.** The app mounts `<Analytics />` and `<SpeedInsights />`
+from `@vercel/analytics` and `@vercel/speed-insights` (`src/main.tsx`). These
+fire:
+
+- **Vercel Analytics** — automatic pageviews on every route change.
+- **Speed Insights** — Core Web Vitals (LCP, CLS, INP, FCP, TTFB) per
+  pageview, sampled by Vercel.
+- **`client_error`** — custom event from `ErrorBoundary.componentDidCatch`
+  carrying `{ name, message_first_200_chars, component_stack_first_500 }`.
+  The message is run through an inline regex that scrubs Bearer/sk-/LTAI/JWT
+  shapes BEFORE the 200-char slice (`src/components/shared/ErrorBoundary.tsx`).
+
+**Data classes & PII posture.** No emails, IDs, IP addresses, or auth
+tokens are emitted from the client. Vercel Analytics anonymizes IPs at the
+edge before recording. Custom event payloads carry only the truncated +
+secret-scrubbed error message and component stack — no `req.body`, no
+user-authored prompt text.
+
+**Data residency.** Vercel Analytics & Speed Insights are hosted in
+Vercel's US/EU edge regions. The primary audience is in mainland China
+(DashScope backend, bilingual copy); this is a relevant disclosure for
+PIPL/GDPR risk reviews. If a future legal posture requires CN residency,
+the entire analytics layer must be removed (see "Kill switch" below).
+
+**Runtime opt-out (Do-Not-Track).** The `<Analytics />` mount in
+`src/main.tsx` passes a `beforeSend` callback that returns `null` when the
+browser advertises `navigator.doNotTrack === '1'`:
+
+```tsx
+<Analytics
+  beforeSend={(event) =>
+    typeof navigator !== 'undefined' && navigator.doNotTrack === '1'
+      ? null
+      : event
+  }
+/>
+```
+
+Users who enable DNT in their browser send no pageview, no `client_error`,
+no perf beacon. (Speed Insights does not currently expose `beforeSend`; if
+strict DNT compliance for perf beacons is required, also remove the
+`<SpeedInsights />` mount.)
+
+**Kill switch (disable entirely).** To remove all client-side telemetry on
+the next deploy:
+
+1. Delete `<Analytics />` and `<SpeedInsights />` from `src/main.tsx`.
+2. Delete the `w.va?.track?.('client_error', …)` block from
+   `src/components/shared/ErrorBoundary.tsx`.
+3. Optionally drop `@vercel/analytics` + `@vercel/speed-insights` from
+   `package.json` and `npm install` to shrink the bundle.
+4. `git commit && vercel --prod` — the next deploy carries no analytics.
+
+For a faster operator-side kill (no code edit), block the
+`/_vercel/insights/event` path at the CDN/firewall, or set
+`window.va = () => {}` before the analytics script loads via a custom
+`<script>` injection.

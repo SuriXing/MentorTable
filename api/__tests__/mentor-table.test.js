@@ -202,8 +202,13 @@ describe('mentor-table handler', () => {
     // Exercises `errorText = '<unreadable>'` fallback at lines 1113-1115.
     // Upstream returns non-ok; response.text() itself rejects (broken stream).
     // Handler must still throw a redacted per-mentor error and fall back.
+    // F57 (U8.1 R2): handler no longer emits a parallel console.error — the
+    // sole sink is the structured logger. Spy console.log (level=error routes
+    // to console.error in the logger) AND console.error to capture both
+    // routing paths.
     process.env.LLM_API_KEY = 'test-key';
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,
@@ -223,12 +228,21 @@ describe('mentor-table handler', () => {
     expect(res._json.mentorReplies).toHaveLength(1);
     expect(res._json.mentorReplies[0].mentorId).toBe(sampleMentor.id);
 
-    // Confirm the '<unreadable>' fallback was actually logged server-side
-    const unreadableLog = errorSpy.mock.calls.find(
-      (call) => typeof call[0] === 'string' && call[0].includes('body=<unreadable>')
-    );
+    // Confirm the '<unreadable>' fallback was actually logged server-side via
+    // the structured logger (JSON line carrying bodyTruncated: '<unreadable>').
+    const allCalls = [...errorSpy.mock.calls, ...logSpy.mock.calls];
+    const unreadableLog = allCalls.find((call) => {
+      if (typeof call[0] !== 'string') return false;
+      try {
+        const parsed = JSON.parse(call[0]);
+        return parsed.bodyTruncated === '<unreadable>';
+      } catch {
+        return false;
+      }
+    });
     expect(unreadableLog).toBeTruthy();
     errorSpy.mockRestore();
+    logSpy.mockRestore();
   });
 
   it('returns 413 when conversationHistory exceeds HISTORY_MAX_ENTRIES (50)', async () => {

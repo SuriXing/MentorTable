@@ -995,15 +995,18 @@ describe('fetchBuffer redirect following', () => {
     const res = mockRes();
     await handler(mockReq({ query: { name: 'RO Person' } }), res);
 
-    // Write attempt was logged via console.warn with the EROFS code.
-    // U8.1: the structured logger's 'warn' level also routes through
-    // console.warn, so the legacy "[mentor-image] cache write failed" line
-    // is the SECOND warn call, not the first.
+    // F57 (U8.1 R2): the legacy `console.warn('[mentor-image] cache write failed', ...)`
+    // duplicate has been removed. The structured logger's 'warn' level routes
+    // through console.warn — assert the JSON line carries the EROFS code.
     expect(warnSpy).toHaveBeenCalled();
-    const legacyCall = warnSpy.mock.calls.find((c) => typeof c[0] === 'string' && c[0].includes('cache write failed'));
-    expect(legacyCall).toBeTruthy();
-    expect(legacyCall[0]).toMatch(/cache write failed/);
-    expect(legacyCall[1]).toBe('EROFS');
+    const structured = warnSpy.mock.calls.find((c) => {
+      if (typeof c[0] !== 'string') return false;
+      try {
+        const p = JSON.parse(c[0]);
+        return p.stage === 'cache_write' && p.errorCode === 'EROFS';
+      } catch { return false; }
+    });
+    expect(structured).toBeTruthy();
     // Image still served from the in-memory buffer
     expect(res._headers['Content-Type']).toBe('image/jpeg');
     expect(res._body).toBeTruthy();
@@ -1062,10 +1065,18 @@ describe('fetchBuffer redirect following', () => {
     const res = mockRes();
     await handler(mockReq({ query: { name: 'No Code' } }), res);
 
+    // F57 (U8.1 R2): the legacy console.warn duplicate that printed the
+    // raw thrown string is gone. Assert the structured logger captured it
+    // via errorMessageTruncated instead.
     expect(warnSpy).toHaveBeenCalled();
-    const legacyCall = warnSpy.mock.calls.find((c) => typeof c[0] === 'string' && c[0].includes('cache write failed'));
-    expect(legacyCall).toBeTruthy();
-    expect(legacyCall[1]).toBe('string-error-no-code');
+    const structured = warnSpy.mock.calls.find((c) => {
+      if (typeof c[0] !== 'string') return false;
+      try {
+        const p = JSON.parse(c[0]);
+        return p.stage === 'cache_write' && typeof p.errorMessageTruncated === 'string' && p.errorMessageTruncated.includes('string-error-no-code');
+      } catch { return false; }
+    });
+    expect(structured).toBeTruthy();
     expect(res._body).toBeTruthy();
   });
 

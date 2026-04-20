@@ -44,9 +44,21 @@ export default class ErrorBoundary extends React.Component<Props, State> {
         const w = window as unknown as {
           va?: { track?: (event: string, props: Record<string, unknown>) => void };
         };
+        // F63 (U8.1 R2): scrub well-known secret shapes from error.message
+        // BEFORE slicing. An upstream error echoing back a Bearer/sk-/LTAI
+        // token in the first 200 chars would otherwise land verbatim in
+        // analytics. Inline regex (no import from lib/security.js) so this
+        // stays in the client bundle without pulling in server code.
+        const rawMessage = error?.message || '';
+        const scrubbedMessage = rawMessage
+          .replace(/\bBearer\s+[A-Za-z0-9_\-.=+/]+/gi, 'Bearer [REDACTED]')
+          .replace(/\bsk-ant-[A-Za-z0-9_\-]{8,}/gi, 'sk-ant-[REDACTED]')
+          .replace(/\bsk-[A-Za-z0-9_\-]{16,}/g, 'sk-[REDACTED]')
+          .replace(/\bLTAI[A-Za-z0-9]{12,30}\b/g, 'LTAI[REDACTED]')
+          .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, 'eyJ[REDACTED]');
         w.va?.track?.('client_error', {
           name: error?.name || 'Error',
-          message_first_200_chars: (error?.message || '').slice(0, 200),
+          message_first_200_chars: scrubbedMessage.slice(0, 200),
           component_stack_first_500: (info?.componentStack || '').slice(0, 500),
         });
       } catch {

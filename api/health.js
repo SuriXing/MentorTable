@@ -25,11 +25,10 @@ try {
 } catch {
   VERSION = 'unknown';
 }
-// npm_package_version is set by `npm run` scripts — prefer it when present
-// so the handler reflects the *invoked* package, not whatever require() hit.
-if (process.env.npm_package_version) {
-  VERSION = process.env.npm_package_version;
-}
+// F66 (U8.1 R2): on Vercel runtime `npm_package_version` is NOT set — it's
+// only populated by `npm run <script>`. The override branch was dead code in
+// prod and added a misleading code path. Removed; the bundled package.json
+// read above is authoritative.
 
 function healthHandler(req, res) {
   if (req.method && req.method !== 'GET' && req.method !== 'HEAD') {
