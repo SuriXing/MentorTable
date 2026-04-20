@@ -826,6 +826,19 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     scrollConversationToBottom();
   }, [phase, sessionMode, visibleReplyCount, noteReplies, conversationTurns, showGroupSolve, showSessionWrap]);
 
+  // U7.1: phase-aware document.title. Single-route SPA → can't do per-route
+  // <title> tags, but we can update the tab title as the user moves through
+  // the lifecycle so it's obvious at a glance which phase they're in
+  // (useful when multitasking across browser tabs).
+  useEffect(() => {
+    const base = '名人桌 — Mentor Table';
+    const phaseLabel =
+      phase === 'invite' ? (isZh ? '邀请' : 'Invite')
+      : phase === 'wish' ? (isZh ? '提问' : 'Ask')
+      : (isZh ? '答题中' : 'In session');
+    document.title = `${phaseLabel} · ${base}`;
+  }, [phase, isZh]);
+
   // SR-4: focus the risk banner on first appearance so screen-reader
   // users land on the safety message immediately. Uses a stable string
   // signature (level + text) to detect transitions rather than re-focus
@@ -1581,6 +1594,41 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                   </div>
 
                   <div className={styles.selectedPeopleGrid}>
+                    {selectedPeople.length === 0 && (
+                      // U7.1: empty state — illustration + bilingual copy + CTA hint.
+                      // Renders only when the user has not added any guests yet.
+                      // The Add button above is the actual CTA target; this block
+                      // makes the empty surface intentional rather than blank.
+                      <div
+                        data-testid="mentor-empty-intro"
+                        className={styles.emptyIntro}
+                        aria-live="polite"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          width="120"
+                          height="80"
+                          viewBox="0 0 120 80"
+                          fill="none"
+                          className={styles.emptyIntroIllustration}
+                        >
+                          <ellipse cx="60" cy="62" rx="46" ry="6" fill="currentColor" opacity="0.18" />
+                          <ellipse cx="60" cy="58" rx="46" ry="6" fill="currentColor" opacity="0.55" />
+                          <circle cx="22" cy="38" r="10" fill="currentColor" opacity="0.45" />
+                          <circle cx="46" cy="30" r="11" fill="currentColor" opacity="0.7" />
+                          <circle cx="74" cy="30" r="11" fill="currentColor" opacity="0.85" />
+                          <circle cx="98" cy="38" r="10" fill="currentColor" opacity="0.55" />
+                        </svg>
+                        <p className={styles.emptyIntroTitle}>
+                          {isZh ? '邀请你的第一位名人' : 'Invite your first mentor'}
+                        </p>
+                        <p className={styles.emptyIntroHint}>
+                          {isZh
+                            ? '在上方搜索框输入名字，按回车即可入席。'
+                            : 'Type a name above and press Enter to seat them.'}
+                        </p>
+                      </div>
+                    )}
                     {selectedPeople.map((person, idx) => {
                       const category = getMentorCategory(person.name);
                       const flipped = Boolean(flippedCards[person.name]);

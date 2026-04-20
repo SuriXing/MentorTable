@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5B7BFA"/>
+      <stop offset="1" stop-color="#3149a8"/>
+    </linearGradient>
+  </defs>
+  <rect width="180" height="180" rx="36" fill="url(#g)"/>
+  <ellipse cx="90" cy="118" rx="62" ry="10" fill="#1a1f3a" opacity="0.55"/>
+  <circle cx="50" cy="90" r="12" fill="#FB7185"/>
+  <circle cx="78" cy="80" r="12" fill="#9F6BFF"/>
+  <circle cx="106" cy="80" r="12" fill="#2DD4BF"/>
+  <circle cx="134" cy="90" r="12" fill="#4ADE80"/>
+  <text x="90" y="158" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="22" font-weight="800" fill="#f5f7ff">桌</text>
+</svg>

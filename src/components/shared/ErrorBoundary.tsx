@@ -56,6 +56,13 @@ export default class ErrorBoundary extends React.Component<Props, State> {
   render(): React.ReactNode {
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback;
+      const errMsg = this.state.error?.message || '';
+      const reportSubject = encodeURIComponent('[名人桌 / Mentor Table] Crash report');
+      const reportBody = encodeURIComponent(
+        `Time: ${new Date().toISOString()}\nUA: ${typeof navigator !== 'undefined' ? navigator.userAgent : 'n/a'}\nError: ${errMsg}`
+      );
+      // U7.1: positional ordering matters — ErrorBoundary.test.tsx clicks the
+      // LAST button to assert handleReset fires. Keep "Try again" last.
       return (
         <div
           role="alert"
@@ -64,11 +71,29 @@ export default class ErrorBoundary extends React.Component<Props, State> {
             maxWidth: 560,
             margin: '4rem auto',
             fontFamily: 'system-ui, sans-serif',
-            lineHeight: 1.5
+            lineHeight: 1.5,
+            color: 'var(--text-primary, #1f2937)',
+            background: 'var(--bg-surface-solid, transparent)',
+            borderRadius: 16,
+            textAlign: 'center'
           }}
         >
-          <h1 style={{ fontSize: '1.25rem', marginBottom: 12 }}>
-            {this.tr('errorBoundary.title', 'Something went wrong.')}
+          {/* Sad-face SVG illustration — inline, themable via currentColor */}
+          <svg
+            aria-hidden="true"
+            width="96"
+            height="96"
+            viewBox="0 0 96 96"
+            fill="none"
+            style={{ margin: '0 auto 16px', display: 'block', color: 'var(--primary-color, #5B7BFA)' }}
+          >
+            <circle cx="48" cy="48" r="42" stroke="currentColor" strokeWidth="3" opacity="0.35" />
+            <circle cx="34" cy="42" r="4" fill="currentColor" />
+            <circle cx="62" cy="42" r="4" fill="currentColor" />
+            <path d="M30 66 Q48 52 66 66" stroke="currentColor" strokeWidth="3" strokeLinecap="round" fill="none" />
+          </svg>
+          <h1 style={{ fontSize: '1.35rem', marginBottom: 12 }}>
+            {this.tr('errorBoundary.title', 'Something went wrong / 出错了')}
           </h1>
           <p style={{ opacity: 0.8, marginBottom: 16 }}>
             {this.tr(
@@ -76,33 +101,50 @@ export default class ErrorBoundary extends React.Component<Props, State> {
               'The page hit an unexpected error. Please reload; if it keeps happening, try disabling private browsing or clearing site data.'
             )}
           </p>
-          {this.state.error?.message && (
+          {errMsg && (
             <pre
               style={{
                 background: 'rgba(0,0,0,0.06)',
                 padding: 12,
                 borderRadius: 6,
                 fontSize: '0.75rem',
-                overflow: 'auto'
+                overflow: 'auto',
+                textAlign: 'left'
               }}
             >
-              {this.state.error.message}
+              {errMsg}
             </pre>
           )}
-          <button
-            type="button"
-            onClick={this.handleReset}
-            style={{
-              marginTop: 16,
-              padding: '8px 14px',
-              borderRadius: 6,
-              border: '1px solid currentColor',
-              background: 'transparent',
-              cursor: 'pointer'
-            }}
-          >
-            {this.tr('errorBoundary.tryAgain', 'Try again')}
-          </button>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 16, flexWrap: 'wrap' }}>
+            <a
+              href={`mailto:?subject=${reportSubject}&body=${reportBody}`}
+              style={{
+                padding: '8px 14px',
+                borderRadius: 6,
+                border: '1px solid color-mix(in srgb, currentColor 30%, transparent)',
+                color: 'inherit',
+                textDecoration: 'none',
+                fontSize: '0.9rem'
+              }}
+            >
+              {this.tr('errorBoundary.report', 'Report / 报告问题')}
+            </a>
+            <button
+              type="button"
+              onClick={this.handleReset}
+              style={{
+                padding: '8px 14px',
+                borderRadius: 6,
+                border: '1px solid currentColor',
+                background: 'var(--primary-color, #5B7BFA)',
+                color: 'var(--text-on-primary, #fff)',
+                cursor: 'pointer',
+                fontWeight: 600
+              }}
+            >
+              {this.tr('errorBoundary.tryAgain', 'Try again / 重试')}
+            </button>
+          </div>
         </div>
       );
     }
