@@ -99,8 +99,19 @@ if (root) {
           {/* U8.1: Vercel observability. Both components are no-ops when
            * not deployed on Vercel, so local dev is unaffected. Mounted
            * inside the router/boundary so their own render errors are
-           * caught by ErrorBoundary too. */}
-          <Analytics />
+           * caught by ErrorBoundary too.
+           *
+           * F60 (U8.1 R2): respect Do-Not-Track. The `beforeSend` filter
+           * drops every event when the browser advertises DNT=1 — no
+           * pageviews, no `client_error` from ErrorBoundary, no perf
+           * beacons from Speed Insights. PIPL/GDPR posture documented
+           * in RUNBOOK.md → "Analytics & Privacy". */}
+          <Analytics
+            beforeSend={(event) => {
+              if (typeof navigator !== 'undefined' && navigator.doNotTrack === '1') return null;
+              return event;
+            }}
+          />
           <SpeedInsights />
         </ErrorBoundary>
       </MemoryRouter>

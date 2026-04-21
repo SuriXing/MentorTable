@@ -23,7 +23,15 @@ function mockRes() {
     ended: false,
     setHeader(k, v) { this.headers[k.toLowerCase()] = v; },
     status(code) { this.statusCode = code; return this; },
-    json(body) { this.body = body; this.ended = true; return this; },
+    json(body) {
+      // Vercel/Express `res.json` sets Content-Type when not already set.
+      if (!this.headers['content-type']) {
+        this.headers['content-type'] = 'application/json; charset=utf-8';
+      }
+      this.body = body;
+      this.ended = true;
+      return this;
+    },
     end(body) { if (body !== undefined) this.body = body; this.ended = true; return this; },
   };
   return res;
@@ -62,6 +70,15 @@ describe('api/health', () => {
     const res = mockRes();
     handler({ method: 'GET', headers: {} }, res);
     expect(res.headers['cache-control']).toBe('no-store');
+  });
+
+  it('emits application/json Content-Type via res.json', () => {
+    // F63-backend (U8.1 R2): contract-locks the JSON content type so a
+    // future change that swaps res.json for res.end won't silently flip
+    // the response to text/plain.
+    const res = mockRes();
+    handler({ method: 'GET', headers: {} }, res);
+    expect(res.headers['content-type']).toMatch(/^application\/json/);
   });
 
   it('HEAD is allowed (monitors often use HEAD)', () => {

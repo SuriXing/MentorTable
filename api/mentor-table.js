@@ -1211,17 +1211,18 @@ async function requestMentorReplyFromLLM({
     } catch {
       errorText = '<unreadable>';
     }
+    // F58 (U8.1 R2): the parallel console.error duplicate that emitted the
+    // upstream body at 500 chars unredacted has been removed. The single
+    // structured log below pipes the 200-char preview through
+    // `redactSensitive` so DashScope/OpenAI error bodies cannot leak
+    // Authorization/sk-/LTAI prefixes echoed back from upstream.
     log('error', 'api_error', {
       handler: 'mentor-table',
       stage: 'upstream_non_ok',
       mentorId: mentor.id,
       status: response.status,
-      bodyTruncated: String(errorText).slice(0, 200),
+      bodyTruncated: redactSensitive(String(errorText).slice(0, 200)),
     });
-    // eslint-disable-next-line no-console
-    console.error(
-      `[mentor-api] upstream non-ok mentor=${mentor.id} status=${response.status} body=${String(errorText).slice(0, 500)}`
-    );
     throw new Error(`Mentor API failed for ${mentor.id} with status ${response.status}`);
   }
 
@@ -1552,8 +1553,11 @@ const mentorTableHandler = async (req, res) => {
       errorName: error instanceof Error ? error.name : typeof error,
       errorMessageTruncated: truncateErrorMessage(error, 200),
     });
-    // eslint-disable-next-line no-console
-    console.error('[mentor-api] error:', error);
+    // F57 (U8.1 R2): the parallel `console.error('[mentor-api] error:', error)`
+    // duplicate that emitted the raw Error (with multi-line stack trace and
+    // /var/task/ paths) has been removed. The structured log above is the
+    // sole record — message is truncated to 200 chars and runs through
+    // `truncateErrorMessage` so no stack reaches Vercel Logs.
     // Never pass through non-Error throws to the client — they may contain
     // arbitrary caller-controlled text and bypass the structured error surface.
     // Only Error instances with vetted messages are relayed, and even those
