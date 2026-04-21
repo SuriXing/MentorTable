@@ -74,12 +74,22 @@ jobs:
           nohup node server.js > /tmp/api.log 2>&1 &
           nohup npx vite --port 3001 --host 127.0.0.1 > /tmp/vite.log 2>&1 &
           npx -y wait-on http://127.0.0.1:8787/api/health http://127.0.0.1:3001 -t 60000
+        env:
+          # If LLM_API_KEY is set as a GitHub secret, server.js picks it up
+          # and the valid-data Playwright test exercises the real LLM path.
+          # If unset, validation tests still pass (they hit 4xx before
+          # touching the LLM); the valid-data test is gated via test.skip().
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_API_BASE_URL: ${{ secrets.LLM_API_BASE_URL }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}
 
       # F80, F103: Playwright actually runs now (was installed but never invoked).
       - name: Playwright tests
         run: npx playwright test
         env:
           CI: 'true'
+          # Pass through so the test fixture can detect whether LLM is configured.
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
 
       # F92-new: preserve traces/screenshots/videos when Playwright fails.
       - name: Upload Playwright artifacts on failure
