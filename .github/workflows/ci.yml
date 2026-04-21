@@ -55,12 +55,20 @@ jobs:
       # reuse via reuseExistingServer. We start them once explicitly here so
       # the Cypress step has a known-good baseURL.
 
+      # F89: install ONLY chromium. playwright.config.ts has no `projects:`
+      # array so WebKit (if installed) would never run — RUNBOOK-lies pattern.
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium webkit
+        run: npx playwright install --with-deps chromium
 
       - name: Install Cypress binary
         run: npx cypress install
 
+      # F110: server.js is a STATELESS thin OpenAI-compatible proxy
+      # (api/mentor-table.js + api/mentor-debug-prompt.js have no in-memory
+      # state, no DB, no caches that survive a request). Playwright and
+      # Cypress can therefore safely share the same process; no restart
+      # between runners is required. If server.js ever grows persistent
+      # state (Redis, in-mem cache, mock-mode flags), restart it here.
       - name: Start app servers (vite :3001 + api :8787)
         run: |
           nohup node server.js > /tmp/api.log 2>&1 &
@@ -73,9 +81,31 @@ jobs:
         env:
           CI: 'true'
 
+      # F92-new: preserve traces/screenshots/videos when Playwright fails.
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
       # F101: Cypress now has cypress.config.ts at repo root and a running
       # webserver above. `cypress run` will pick up cypress/e2e/**.cy.js.
       - name: Cypress tests
         run: npx cypress run
         env:
           CI: 'true'
+
+      # F92-new: preserve screenshots/videos when Cypress fails.
+      - name: Upload Cypress artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-artifacts
+          path: |
+            cypress/screenshots/
+            cypress/videos/
+          retention-days: 7

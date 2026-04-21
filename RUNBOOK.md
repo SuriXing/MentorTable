@@ -361,7 +361,9 @@ before merge:
    shared dev server (`vite` on `:3001`, `node server.js` on `:8787`)
    started by the workflow before either runner:
    - `npx playwright test` — primary suite (`e2e/*.spec.ts`,
-     Chromium + WebKit per `playwright.config.ts`).
+     Chromium only per `playwright.config.ts`; WebKit was dropped in
+     U9.1 R3 because the config has no `projects:` array, so installing
+     it would download a browser that never executes — F89).
    - `npx cypress run` — single critical-flow smoke
      (`cypress/e2e/mentor-table.cy.js`, config at `cypress.config.ts`).
 
@@ -369,6 +371,27 @@ To make this a hard merge gate (one-time, in GitHub UI):
 
 > Settings → Branches → Branch protection rules → `main` → **Require
 > status checks to pass** → add `Lint • Type-check • Test • Build • E2E`.
+
+**F113 — required pre-U10.1 step.** Branch protection on `main` is
+currently absent (`gh api repos/{owner}/{repo}/branches/main/protection`
+returns 404), which makes every CI red advisory rather than blocking.
+Run this ONCE before merging any U10.1 work to `main`:
+
+```bash
+# Replace OWNER/REPO. Requires admin on the repo.
+gh api -X PUT repos/OWNER/REPO/branches/main/protection \
+  -F required_status_checks[strict]=true \
+  -F required_status_checks[contexts][]='Lint • Type-check • Test • Build • E2E' \
+  -F required_status_checks[contexts][]='Lighthouse audit on Vercel preview' \
+  -F enforce_admins=true \
+  -F required_pull_request_reviews[required_approving_review_count]=1 \
+  -F restrictions= \
+  -F allow_force_pushes=false \
+  -F allow_deletions=false
+
+# Verify (should return 200 with the rule body, not 404):
+gh api repos/OWNER/REPO/branches/main/protection | jq '.required_status_checks.contexts'
+```
 
 `.github/workflows/lighthouse.yml` runs Lighthouse CI against the Vercel
 preview URL on each PR, asserts score budgets from `lighthouserc.json`
