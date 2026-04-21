@@ -11,6 +11,10 @@ test.describe('Mentor Table API', () => {
   });
 
   test('POST /api/mentor-table with valid data returns simulation result', async ({ request }) => {
+    // Skip when no LLM API key configured (CI without LLM_API_KEY secret,
+    // local dev without env file). Validation tests below still run and
+    // verify the 4xx paths.
+    test.skip(!process.env.LLM_API_KEY, 'LLM_API_KEY not configured — skipping live LLM test');
     const res = await request.post(`${API_BASE}/api/mentor-table`, {
       data: {
         problem: 'I feel stuck in my career and need direction',

@@ -1361,20 +1361,6 @@ const mentorTableHandler = async (req, res) => {
   const chatCompletionsUrl = `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
   const isDashscope = /dashscope\.aliyuncs\.com/i.test(baseUrl);
 
-  if (!apiKey) {
-    console.error('[mentor-table] API key missing. Diagnostics:', {
-      vercelEnv: process.env.VERCEL_ENV || null,
-      hasLLMApiKey: Boolean(firstNonEmptyEnvValue([process.env.LLM_API_KEY])),
-      hasOpenAiApiKey: Boolean(firstNonEmptyEnvValue([process.env.OPENAI_API_KEY])),
-      hasLlmApiToken: Boolean(firstNonEmptyEnvValue([process.env.LLM_API_TOKEN])),
-      hasOpenAiKey: Boolean(firstNonEmptyEnvValue([process.env.OPENAI_KEY])),
-      hasLLMModel: Boolean(firstNonEmptyEnvValue([process.env.LLM_MODEL, process.env.OPENAI_MODEL])),
-      hasLLMBaseUrl: Boolean(firstNonEmptyEnvValue([process.env.LLM_API_BASE_URL, process.env.OPENAI_BASE_URL]))
-    });
-    res.status(500).json({ error: 'Server configuration error' });
-    return;
-  }
-
   try {
     // NEW-8: ensure req.body is a plain object. If express or the Vercel
     // runtime handed us a string / array / buffer (e.g. content-type was
@@ -1401,6 +1387,25 @@ const mentorTableHandler = async (req, res) => {
 
     if (!Array.isArray(mentors) || mentors.length === 0) {
       res.status(400).json({ error: 'at least one mentor is required' });
+      return;
+    }
+
+    // API key check moved AFTER input validation so 4xx client errors
+    // surface as 4xx (not 500) even in environments without a key
+    // configured (e.g. CI smoke tests, local dev without env file).
+    // Misuse of the API should always return 4xx; only LLM-requiring
+    // paths require server config.
+    if (!apiKey) {
+      console.error('[mentor-table] API key missing. Diagnostics:', {
+        vercelEnv: process.env.VERCEL_ENV || null,
+        hasLLMApiKey: Boolean(firstNonEmptyEnvValue([process.env.LLM_API_KEY])),
+        hasOpenAiApiKey: Boolean(firstNonEmptyEnvValue([process.env.OPENAI_API_KEY])),
+        hasLlmApiToken: Boolean(firstNonEmptyEnvValue([process.env.LLM_API_TOKEN])),
+        hasOpenAiKey: Boolean(firstNonEmptyEnvValue([process.env.OPENAI_KEY])),
+        hasLLMModel: Boolean(firstNonEmptyEnvValue([process.env.LLM_MODEL, process.env.OPENAI_MODEL])),
+        hasLLMBaseUrl: Boolean(firstNonEmptyEnvValue([process.env.LLM_API_BASE_URL, process.env.OPENAI_BASE_URL]))
+      });
+      res.status(500).json({ error: 'Server configuration error' });
       return;
     }
 
