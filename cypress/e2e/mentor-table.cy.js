@@ -57,8 +57,9 @@ describe('Mentor Table critical flow', () => {
     cy.get('[data-testid="mentor-person-input"]').type('ESFJ');
     cy.get('[data-testid="mentor-add-person"]').click();
 
-    cy.get('[data-testid="mentor-continue-scene"]').click();
-    cy.get('[data-testid="mentor-lock-world"]').click();
+    // Phase: invite → wish. Single CTA testid; older drafts had a
+    // separate "lock-world" step that was collapsed into one button.
+    cy.get('[data-testid="mentor-continue-wish"]').click();
     cy.get('[data-testid="mentor-problem-input"]').type('我最近很难过，也很累。');
     cy.get('[data-testid="mentor-begin-session"]').click();
 
