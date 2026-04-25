@@ -93,22 +93,28 @@ vi.mock('../../../features/mentorTable/mentorProfiles', () => ({
     query.trim() ? [{ displayName: 'Suggested Person', description: 'desc' }] : [],
 }));
 
-vi.mock('../../../features/mentorTable/personLookup', () => ({
-  fetchPersonImage: (name: string) => (globalThis as any).__mentorBugfixState.fetchPersonImage(name),
-  fetchPersonImageCandidates: (name: string) =>
-    (globalThis as any).__mentorBugfixState.fetchPersonImageCandidates(name),
-  findVerifiedPerson: (name: string) =>
-    (globalThis as any).__mentorBugfixState.findVerifiedPerson(name),
-  getChineseDisplayName: (name: string) =>
-    (globalThis as any).__mentorBugfixState.getChineseDisplayName(name),
-  getVerifiedPlaceholderImage: () => 'data:image/svg+xml;utf8,placeholder',
-  searchPeopleWithPhotos: (q: string) =>
-    (globalThis as any).__mentorBugfixState.searchPeopleWithPhotos(q),
-  searchVerifiedPeopleLocal: (query: string) =>
-    query.trim().length
-      ? [{ name: 'Bill Gates', imageUrl: 'https://example.com/bill.jpg' }]
-      : [],
-}));
+vi.mock('../../../features/mentorTable/personLookup', async (importOriginal) => {
+  // buildMentorImageChain stays REAL (pure, deterministic); see the matching
+  // comment in MentorTablePage.test.tsx.
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    fetchPersonImage: (name: string) => (globalThis as any).__mentorBugfixState.fetchPersonImage(name),
+    fetchPersonImageCandidates: (name: string) =>
+      (globalThis as any).__mentorBugfixState.fetchPersonImageCandidates(name),
+    findVerifiedPerson: (name: string) =>
+      (globalThis as any).__mentorBugfixState.findVerifiedPerson(name),
+    getChineseDisplayName: (name: string) =>
+      (globalThis as any).__mentorBugfixState.getChineseDisplayName(name),
+    getVerifiedPlaceholderImage: () => 'data:image/svg+xml;utf8,placeholder',
+    searchPeopleWithPhotos: (q: string) =>
+      (globalThis as any).__mentorBugfixState.searchPeopleWithPhotos(q),
+    searchVerifiedPeopleLocal: (query: string) =>
+      query.trim().length
+        ? [{ name: 'Bill Gates', imageUrl: 'https://example.com/bill.jpg' }]
+        : [],
+  };
+});
 
 import MentorTablePage from '../MentorTablePage';
 

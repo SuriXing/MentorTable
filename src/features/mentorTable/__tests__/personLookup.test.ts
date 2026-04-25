@@ -989,3 +989,72 @@ describe('personLookup production gating (F154)', () => {
     expect(results[0].imageUrl).toBe('/assets/mentors/bill-gates.jpg');
   });
 });
+
+// F154/F155: the image ladder is the load-bearing piece of the CSP/client
+// parity work — these tests pin the chain shape per environment so neither
+// a prod chain regression (blocked hosts) nor a dev chain regression
+// (lost fallbacks) can land silently.
+describe('buildMentorImageChain (F154/F155)', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('production chain is exactly proxy → initials (no external hosts, no localhost)', async () => {
+    vi.stubEnv('DEV', false);
+    const { buildMentorImageChain } = await import('../personLookup');
+
+    const chain = buildMentorImageChain({
+      name: 'Albert Einstein',
+      externalCandidates: ['https://upload.wikimedia.org/wikipedia/commons/x/example.jpg'],
+      initialsAvatar: 'data:image/svg+xml;utf8,initials',
+      isDev: false,
+    });
+
+    expect(chain).toEqual([
+      '/api/mentor-image?name=Albert%20Einstein',
+      'data:image/svg+xml;utf8,initials',
+    ]);
+    chain.forEach((url) => {
+      expect(url.startsWith('/') || url.startsWith('data:')).toBe(true);
+    });
+  });
+
+  it('production chain resolves canonical names into the proxy query', async () => {
+    vi.stubEnv('DEV', false);
+    const { buildMentorImageChain } = await import('../personLookup');
+
+    const chain = buildMentorImageChain({
+      name: 'lisa su',
+      initialsAvatar: 'data:image/svg+xml;utf8,initials',
+      isDev: false,
+    });
+
+    // "lisa" resolves to the verified canonical "Lisa Su", so the proxy
+    // lookup hits the right Wikipedia article / bundled asset.
+    expect(chain[0]).toBe('/api/mentor-image?name=Lisa%20Su');
+  });
+
+  it('dev chain keeps the full ladder: proxy, worker URL, externals, cartoon, initials', async () => {
+    vi.stubEnv('DEV', true);
+    const { buildMentorImageChain } = await import('../personLookup');
+
+    const chain = buildMentorImageChain({
+      name: 'Albert Einstein',
+      externalCandidates: ['https://upload.wikimedia.org/wikipedia/commons/x/example.jpg'],
+      initialsAvatar: 'data:image/svg+xml;utf8,initials',
+      isDev: true,
+    });
+
+    expect(chain[0]).toBe('/api/mentor-image?name=Albert%20Einstein');
+    expect(chain[1]).toBe('http://127.0.0.1:8787/api/mentor-image?name=Albert%20Einstein');
+    expect(chain).toContain('https://upload.wikimedia.org/wikipedia/commons/x/example.jpg');
+    expect(chain.some((url) => url.includes('dicebear.com'))).toBe(true);
+    expect(chain[chain.length - 1]).toBe('data:image/svg+xml;utf8,initials');
+  });
+});

@@ -28,6 +28,7 @@ import { MentorSimulationResult } from '../../features/mentorTable/mentorEngine'
 import { fetchMentorDebugPrompt, generateMentorAdvice, MentorConversationMessage } from '../../features/mentorTable/mentorApi';
 import {
   PersonOption,
+  buildMentorImageChain,
   fetchPersonImage,
   fetchPersonImageCandidates,
   findVerifiedPerson,
@@ -422,40 +423,21 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     const key = normalizeNameKey(name);
     const person = selectedPeople.find((p) => normalizeNameKey(p.name) === key);
 
-    // Resolve the display name to canonical (e.g. "lisa" → "Lisa Su") and
-    // collect any verified fallback image URLs for this person. Both share
-    // the same findVerifiedPerson lookup, so the try/catch wraps them once.
-    let resolvedName = name;
-    let verifiedImages: string[] = [];
-    try {
-      const verified = findVerifiedPerson(name);
-      if (verified) {
-        resolvedName = verified.canonical;
-        verifiedImages = [verified.imageUrl, ...(verified.candidateImageUrls ?? [])].filter(Boolean);
-      }
-    } catch { /* findVerifiedPerson may not be available */ }
-
-    // Server-side proxy: fetches from Wikipedia, caches on disk, serves locally.
-    // Works for ANY person/character — no CORS, no rate-limits for the client.
-    const proxyUrl = `/api/mentor-image?name=${encodeURIComponent(resolvedName)}`;
-    // Local dev fallback: the Vite dev server proxies /api/mentor-image, but
-    // when running outside the dev server we hit the worker directly.
-    const localFallback = `http://127.0.0.1:8787/api/mentor-image?name=${encodeURIComponent(resolvedName)}`;
-
-    const external = Array.from(
-      new Set(
-        [
-          imageUrl,
-          person?.imageUrl,
-          ...verifiedImages,
-          ...(candidateImageUrls ?? []),
-          ...(person?.candidateImageUrls ?? []),
-        ].filter(Boolean)
-      )
-    ) as string[];
-
-    // Chain: proxy (cached/fetched) → external URLs → cartoon → initials
-    return [proxyUrl, localFallback, ...external, getCartoonAvatarUrl(name), createInitialAvatar(name)];
+    // F154: the ladder itself lives in personLookup.buildMentorImageChain —
+    // production is proxy → initials (CSP blocks every external host), dev
+    // keeps the full ladder. This wrapper only merges component state
+    // (selectedPeople images) into the external candidates.
+    return buildMentorImageChain({
+      name,
+      externalCandidates: [
+        imageUrl,
+        person?.imageUrl,
+        ...(candidateImageUrls ?? []),
+        ...(person?.candidateImageUrls ?? []),
+      ].filter(Boolean) as string[],
+      initialsAvatar: createInitialAvatar(name),
+      isDev: import.meta.env.DEV,
+    });
   };
 
   const imageSrcFor = (name: string, imageUrl?: string, candidateImageUrls?: string[]) => {

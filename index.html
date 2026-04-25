@@ -28,13 +28,6 @@
     <meta name="twitter:description" content="Invite great minds to a virtual round table — ask once, hear five distinct mentor voices in seconds." />
     <meta name="twitter:image" content="/og-image.svg" />
 
-    <!-- U4.1: warm the upstream LLM origin early. Mentor calls go through
-         our own /api proxy (same-origin), but the proxy fans out to
-         dashscope.aliyuncs.com — getting DNS + TLS started during shell
-         paint shaves 100-300ms off first mentor response on cold loads. -->
-    <link rel="preconnect" href="https://dashscope.aliyuncs.com" crossorigin />
-    <link rel="dns-prefetch" href="https://dashscope.aliyuncs.com" />
-
     <title>名人桌 — Mentor Table</title>
 
     <!-- U7.1 + F150: FOUC kill, served as same-origin /theme-bootstrap.js

@@ -6,6 +6,8 @@ export interface PersonOption {
   descriptionZh?: string;
 }
 
+import { getCartoonAvatarUrl } from './mentorProfiles';
+
 // Bug #23: cap imageCache at MAX_IMAGE_CACHE_ENTRIES with LRU eviction.
 // Map iteration order is insertion order; on get() we re-insert to make
 // the entry most-recent. On set() over-capacity we drop the oldest.
@@ -1705,6 +1707,65 @@ export function searchVerifiedPeopleLocal(query: string, limit = 8): PersonOptio
 
 export function getVerifiedPlaceholderImage(): string {
   return VERIFIED_PLACEHOLDER_IMAGE;
+}
+
+export interface MentorImageChainOptions {
+  name: string;
+  /** Extra external candidates (state/hydration results); dev chain only. */
+  externalCandidates?: string[];
+  /** Locale-aware inline initials avatar, computed by the caller. */
+  initialsAvatar: string;
+  isDev: boolean;
+}
+
+/**
+ * Ordered image fallback ladder for a mentor avatar.
+ *
+ * F154: production CSP is `img-src 'self' data: blob:` — every external
+ * image host (wikimedia, dicebear, ui-avatars, 16personalities) is blocked,
+ * and CN networks block the same hosts regardless. The production chain is
+ * therefore exactly two entries:
+ *   1. the same-origin /api/mentor-image proxy (serves bundled local assets
+ *      first, then fetches + caches from Wikipedia server-side)
+ *   2. the caller's inline initials avatar (data: URI, always renders)
+ *
+ * DEV has no CSP and reachable hosts, so it keeps the full ladder: proxy,
+ * direct worker URL (outside the dev-server proxy), external candidates,
+ * dicebear cartoon, initials.
+ */
+export function buildMentorImageChain(options: MentorImageChainOptions): string[] {
+  let resolvedName = options.name;
+  let verifiedImages: string[] = [];
+  try {
+    const verified = findVerifiedPerson(options.name);
+    if (verified) {
+      resolvedName = verified.canonical;
+      verifiedImages = [verified.imageUrl, ...(verified.candidateImageUrls ?? [])].filter(
+        Boolean
+      ) as string[];
+    }
+  } catch {
+    /* findVerifiedPerson may be unavailable in some test harnesses */
+  }
+
+  const proxyUrl = `/api/mentor-image?name=${encodeURIComponent(resolvedName)}`;
+  if (!options.isDev) {
+    return [proxyUrl, options.initialsAvatar];
+  }
+
+  // Local dev fallback: the Vite dev server proxies /api/mentor-image, but
+  // when running outside the dev server we hit the worker directly.
+  const localFallback = `http://127.0.0.1:8787/api/mentor-image?name=${encodeURIComponent(resolvedName)}`;
+  const external = Array.from(
+    new Set([...(options.externalCandidates ?? []), ...verifiedImages].filter(Boolean))
+  ) as string[];
+  return [
+    proxyUrl,
+    localFallback,
+    ...external,
+    getCartoonAvatarUrl(resolvedName),
+    options.initialsAvatar,
+  ];
 }
 
 export async function fetchPersonImage(name: string): Promise<string | undefined> {

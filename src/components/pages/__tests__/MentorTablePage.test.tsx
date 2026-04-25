@@ -95,26 +95,33 @@ vi.mock('../../../features/mentorTable/mentorProfiles', () => ({
   },
 }));
 
-vi.mock('../../../features/mentorTable/personLookup', () => ({
-  fetchPersonImage: (name: string) => (globalThis as any).__mentorTestState.fetchPersonImage(name),
-  fetchPersonImageCandidates: (name: string) =>
-    (globalThis as any).__mentorTestState.fetchPersonImageCandidates(name),
-  findVerifiedPerson: (name: string) =>
-    (globalThis as any).__mentorTestState.findVerifiedPerson(name),
-  getChineseDisplayName: (name: string) =>
-    (globalThis as any).__mentorTestState.getChineseDisplayName(name),
-  getVerifiedPlaceholderImage: () => 'data:image/svg+xml;utf8,placeholder',
-  searchPeopleWithPhotos: (q: string) =>
-    (globalThis as any).__mentorTestState.searchPeopleWithPhotos(q),
-  searchVerifiedPeopleLocal: (query: string) => {
-    if ((globalThis as any).__mentorTestState.searchVerifiedPeopleLocalThrows) {
-      throw new Error('local fail');
-    }
-    return query.trim().length
-      ? [{ name: 'Bill Gates', imageUrl: 'https://example.com/bill.jpg' }]
-      : [];
-  },
-}));
+vi.mock('../../../features/mentorTable/personLookup', async (importOriginal) => {
+  // buildMentorImageChain stays REAL (pure, deterministic): the component
+  // under test composes the ladder from it, and these tests assert against
+  // the dev-shaped chain. Network-ish lookups stay mocked via state below.
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    fetchPersonImage: (name: string) => (globalThis as any).__mentorTestState.fetchPersonImage(name),
+    fetchPersonImageCandidates: (name: string) =>
+      (globalThis as any).__mentorTestState.fetchPersonImageCandidates(name),
+    findVerifiedPerson: (name: string) =>
+      (globalThis as any).__mentorTestState.findVerifiedPerson(name),
+    getChineseDisplayName: (name: string) =>
+      (globalThis as any).__mentorTestState.getChineseDisplayName(name),
+    getVerifiedPlaceholderImage: () => 'data:image/svg+xml;utf8,placeholder',
+    searchPeopleWithPhotos: (q: string) =>
+      (globalThis as any).__mentorTestState.searchPeopleWithPhotos(q),
+    searchVerifiedPeopleLocal: (query: string) => {
+      if ((globalThis as any).__mentorTestState.searchVerifiedPeopleLocalThrows) {
+        throw new Error('local fail');
+      }
+      return query.trim().length
+        ? [{ name: 'Bill Gates', imageUrl: 'https://example.com/bill.jpg' }]
+        : [];
+    },
+  };
+});
 
 // Import AFTER mocks
 import MentorTablePage from '../MentorTablePage';
