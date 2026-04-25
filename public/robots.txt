@@ -1,0 +1,8 @@
+# F156: crawl/index policy for MentorTable.
+# The app is a single public tool; everything except deployment artifacts
+# is crawlable. Keep in sync with index.html canonical URL.
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://mentor-table.vercel.app/sitemap.xml

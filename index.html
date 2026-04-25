@@ -14,19 +14,27 @@
 
     <meta name="description" content="名人桌 Mentor Table — 邀请你心目中的名人围坐一桌，针对你的难题各自给出建议。Invite great minds to a virtual round table; ask once, hear five distinct mentor voices in seconds." />
 
+    <!-- F156: canonical + absolute share-image URLs. Social crawlers (WeChat,
+         X, Facebook) do not render SVG previews, so the share card ships as
+         a 1200x630 PNG at public/og-image.png. Absolute URLs are required —
+         relative og:image values resolve against the crawler's origin. -->
+    <link rel="canonical" href="https://mentor-table.vercel.app/" />
+
     <!-- Open Graph -->
     <meta property="og:title" content="名人桌 — Mentor Table" />
     <meta property="og:description" content="Invite great minds to a virtual round table — ask once, hear five distinct mentor voices in seconds." />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="/og-image.svg" />
+    <meta property="og:url" content="https://mentor-table.vercel.app/" />
+    <meta property="og:image" content="https://mentor-table.vercel.app/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/png" />
 
     <!-- Twitter / X card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="名人桌 — Mentor Table" />
     <meta name="twitter:description" content="Invite great minds to a virtual round table — ask once, hear five distinct mentor voices in seconds." />
-    <meta name="twitter:image" content="/og-image.svg" />
+    <meta name="twitter:image" content="https://mentor-table.vercel.app/og-image.png" />
 
     <title>名人桌 — Mentor Table</title>
 
