@@ -1718,6 +1718,21 @@ export async function fetchPersonImage(name: string): Promise<string | undefined
     return mbti;
   }
 
+  // F154: the client-side Wikipedia lookups below cannot work in production —
+  // CSP `connect-src 'self'` blocks en.wikipedia.org outright, and it is
+  // network-unreachable for the primary CN audience regardless. Production
+  // hydrates from the bundled local asset when one exists and otherwise
+  // leaves the image to the /api/mentor-image proxy chain at render time.
+  // DEV keeps live Wikipedia hydration for local DX.
+  if (!import.meta.env.DEV) {
+    const local = getLocalImagePath(findVerifiedPerson(name)?.canonical ?? name);
+    if (local) {
+      imageCacheSet(key, local);
+      return local;
+    }
+    return undefined;
+  }
+
   const verified = findVerifiedPerson(name);
   if (verified?.imageUrl) {
     imageCacheSet(key, verified.imageUrl);
@@ -1743,6 +1758,10 @@ export async function fetchPersonImageCandidates(name: string): Promise<string[]
     // buildMbtiOption always populates candidateImageUrls.
     return buildMbtiOption(name).candidateImageUrls!;
   }
+  // F154: candidate URLs feed only the dev image chain; the production chain
+  // is proxy → initials and ignores them, so client-side Wikipedia candidate
+  // hydration is dead weight there. See fetchPersonImage for the full rationale.
+  if (!import.meta.env.DEV) return undefined;
   const verified = findVerifiedPerson(name);
   if (verified) {
     // findVerifiedPerson always sets candidateImageUrls (possibly empty array).
@@ -1786,7 +1805,11 @@ export async function searchPeopleWithPhotos(query: string, limit = 6): Promise<
     .filter((code) => normalizeName(code).includes(normalized))
     .map((code) => buildMbtiOption(code));
 
-  const wikiMatches = await searchWikipediaPeople(q, limit);
+  // F154: production search is local-data only (CSP connect-src 'self' blocks
+  // the client-side Wikipedia query, and CN networks block it anyway). The
+  // typed-query fallback below still gives users a usable "add custom mentor"
+  // option for people outside the bundled data.
+  const wikiMatches = import.meta.env.DEV ? await searchWikipediaPeople(q, limit) : [];
   const merged = [...verifiedMatches, ...mbtiMatches, ...wikiMatches];
   const unique = new Map<string, PersonOption>();
   const score = (person: PersonOption) => {

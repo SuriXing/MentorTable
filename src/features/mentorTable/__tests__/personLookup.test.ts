@@ -929,3 +929,63 @@ describe('personLookup', () => {
     expect(results.some((item) => item.name === 'Taylor Swift')).toBe(true);
   });
 });
+
+// F154: in production the CSP (`connect-src 'self'`) blocks every client-side
+// Wikipedia request, and CN networks block the host regardless. These tests
+// pin the production posture: the module must not even ATTEMPT a wiki fetch,
+// and must degrade to local data + the render-time proxy chain.
+describe('personLookup production gating (F154)', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.stubEnv('DEV', false);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('fetchPersonImage returns the bundled local asset for known people without network', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    const { fetchPersonImage } = await import('../personLookup');
+
+    const image = await fetchPersonImage('Bill Gates');
+
+    expect(image).toBe('/assets/mentors/bill-gates.jpg');
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('fetchPersonImage returns undefined for unknown people instead of hitting Wikipedia', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    const { fetchPersonImage } = await import('../personLookup');
+
+    const image = await fetchPersonImage('Completely Unknown Person ZZZZZ');
+
+    expect(image).toBeUndefined();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('fetchPersonImageCandidates skips wiki hydration in production', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    const { fetchPersonImageCandidates } = await import('../personLookup');
+
+    await expect(fetchPersonImageCandidates('Wiki Person XYZ')).resolves.toBeUndefined();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('searchPeopleWithPhotos serves local data only and never fetches Wikipedia', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    const { searchPeopleWithPhotos } = await import('../personLookup');
+
+    const results = await searchPeopleWithPhotos('bill', 6);
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(results[0].name).toBe('Bill Gates');
+    expect(results[0].imageUrl).toBe('/assets/mentors/bill-gates.jpg');
+  });
+});
