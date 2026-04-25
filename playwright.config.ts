@@ -26,5 +26,13 @@ export default defineConfig({
       port: 3001,
       reuseExistingServer: !process.env.COLLECT_UI_COVERAGE,
     },
+    {
+      // F153: prod-header preview server (serves dist/ with the vercel.ts
+      // security headers). Requires `npm run build` first — CI always builds
+      // before e2e; locally run `npm run build` once before playwright.
+      command: 'npx vite preview --port 5001 --strictPort --host 127.0.0.1',
+      port: 5001,
+      reuseExistingServer: true,
+    },
   ],
 });

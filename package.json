@@ -30,7 +30,7 @@
   "scripts": {
     "dev": "node server.js & vite",
     "build": "vite build",
-    "type-check": "tsc --noEmit",
+    "type-check": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
     "preview": "vite preview --host --strictPort --port 5001",
     "lint": "eslint src vitest.setup.ts --ext ts,tsx --rulesdir eslint-rules",
     "test": "vitest run",

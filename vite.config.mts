@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react';
 import istanbul from 'vite-plugin-istanbul';
 import { visualizer } from 'rollup-plugin-visualizer';
 import path from 'path';
+// Single source of truth for prod headers; also consumed by vercel.ts and
+// e2e/prod-headers.spec.ts (F153).
+import { SECURITY_HEADERS } from './security-headers';
 
 export default defineConfig(({ mode }) => {
   // F6: previously loadEnv(..., '') exposed ALL shell env vars (incl.
@@ -57,6 +60,15 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
         },
       },
+    },
+    // F153: `vite preview` serves dist/ with the EXACT production security
+    // headers, so the prod-header e2e suite exercises the deployed header
+    // posture instead of a bare dev server. Source of truth:
+    // ./security-headers.ts (same module vercel.ts deploys from).
+    preview: {
+      port: 5001,
+      strictPort: true,
+      headers: Object.fromEntries(SECURITY_HEADERS.map((h) => [h.key, h.value])),
     },
     define: {
       'process.env': { ...env },

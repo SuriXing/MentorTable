@@ -69,11 +69,12 @@ jobs:
       # Cypress can therefore safely share the same process; no restart
       # between runners is required. If server.js ever grows persistent
       # state (Redis, in-mem cache, mock-mode flags), restart it here.
-      - name: Start app servers (vite :3001 + api :8787)
+      - name: Start app servers (vite :3001 + api :8787 + prod-header preview :5001)
         run: |
           nohup node server.js > /tmp/api.log 2>&1 &
           nohup npx vite --port 3001 --host 127.0.0.1 > /tmp/vite.log 2>&1 &
-          npx -y wait-on http://127.0.0.1:8787/api/health http://127.0.0.1:3001 -t 60000
+          nohup npx vite preview --port 5001 --strictPort --host 127.0.0.1 > /tmp/preview.log 2>&1 &
+          npx -y wait-on http://127.0.0.1:8787/api/health http://127.0.0.1:3001 http://127.0.0.1:5001 -t 60000
         env:
           # If LLM_API_KEY is set as a GitHub secret, server.js picks it up
           # and the valid-data Playwright test exercises the real LLM path.
@@ -101,6 +102,24 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 7
+
+      # F153: the main Playwright run includes e2e/prod-headers.spec.ts, which
+      # asserts the vercel.ts security headers are served verbatim by the
+      # :5001 preview server AND that CSP actually blocks external requests
+      # in a real browser. A header regression now fails CI instead of
+      # shipping silently.
+      - name: Verify production security headers (compiled config parity)
+        run: |
+          npx @vercel/config compile > /tmp/vercel-compiled.json
+          node -e "
+            const compiled = require('/tmp/vercel-compiled.json');
+            const block = compiled.headers.find((h) => h.source === '/(.*)');
+            if (!block || block.headers.length === 0) {
+              console.error('compiled vercel config lost the security header block');
+              process.exit(1);
+            }
+            console.log('compiled config carries', block.headers.length, 'security headers');
+          "
 
       # F101: Cypress now has cypress.config.ts at repo root and a running
       # webserver above. `cypress run` will pick up cypress/e2e/**.cy.js.
