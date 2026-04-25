@@ -1,4 +1,6 @@
-.claude/worktrees/
+.claude/
+.opc/
+.bugbash/
 .DS_Store
 *.log
 dist/
