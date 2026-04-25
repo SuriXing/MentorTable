@@ -502,7 +502,8 @@ describe('MentorTablePage (unit)', () => {
   });
 
   it('renders the onboarding overlay and lets the user navigate slides', () => {
-    localStorage.removeItem('mentorTableOnboardingHiddenV2');
+    // Pin visible-modal state explicitly; never depend on key absence (F151).
+    localStorage.setItem('mentorTableOnboardingHiddenV2', '0');
     render(<MentorTablePage standalone />);
 
     expect(screen.getByText(/Welcome to Mentor Table/)).toBeInTheDocument();
@@ -530,7 +531,8 @@ describe('MentorTablePage (unit)', () => {
   });
 
   it('onboarding "keep showing" path persists 0 in localStorage', () => {
-    localStorage.removeItem('mentorTableOnboardingHiddenV2');
+    // Pin visible-modal state explicitly; never depend on key absence (F151).
+    localStorage.setItem('mentorTableOnboardingHiddenV2', '0');
     render(<MentorTablePage standalone />);
 
     fireEvent.click(screen.getByText(/Next/));
@@ -742,7 +744,8 @@ describe('MentorTablePage (unit)', () => {
 
   it('Chinese onboarding slides render when language is zh', () => {
     mentorTestState.language = 'zh-CN';
-    localStorage.removeItem('mentorTableOnboardingHiddenV2');
+    // Pin visible-modal state explicitly; never depend on key absence (F151).
+    localStorage.setItem('mentorTableOnboardingHiddenV2', '0');
     render(<MentorTablePage standalone />);
     expect(screen.getByText(/欢迎来到名人桌/)).toBeInTheDocument();
   });
@@ -2384,7 +2387,8 @@ describe('MentorTablePage (branch closure — zh-CN + multi-mentor)', () => {
   });
 
   it('renders the onboarding overlay in Chinese and navigates slides', () => {
-    localStorage.removeItem('mentorTableOnboardingHiddenV2');
+    // Pin visible-modal state explicitly; never depend on key absence (F151).
+    localStorage.setItem('mentorTableOnboardingHiddenV2', '0');
     render(<MentorTablePage standalone />);
     // Chinese onboarding title
     expect(screen.getByText(/欢迎来到名人桌/)).toBeInTheDocument();

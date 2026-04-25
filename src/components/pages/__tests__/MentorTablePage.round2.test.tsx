@@ -180,8 +180,10 @@ afterEach(() => {
 
 describe('R2 a11y — KB-3 onboarding dialog', () => {
   it('has role=dialog, aria-modal=true, and Escape closes it', () => {
-    // Force the onboarding modal to render.
-    localStorage.removeItem('mentorTableOnboardingHiddenV2');
+    // Pin the visible-modal state explicitly ('0' = user chose keep-showing).
+    // Tests must never depend on the key being ABSENT — under a shared or
+    // leaked store, absence was whatever the last writer left behind (F151).
+    localStorage.setItem('mentorTableOnboardingHiddenV2', '0');
     render(<MentorTablePage standalone />);
     const dialog = document.querySelector('[role="dialog"]') as HTMLElement;
     expect(dialog).toBeTruthy();
