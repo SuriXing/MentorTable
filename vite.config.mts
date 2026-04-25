@@ -97,6 +97,11 @@ export default defineConfig(({ mode }) => {
     test: {
       globals: true,
       environment: 'jsdom',
+      // Normalize localStorage/sessionStorage to jsdom's per-file stores.
+      // Node 25+ exposes an experimental file-backed global that either
+      // shadows jsdom's (with --localstorage-file) or is an unusable stub
+      // (without it) — see vitest.setup.ts.
+      setupFiles: ['./vitest.setup.ts'],
       exclude: ['e2e/**', 'node_modules/**', 'cypress/**'],
       coverage: {
         provider: 'v8',
