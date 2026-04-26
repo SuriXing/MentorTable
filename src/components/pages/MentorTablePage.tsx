@@ -369,6 +369,17 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
         ? '可能是网络或服务暂时不可用，你的问题已保留，稍后点重试即可。'
         : 'The network or service may be temporarily unavailable. Your session is saved — try again in a moment.'
     }),
+    // F160/F161: provider honesty — the server can answer 200 with fully
+    // canned replies (meta.provider 'server-fallback') or a mix ('partial-
+    // fallback'); the badge must not present those as live LLM output.
+    cannedReplies: isZh ? '预设回复' : 'Canned replies',
+    cannedRepliesTitle: isZh
+      ? 'LLM 服务本次不可用，展示的是本地预设回复模板'
+      : 'The LLM was unavailable for this request — replies below are local preset templates',
+    partialFallback: isZh ? '部分预设回复' : 'Partly canned',
+    partialFallbackTitle: isZh
+      ? '部分嘉宾的回复由本地预设模板补充（LLM 未返回）'
+      : 'Some guests\' replies were filled in from local preset templates (the LLM did not return them)',
     retry: tI18n('mt.retry', { defaultValue: isZh ? '重试' : 'Retry' }),
     // MC-3: jump past the reveal timer
     revealAll: isZh ? '立刻展示全部' : 'Reveal all now',
@@ -1796,21 +1807,46 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                     {/* ERR-3: hover explainer so users understand why the
                         source is labelled "Local Fallback" (offline / API
                         unreachable). ERR-4: visible badge surfacing the
-                        pass-note silent fallback path. */}
+                        pass-note silent fallback path.
+                        F160/F161: meta.provider honesty — a 200 response can
+                        still carry server-fallback (fully canned) or
+                        partial-fallback replies; the badge surfaces both. */}
                     <div
                       className={styles.sourceTag}
                       title={
-                        result?.meta.source === 'llm'
-                          ? (isZh ? '由 LLM 接口实时生成' : 'Generated live by the LLM API')
-                          : (isZh
+                        result?.meta.source !== 'llm'
+                          ? (isZh
                               ? '后端不可用，已使用本地回退模板'
                               : 'Backend unavailable — using a local fallback template')
+                          : result?.meta.provider === 'server-fallback'
+                            ? t.cannedRepliesTitle
+                            : result?.meta.provider === 'partial-fallback'
+                              ? t.partialFallbackTitle
+                              : (isZh ? '由 LLM 接口实时生成' : 'Generated live by the LLM API')
                       }
                     >
-                      {t.source}: {result?.meta.source === 'llm' ? t.llmApi : t.localFallback}
+                      {t.source}: {
+                        result?.meta.source !== 'llm'
+                          ? t.localFallback
+                          : result?.meta.provider === 'server-fallback'
+                            ? t.cannedReplies
+                            : result?.meta.provider === 'partial-fallback'
+                              ? t.partialFallback
+                              : t.llmApi
+                      }
                       {result?.meta.source !== 'llm' && (
                         <span style={{ marginLeft: 6, fontWeight: 700, color: '#9b6600' }}>
                           {isZh ? '(离线)' : '(offline)'}
+                        </span>
+                      )}
+                      {result?.meta.source === 'llm' && result?.meta.provider === 'server-fallback' && (
+                        <span style={{ marginLeft: 6, fontWeight: 700, color: '#9b6600' }}>
+                          {isZh ? '(未走 LLM)' : '(no LLM)'}
+                        </span>
+                      )}
+                      {result?.meta.source === 'llm' && result?.meta.provider === 'partial-fallback' && (
+                        <span style={{ marginLeft: 6, fontWeight: 700, color: '#9b6600' }}>
+                          {isZh ? '(部分回退)' : '(partial)'}
                         </span>
                       )}
                     </div>

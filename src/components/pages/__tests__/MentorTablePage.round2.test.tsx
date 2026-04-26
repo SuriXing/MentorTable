@@ -936,3 +936,41 @@ describe('R2 KB-4 — reply overlay Escape handlers', () => {
     });
   });
 });
+
+// ================= F160/F161: provider honesty badge =================
+describe('R2 F160/F161 — source badge surfaces meta.provider honesty', () => {
+  const getBadge = () => document.querySelector('[class*="sourceTag"]') as HTMLElement;
+
+  it('fully-canned server response (provider=server-fallback) is NOT shown as live LLM output', async () => {
+    generateMentorAdviceMock.mockResolvedValueOnce(
+      buildMockResult({ meta: { disclaimer: 'd', generatedAt: '2024-01-01T00:00:00Z', source: 'llm' as const, provider: 'server-fallback' } })
+    );
+    render(<MentorTablePage standalone />);
+    await runSession('badge check canned');
+    const badge = getBadge();
+    expect(badge.textContent).toContain('Canned replies');
+    expect(badge.textContent).toContain('(no LLM)');
+    expect(badge.textContent).not.toContain('LLM API');
+  });
+
+  it('partial-fallback shows the partly-canned label', async () => {
+    generateMentorAdviceMock.mockResolvedValueOnce(
+      buildMockResult({ meta: { disclaimer: 'd', generatedAt: '2024-01-01T00:00:00Z', source: 'llm' as const, provider: 'partial-fallback' } })
+    );
+    render(<MentorTablePage standalone />);
+    await runSession('badge check partial');
+    const badge = getBadge();
+    expect(badge.textContent).toContain('Partly canned');
+    expect(badge.textContent).toContain('(partial)');
+  });
+
+  it('live LLM response keeps the plain LLM label with no fallback markers', async () => {
+    generateMentorAdviceMock.mockResolvedValueOnce(buildMockResult());
+    render(<MentorTablePage standalone />);
+    await runSession('badge check live');
+    const badge = getBadge();
+    expect(badge.textContent).toContain('LLM API');
+    expect(badge.textContent).not.toContain('(no LLM)');
+    expect(badge.textContent).not.toContain('(partial)');
+  });
+});
