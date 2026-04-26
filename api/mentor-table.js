@@ -989,94 +989,6 @@ function normalizeProviderPayload(raw, { mentors, language }) {
   return null;
 }
 
-function extractLooseStringField(text, keys) {
-  if (!text || typeof text !== 'string') return '';
-  for (const key of keys) {
-    const strictMatch = text.match(
-      new RegExp(
-        `"${key}"\\s*:\\s*"([\\s\\S]*?)"(?=\\s*,\\s*"(?:[^"]+)"\\s*:|\\s*[}\\]])`,
-        'i'
-      )
-    );
-    if (strictMatch && strictMatch[1]) return strictMatch[1].trim();
-
-    const lineMatch = text.match(new RegExp(`"${key}"\\s*:\\s*"([^\\n\\r"]{1,1200})`, 'i'));
-    if (lineMatch && lineMatch[1]) return lineMatch[1].trim();
-
-    const bareMatch = text.match(new RegExp(`${key}\\s*[:=]\\s*([^\\n\\r,}{]{1,800})`, 'i'));
-    if (bareMatch && bareMatch[1]) return bareMatch[1].trim();
-  }
-  return '';
-}
-
-function normalizeProviderPayloadLoose(text, { mentor, language }) {
-  if (!text || typeof text !== 'string') return null;
-  const lang = normalizeLanguage(language);
-  const mentorId =
-    extractLooseStringField(text, ['mentorId', 'MentorId', 'id']) ||
-    String(mentor?.id || '');
-  const mentorName =
-    extractLooseStringField(text, ['mentorName', 'MentorName', 'name']) ||
-    String(mentor?.displayName || mentorId || 'Mentor');
-  const likelyResponse = extractLooseStringField(text, [
-    'likelyResponse',
-    'Response',
-    'response',
-    'Reply',
-    'reply',
-    'message',
-    'advice',
-    'content'
-  ]);
-  if (!likelyResponse) return null;
-
-  const whyThisFits =
-    extractLooseStringField(text, ['whyThisFits', 'WhyThisFits', 'reason', 'rationale']) ||
-    (lang === 'zh-CN'
-      ? `这条建议基于${mentorName}公开风格生成。`
-      : `This guidance is generated from ${mentorName}'s public style.`);
-
-  const oneActionStep =
-    extractLooseStringField(text, [
-      'oneActionStep',
-      'OneActionStep',
-      'nextAction',
-      'NextAction',
-      'next_step',
-      'nextStep',
-      'action'
-    ]) || defaultActionStep(lang);
-
-  const confidenceNote =
-    extractLooseStringField(text, ['confidenceNote', 'ConfidenceNote', 'confidence', 'note']) ||
-    defaultConfidenceNote(lang);
-
-  const disclaimer =
-    extractLooseStringField(text, ['globalDisclaimer', 'GlobalDisclaimer', 'disclaimer']) ||
-    defaultDisclaimer(lang);
-
-  return {
-    safety: {
-      riskLevel: 'low',
-      needsProfessionalHelp: false,
-      emergencyMessage: ''
-    },
-    mentorReplies: [
-      {
-        mentorId,
-        mentorName,
-        likelyResponse,
-        whyThisFits,
-        oneActionStep,
-        confidenceNote
-      }
-    ],
-    meta: {
-      disclaimer
-    }
-  };
-}
-
 function buildServerFallbackNormalized({ mentors, language }) {
   const lang = normalizeLanguage(language);
   return {
@@ -1271,19 +1183,20 @@ async function requestMentorReplyFromLLM({
     }
   }
 
-  const normalized =
-    normalizeProviderPayload(parsed, { mentors: [mentor], language }) ||
-    normalizeProviderPayloadLoose(String(content || ''), { mentor, language });
+  // F159: strict parse only. The old regex salvage path (normalizeProviderPayloadLoose)
+  // fabricated replies from arbitrary upstream text — including wrong-person
+  // attribution when key names drifted. A batch that survives the repair call
+  // but still cannot be strictly normalized degrades to the mentor's fallback
+  // reply instead.
+  const normalized = normalizeProviderPayload(parsed, { mentors: [mentor], language });
   if (!normalized) {
     const preview = String(content || '').slice(0, 180).replace(/\s+/g, ' ');
     throw new Error(`Model returned invalid JSON for ${mentor.id}. Preview: ${preview}`);
   }
 
   // normalizeProviderPayload guarantees mentorReplies.length > 0 when it returns
-  // non-null (line 682). normalizeProviderPayloadLoose always returns a 1-item
-  // array (line 943). pickReplyForMentor's fallback chain therefore always
-  // finds a reply. normalizeSafety() always produces a safety object, and
-  // normalizeProviderPayloadLoose returns a literal safety object — no null guard needed.
+  // non-null, so pickReplyForMentor's fallback chain always finds a reply, and
+  // normalizeSafety() always produces a safety object — no null guard needed.
   const reply = pickReplyForMentor(mentor, normalized);
 
   return { reply, safety: normalized.safety };
@@ -1471,10 +1384,10 @@ async function requestMentorBatchReplyFromLLM({
     }
   }
 
-  // Batch mode intentionally skips normalizeProviderPayloadLoose: it is a
-  // single-mentor synthesizer, and trusting it here would fabricate a reply
-  // attributed to whichever mentor was passed. A batch that cannot be
-  // strictly normalized degrades to per-mentor fallbacks instead.
+  // F159: strict normalization only — same contract as the per-mentor path.
+  // A batch that cannot be strictly normalized (after one repair call)
+  // degrades to per-mentor fallbacks; no regex salvage, no fabricated
+  // attribution.
   const normalized = normalizeProviderPayload(parsed, { mentors, language });
   if (!normalized || !Array.isArray(normalized.mentorReplies) || normalized.mentorReplies.length === 0) {
     const preview = String(content || '').slice(0, 180).replace(/\s+/g, ' ');
@@ -1718,8 +1631,9 @@ const mentorTableHandler = async (req, res) => {
       if (item.ok && item.output) {
         normalized.safety = mergeSafetyState(normalized.safety, item.output.safety);
         const reply = item.output.reply;
-        // reply is guaranteed populated by normalizeReply / normalizeProviderPayloadLoose
-        // (both filter out entries without likelyResponse and default other fields).
+        // reply is guaranteed populated: normalizeProviderPayload filters out
+        // entries without likelyResponse and defaults the other fields; a
+        // strict-parse failure degraded this mentor to a fallback reply above.
         const likelyResponse = sanitizeFirstPerson(String(reply.likelyResponse));
         const oneActionStep = sanitizeFirstPerson(String(reply.oneActionStep));
         const wrongLanguage =
@@ -1831,7 +1745,6 @@ mentorTableHandler.__test__ = {
   extractTopLevelJsonObjects,
   tryParseJson,
   normalizeProviderPayload,
-  normalizeProviderPayloadLoose,
   pickReplyForMentor,
   riskLevelScore,
   detectLanguageFromText,
@@ -1845,7 +1758,6 @@ mentorTableHandler.__test__ = {
   defaultConfidenceNote,
   defaultActionStep,
   extractAssistantContent,
-  extractLooseStringField,
   contentMatchesLanguage,
   detectContentLanguage,
   finalizeContractShape,

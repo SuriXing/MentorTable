@@ -23,7 +23,6 @@ const {
   buildMentorDirectiveBlock,
   tryParseJson,
   normalizeProviderPayload,
-  normalizeProviderPayloadLoose,
   pickReplyForMentor,
   riskLevelScore,
   detectLanguageFromText,
@@ -37,7 +36,6 @@ const {
   defaultConfidenceNote,
   defaultActionStep,
   extractAssistantContent,
-  extractLooseStringField,
   contentMatchesLanguage,
   detectContentLanguage,
   finalizeContractShape,
@@ -1617,9 +1615,10 @@ describe('mentor-table edge cases', () => {
     expect(res._json.mentorReplies).toHaveLength(1);
   });
 
-  it('uses zh-CN fallback in loose extraction when whyThisFits is absent', async () => {
-    // Trigger normalizeProviderPayloadLoose with zh-CN language
-    // Both main parse and repair fail, loose extraction has no whyThisFits
+  it('non-JSON upstream text degrades to fallback after failed repair — no regex salvage (F159)', async () => {
+    // Strict mode: main parse and repair both fail on non-JSON text, the
+    // mentor takes its language-correct fallback reply; the old loose
+    // regex-salvage path is gone.
     let callIndex = 0;
     globalThis.fetch = vi.fn().mockImplementation(async () => {
       callIndex += 1;
@@ -1647,12 +1646,13 @@ describe('mentor-table edge cases', () => {
     }), res);
 
     expect(res._status).toBe(200);
+    expect(res._json.meta.provider).toBe('server-fallback');
+    expect(res._json.mentorReplies[0].mentorId).toBe('elon_musk');
   });
 
   it('falls back when LLM returns valid JSON with empty mentorReplies (no reply match)', async () => {
-    // normalizeProviderPayload returns an object with empty mentorReplies → normalized is null
-    // → normalizeProviderPayloadLoose is tried → if no likelyResponse field → returns null
-    // → throw Error → caught by per-mentor error handler → fallback
+    // normalizeProviderPayload returns an object with empty mentorReplies →
+    // normalized is null → throw Error → per-mentor error handler → fallback
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -2895,79 +2895,6 @@ describe('normalizeProviderPayload extra branches', () => {
     };
     const result = normalizeProviderPayload(raw, { mentors: [sampleMentor], language: 'en' });
     expect(result.mentorReplies[0].mentorName).toBe('Elon Musk');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// normalizeProviderPayloadLoose — all branches
-// ---------------------------------------------------------------------------
-describe('normalizeProviderPayloadLoose', () => {
-  it('returns null for empty / non-string text', () => {
-    expect(normalizeProviderPayloadLoose('', { mentor: sampleMentor, language: 'en' })).toBeNull();
-    expect(normalizeProviderPayloadLoose(null, { mentor: sampleMentor, language: 'en' })).toBeNull();
-  });
-
-  it('returns null when no likelyResponse is extractable', () => {
-    expect(normalizeProviderPayloadLoose('nothing useful here', { mentor: sampleMentor, language: 'en' })).toBeNull();
-  });
-
-  it('extracts fields and uses mentor defaults when fields missing', () => {
-    const text = '"likelyResponse": "Take a small step"';
-    const result = normalizeProviderPayloadLoose(text, { mentor: sampleMentor, language: 'en' });
-    expect(result).toBeTruthy();
-    expect(result.mentorReplies[0].mentorId).toBe('elon_musk');
-    expect(result.mentorReplies[0].mentorName).toBe('Elon Musk');
-    expect(result.mentorReplies[0].whyThisFits).toContain('Elon Musk');
-    expect(result.mentorReplies[0].oneActionStep).toMatch(/Next step/);
-  });
-
-  it('uses zh-CN whyThisFits fallback when language is zh-CN', () => {
-    const text = '"likelyResponse": "先迈一小步"';
-    const result = normalizeProviderPayloadLoose(text, { mentor: sampleMentor, language: 'zh-CN' });
-    expect(result.mentorReplies[0].whyThisFits).toContain('公开风格');
-  });
-
-  it('handles missing mentor (uses "Mentor" fallback)', () => {
-    const text = '"likelyResponse": "do something"';
-    const result = normalizeProviderPayloadLoose(text, { mentor: null, language: 'en' });
-    expect(result.mentorReplies[0].mentorId).toBe('');
-    expect(result.mentorReplies[0].mentorName).toBe('Mentor');
-  });
-
-  it('uses mentorId as mentorName when mentor.displayName missing', () => {
-    const text = '"mentorId": "foo"\n"likelyResponse": "bar"';
-    const result = normalizeProviderPayloadLoose(text, { mentor: { id: 'foo' }, language: 'en' });
-    expect(result.mentorReplies[0].mentorName).toBe('foo');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// extractLooseStringField
-// ---------------------------------------------------------------------------
-describe('extractLooseStringField', () => {
-  it('returns empty for empty / non-string input', () => {
-    expect(extractLooseStringField('', ['k'])).toBe('');
-    expect(extractLooseStringField(null, ['k'])).toBe('');
-  });
-
-  it('matches strict JSON pattern', () => {
-    const text = '{"mentorId": "elon", "other": "x"}';
-    expect(extractLooseStringField(text, ['mentorId'])).toBe('elon');
-  });
-
-  it('matches line pattern when strict match fails', () => {
-    // no trailing comma/brace → falls through to line match
-    const text = '"mentorId": "elon-extracted"';
-    expect(extractLooseStringField(text, ['mentorId'])).toBe('elon-extracted');
-  });
-
-  it('matches bare pattern without quotes', () => {
-    const text = 'mentorId=loose-value';
-    expect(extractLooseStringField(text, ['mentorId'])).toBe('loose-value');
-  });
-
-  it('returns empty when no key matches', () => {
-    expect(extractLooseStringField('random text', ['mentorId'])).toBe('');
   });
 });
 
