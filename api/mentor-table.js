@@ -1308,6 +1308,201 @@ function extractAssistantContent(data) {
   return '';
 }
 
+// F158: batch generation — one upstream completion covers the whole table.
+// MENTOR_BATCH_FANOUT=1 opts in; default remains the proven per-mentor
+// fan-out. The RESPONSE_SCHEMA is already batch-shaped (mentorReplies
+// array), so strict normalization is shared; only the request fan-out and
+// per-mentor attribution change.
+const MENTOR_BATCH_MAX_TIMEOUT_MS = 60000;
+
+async function requestMentorBatchReplyFromLLM({
+  mentors,
+  problem,
+  language,
+  compactedConversation,
+  model,
+  apiKey,
+  chatCompletionsUrl,
+  isDashscope,
+  upstreamTimeoutMs
+}) {
+  // One completion writing N replies takes longer than one reply. Scale the
+  // per-mentor timeout linearly (each mentor contributes up to ~1 reply's
+  // worth of tokens) and cap it so a 5-mentor table stays inside the
+  // platform function budget.
+  const batchTimeoutMs = Math.min(
+    MENTOR_BATCH_MAX_TIMEOUT_MS,
+    upstreamTimeoutMs + (mentors.length - 1) * Math.min(upstreamTimeoutMs, 12000)
+  );
+
+  const payload = {
+    model,
+    temperature: 0.55,
+    response_format: isDashscope
+      ? { type: 'json_object' }
+      : {
+          type: 'json_schema',
+          json_schema: {
+            name: 'mentor_table_output',
+            schema: RESPONSE_SCHEMA
+          }
+        },
+    messages: [
+      { role: 'system', content: buildSystemPrompt(mentors) },
+      { role: 'user', content: buildUserPrompt(problem, language, mentors, compactedConversation) }
+    ]
+  };
+
+  const startedAt = Date.now();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), batchTimeoutMs);
+  let response;
+  try {
+    log('info', 'api_request', {
+      handler: 'mentor-table',
+      stage: 'upstream_start',
+      mentorId: 'batch',
+      mentorCount: mentors.length,
+      model,
+    });
+    // eslint-disable-next-line no-console
+    console.log(
+      `[mentor-api] upstream request start mode=batch mentors=${mentors.length} model=${model}`
+    );
+    response = await callChatCompletions({
+      url: chatCompletionsUrl,
+      apiKey,
+      payload,
+      signal: controller.signal
+    });
+
+    if (!response.ok && response.status >= 400 && response.status < 500 && payload.response_format?.type === 'json_schema') {
+      const fallbackPayload = {
+        ...payload,
+        response_format: { type: 'json_object' }
+      };
+      response = await callChatCompletions({
+        url: chatCompletionsUrl,
+        apiKey,
+        payload: fallbackPayload,
+        signal: controller.signal
+      });
+    }
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  log('info', 'api_ok', {
+    handler: 'mentor-table',
+    stage: 'upstream_response',
+    mentorId: 'batch',
+    mentorCount: mentors.length,
+    status: response.status,
+    latency_ms: Date.now() - startedAt,
+  });
+  // eslint-disable-next-line no-console
+  console.log(
+    `[mentor-api] upstream response mode=batch mentors=${mentors.length} status=${response.status} elapsed=${Date.now() - startedAt}ms`
+  );
+  if (!response.ok) {
+    // Same rule as the per-mentor path: log the body server-side through
+    // redactSensitive, never embed it in the thrown Error.
+    let errorText = '';
+    try {
+      errorText = await response.text();
+    } catch {
+      errorText = '<unreadable>';
+    }
+    log('error', 'api_error', {
+      handler: 'mentor-table',
+      stage: 'upstream_non_ok',
+      mentorId: 'batch',
+      status: response.status,
+      bodyTruncated: redactSensitive(String(errorText).slice(0, 200)),
+    });
+    throw new Error(`Mentor API failed in batch mode with status ${response.status}`);
+  }
+
+  const data = await response.json();
+  let content = extractAssistantContent(data);
+  let parsed = tryParseJson(content);
+
+  if (!parsed) {
+    // F158: repair counts as its own upstream call against the hourly budget.
+    recordLlmCall(1);
+    const repairPayload = {
+      model,
+      temperature: 0.2,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Convert the given text into valid JSON only. No markdown. Use keys: schemaVersion, language, safety, mentorReplies, meta.'
+        },
+        {
+          role: 'user',
+          content:
+            `Target mentor ids: ${mentors.map((m) => m.id).join(', ')}\n` +
+            'Target schema keys: schemaVersion, language, safety, mentorReplies, meta. ' +
+            'mentorReplies must contain one entry per target mentor.\n' +
+            `Raw output to repair:\n${String(content || '').slice(0, 6000)}`
+        }
+      ]
+    };
+
+    const repairController = new AbortController();
+    const repairTimeout = setTimeout(() => repairController.abort(), Math.min(12000, batchTimeoutMs));
+    try {
+      const repairResponse = await callChatCompletions({
+        url: chatCompletionsUrl,
+        apiKey,
+        payload: repairPayload,
+        signal: repairController.signal
+      });
+
+      if (repairResponse.ok) {
+        const repairedData = await repairResponse.json();
+        content = extractAssistantContent(repairedData);
+        parsed = tryParseJson(content);
+      }
+    } finally {
+      clearTimeout(repairTimeout);
+    }
+  }
+
+  // Batch mode intentionally skips normalizeProviderPayloadLoose: it is a
+  // single-mentor synthesizer, and trusting it here would fabricate a reply
+  // attributed to whichever mentor was passed. A batch that cannot be
+  // strictly normalized degrades to per-mentor fallbacks instead.
+  const normalized = normalizeProviderPayload(parsed, { mentors, language });
+  if (!normalized || !Array.isArray(normalized.mentorReplies) || normalized.mentorReplies.length === 0) {
+    const preview = String(content || '').slice(0, 180).replace(/\s+/g, ' ');
+    throw new Error(`Model returned invalid JSON in batch mode. Preview: ${preview}`);
+  }
+
+  // Strict attribution: unlike pickReplyForMentor, NO replies[0] fallback —
+  // a mentor missing from the batch response must degrade to its own
+  // fallback reply, never inherit a neighbor's reply.
+  const normalizeKey = (value) => String(value || '').trim().toLowerCase().replace(/\s+/g, '_');
+  const safety = normalized.safety;
+  return mentors.map((mentor) => {
+    try {
+      const mentorIdKey = normalizeKey(mentor.id);
+      const mentorNameKey = normalizeKey(mentor.displayName);
+      const reply =
+        normalized.mentorReplies.find((item) => normalizeKey(item.mentorId) === mentorIdKey) ||
+        normalized.mentorReplies.find((item) => normalizeKey(item.mentorName) === mentorNameKey);
+      if (!reply) {
+        throw new Error(`batch response missing mentor=${mentor.id}`);
+      }
+      return { mentor, ok: true, output: { reply, safety } };
+    } catch (error) {
+      return { mentor, ok: false, error };
+    }
+  });
+}
+
 async function callChatCompletions({ url, apiKey, payload, signal }) {
   return fetch(url, {
     method: 'POST',
@@ -1445,30 +1640,67 @@ const mentorTableHandler = async (req, res) => {
       );
     }
 
-    const perMentor = await Promise.all(
-      mentors.map(async (mentor) => {
-        try {
-          // F19: count this fan-out against the per-instance hourly LLM
-          // budget. Recorded just before dispatch so even if upstream
-          // errors out the call counts (it still consumed quota / time).
-          recordLlmCall(1);
-          const output = await requestMentorReplyFromLLM({
-            mentor,
-            problem,
-            language: effectiveLanguage,
-            compactedConversation,
-            model,
-            apiKey,
-            chatCompletionsUrl,
-            isDashscope,
-            upstreamTimeoutMs
-          });
-          return { mentor, ok: true, output };
-        } catch (error) {
-          return { mentor, ok: false, error };
-        }
-      })
-    );
+    // F158: two dispatch modes produce the same perMentor item shape
+    // ({ mentor, ok, output? , error? }), so the aggregation below is shared.
+    // Batch (MENTOR_BATCH_FANOUT=1) spends ONE upstream call for the whole
+    // table instead of one per mentor — 5x cost and latency-shape reduction
+    // — and degrades per-mentor on any missing/mismatched batch entry.
+    // Default remains the proven per-mentor fan-out until the flag is
+    // enabled in a staged rollout.
+    let perMentor;
+    if (process.env.MENTOR_BATCH_FANOUT === '1') {
+      try {
+        // F19: the batch call counts as ONE upstream LLM call against the
+        // hourly budget (the repair call inside the batch helper counts
+        // separately when it fires).
+        recordLlmCall(1);
+        perMentor = await requestMentorBatchReplyFromLLM({
+          mentors,
+          problem,
+          language: effectiveLanguage,
+          compactedConversation,
+          model,
+          apiKey,
+          chatCompletionsUrl,
+          isDashscope,
+          upstreamTimeoutMs
+        });
+      } catch (error) {
+        // Whole-batch failure: every mentor takes its own fallback reply and
+        // the response still completes with 200 + meta.provider honesty.
+        console.warn(
+          `[mentor-api] batch generation failed; falling back per-mentor: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+        perMentor = mentors.map((mentor) => ({ mentor, ok: false, error }));
+      }
+    } else {
+      perMentor = await Promise.all(
+        mentors.map(async (mentor) => {
+          try {
+            // F19: count this fan-out against the per-instance hourly LLM
+            // budget. Recorded just before dispatch so even if upstream
+            // errors out the call counts (it still consumed quota / time).
+            recordLlmCall(1);
+            const output = await requestMentorReplyFromLLM({
+              mentor,
+              problem,
+              language: effectiveLanguage,
+              compactedConversation,
+              model,
+              apiKey,
+              chatCompletionsUrl,
+              isDashscope,
+              upstreamTimeoutMs
+            });
+            return { mentor, ok: true, output };
+          } catch (error) {
+            return { mentor, ok: false, error };
+          }
+        })
+      );
+    }
 
     const failedMentors = [];
     const normalized = {
@@ -1592,6 +1824,7 @@ mentorTableHandler.__test__ = {
   formatConversationHistoryForPrompt,
   buildUserPrompt,
   buildMentorDirectiveBlock,
+  requestMentorBatchReplyFromLLM,
   sanitizeMentorField,
   sanitizeMentorFieldArray,
   redactSensitive,

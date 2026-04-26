@@ -3381,3 +3381,171 @@ describe('mentor-table handler per-mentor reply field fallbacks', () => {
     expect(res._json.mentorReplies[0].whyThisFits).toContain('public style');
   });
 });
+
+// ---------------------------------------------------------------------------
+// F158: batch fan-out (MENTOR_BATCH_FANOUT=1) — one upstream call per table
+// ---------------------------------------------------------------------------
+describe('mentor-table batch fan-out (F158)', () => {
+  const batchEnvKeys = [
+    'LLM_API_KEY', 'LLM_MODEL', 'LLM_API_BASE_URL',
+    'MENTOR_UPSTREAM_TIMEOUT_MS', 'MENTOR_BATCH_FANOUT',
+  ];
+  const savedBatchEnv = {};
+  const originalFetch = globalThis.fetch;
+
+  const secondMentor = {
+    id: 'marie_curie',
+    displayName: 'Marie Curie',
+    speakingStyle: ['rigorous'],
+    coreValues: ['curiosity'],
+    decisionPatterns: ['evidence-first'],
+    knownExperienceThemes: ['radiation research'],
+    likelyBlindSpots: ['over-caution'],
+    avoidClaims: ['I discovered radium alone'],
+  };
+
+  function makeBatchLLMResponse(mentors, language = 'en') {
+    return {
+      schemaVersion: 'mentor_table.v1',
+      language,
+      safety: {
+        riskLevel: 'none',
+        needsProfessionalHelp: false,
+        emergencyMessage: '',
+      },
+      mentorReplies: mentors.map((m) => ({
+        mentorId: m.id,
+        mentorName: m.displayName,
+        likelyResponse: language === 'zh-CN'
+          ? '我认为你应该先迈出一小步。'
+          : `I think you should take a small step first (${m.displayName} style).`,
+        whyThisFits: 'Matches the mentor style.',
+        oneActionStep: language === 'zh-CN'
+          ? '今天就把问题写下来。'
+          : 'Write down the problem today.',
+        confidenceNote: 'AI-simulated perspective.',
+      })),
+      meta: {
+        disclaimer: 'AI simulation disclaimer.',
+        generatedAt: new Date().toISOString(),
+      },
+    };
+  }
+
+  beforeEach(() => {
+    for (const key of batchEnvKeys) {
+      savedBatchEnv[key] = process.env[key];
+      delete process.env[key];
+    }
+    process.env.LLM_API_KEY = 'test-key-123';
+    process.env.LLM_MODEL = 'test-model';
+    process.env.LLM_API_BASE_URL = 'https://api.test.com/v1';
+    process.env.MENTOR_UPSTREAM_TIMEOUT_MS = '5000';
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    for (const [key, val] of Object.entries(savedBatchEnv)) {
+      if (val === undefined) delete process.env[key];
+      else process.env[key] = val;
+    }
+  });
+
+  it('flag off (default): per-mentor fan-out makes one upstream call PER mentor', async () => {
+    // Same response body for every call is fine: pickReplyForMentor's
+    // replies[0] fallback resolves each per-mentor request.
+    globalThis.fetch = mockFetchOk(makeBatchLLMResponse([sampleMentor]));
+
+    const res = mockRes();
+    await handler(mockReq({
+      method: 'POST',
+      body: { problem: 'How do I start?', language: 'en', mentors: [sampleMentor, secondMentor] },
+    }), res);
+
+    expect(res._status).toBe(200);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    expect(res._json.mentorReplies).toHaveLength(2);
+  });
+
+  it('flag on: the whole table resolves in exactly ONE upstream call', async () => {
+    process.env.MENTOR_BATCH_FANOUT = '1';
+    globalThis.fetch = mockFetchOk(makeBatchLLMResponse([sampleMentor, secondMentor]));
+
+    const res = mockRes();
+    await handler(mockReq({
+      method: 'POST',
+      body: { problem: 'How do I start?', language: 'en', mentors: [sampleMentor, secondMentor] },
+    }), res);
+
+    expect(res._status).toBe(200);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    expect(res._json.mentorReplies).toHaveLength(2);
+    expect(res._json.mentorReplies.map((r) => r.mentorId)).toEqual(['elon_musk', 'marie_curie']);
+    // Strict attribution: no reply was stolen from a neighbor.
+    expect(res._json.mentorReplies[1].likelyResponse).toContain('Marie Curie style');
+    expect(res._json.meta.provider).not.toBe('server-fallback');
+    expect(res._json.meta.provider).not.toBe('partial-fallback');
+  });
+
+  it('flag on: a mentor missing from the batch degrades to its own fallback (partial)', async () => {
+    process.env.MENTOR_BATCH_FANOUT = '1';
+    // Batch response only covers elon — marie must NOT inherit elon's reply.
+    globalThis.fetch = mockFetchOk(makeBatchLLMResponse([sampleMentor]));
+
+    const res = mockRes();
+    await handler(mockReq({
+      method: 'POST',
+      body: { problem: 'How do I start?', language: 'en', mentors: [sampleMentor, secondMentor] },
+    }), res);
+
+    expect(res._status).toBe(200);
+    expect(res._json.mentorReplies).toHaveLength(2);
+    const marie = res._json.mentorReplies.find((r) => r.mentorId === 'marie_curie');
+    expect(marie.likelyResponse).not.toContain('Marie Curie style');
+    expect(res._json.meta.provider).toBe('partial-fallback');
+  });
+
+  it('flag on: whole-batch upstream failure returns 200 with all-fallback replies', async () => {
+    process.env.MENTOR_BATCH_FANOUT = '1';
+    globalThis.fetch = mockFetchError(500, 'upstream exploded');
+
+    const res = mockRes();
+    await handler(mockReq({
+      method: 'POST',
+      body: { problem: 'How do I start?', language: 'en', mentors: [sampleMentor, secondMentor] },
+    }), res);
+
+    expect(res._status).toBe(200);
+    expect(res._json.mentorReplies).toHaveLength(2);
+    expect(res._json.meta.provider).toBe('server-fallback');
+  });
+
+  it('flag on: unparseable batch JSON triggers one repair call, then succeeds', async () => {
+    process.env.MENTOR_BATCH_FANOUT = '1';
+    const batchBody = makeBatchLLMResponse([sampleMentor, secondMentor]);
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ choices: [{ message: { content: 'not json at all {{{' } }] }),
+        text: async () => 'not json at all {{{',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ choices: [{ message: { content: JSON.stringify(batchBody) } }] }),
+        text: async () => JSON.stringify(batchBody),
+      });
+
+    const res = mockRes();
+    await handler(mockReq({
+      method: 'POST',
+      body: { problem: 'How do I start?', language: 'en', mentors: [sampleMentor, secondMentor] },
+    }), res);
+
+    expect(res._status).toBe(200);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    expect(res._json.mentorReplies).toHaveLength(2);
+    expect(res._json.mentorReplies.map((r) => r.mentorId)).toEqual(['elon_musk', 'marie_curie']);
+  });
+});
