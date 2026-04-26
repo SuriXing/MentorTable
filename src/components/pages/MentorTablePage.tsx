@@ -362,6 +362,13 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     skipOnboarding: tI18n('mt.skipOnboarding', { defaultValue: isZh ? '跳过' : 'Skip' }),
     // ERR-2: retry-able error state for handleGenerate failures
     generateFailed: tI18n('mt.generateFailed', { defaultValue: isZh ? '召唤失败，请重试。' : 'Could not reach the mentors. Please retry.' }),
+    // F157: the banner stays human-readable; raw upstream text goes to the
+    // console only — endpoint URLs / status bodies were leaking into the UI.
+    generateFailedHint: tI18n('mt.generateFailedHint', {
+      defaultValue: isZh
+        ? '可能是网络或服务暂时不可用，你的问题已保留，稍后点重试即可。'
+        : 'The network or service may be temporarily unavailable. Your session is saved — try again in a moment.'
+    }),
     retry: tI18n('mt.retry', { defaultValue: isZh ? '重试' : 'Retry' }),
     // MC-3: jump past the reveal timer
     revealAll: isZh ? '立刻展示全部' : 'Reveal all now',
@@ -624,6 +631,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
       // Bug-bash round 1: surface mentor API failures to the user instead of
       // swallowing them. Fallback text from generateMentorFollowup is still
       // used so the thread has some response.
+      // F157: full detail goes to console; the banner shows stable copy only.
+      console.error('[mentor-note] request failed:', err);
       setGenerateError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsRoundGenerating(false);
@@ -689,6 +698,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
       // Bug-bash round 1: previously this try/finally had no catch — a
       // malformed response from res.json() bubbled as SyntaxError and the
       // user's message was silently dropped. Surface via generateError.
+      // F157: full detail goes to console; the banner shows stable copy only.
+      console.error('[mentor-reply-all] request failed:', err);
       setGenerateError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsRoundGenerating(false);
@@ -1097,7 +1108,9 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     } catch (err) {
       // ERR-2: surface the failure instead of silently leaving the user
       // with an empty conversation panel.
+      // F157: full detail goes to console; the banner shows stable copy only.
       if (!isMountedRef.current) return;
+      console.error('[mentor-generate] request failed:', err);
       window.clearTimeout(bootTimer);
       setIsGenerating(false);
       setGenerateError(err instanceof Error ? err.message : String(err));
@@ -1739,7 +1752,11 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                       }}
                     >
                       <div>{t.generateFailed}</div>
-                      <div style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: 4 }}>{generateError}</div>
+                      {/* F157: the raw upstream text (endpoint URL, status
+                          body) used to render here. It stays in state for
+                          debugging and goes to console.error, but the UI
+                          shows stable localized copy only. */}
+                      <div style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: 4 }}>{t.generateFailedHint}</div>
                       <button
                         type="button"
                         data-testid="mentor-generate-retry"

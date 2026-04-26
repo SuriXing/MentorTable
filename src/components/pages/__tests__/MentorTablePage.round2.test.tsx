@@ -40,7 +40,11 @@ const state = (globalThis as any).__mentorRound2State;
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k: string) => k,
+    // Faithful t(): prefer the caller's defaultValue, fall back to the key.
+    // Real i18next resolves configured keys; keys WITHOUT a configured
+    // resource render their defaultValue, which is what the component relies
+    // on for its bilingual inline copy.
+    t: (k: string, opts?: { defaultValue?: string }) => opts?.defaultValue ?? k,
     i18n: {
       get language() {
         return (globalThis as any).__mentorRound2State.language;
@@ -391,6 +395,8 @@ describe('R2 errors — ERR-1 continue blocks 0-mentor sessions', () => {
 describe('R2 errors — ERR-2 handleGenerate catches + offers retry', () => {
   it('network failure shows error banner + retry button, drops back to wish phase', async () => {
     generateMentorAdviceMock.mockRejectedValueOnce(new Error('network down'));
+    // F157: the raw detail must land in console.error — spy BEFORE the call.
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     render(<MentorTablePage standalone />);
     await addPerson('Bill');
     fireEvent.click(screen.getByTestId('mentor-continue-wish'));
@@ -401,7 +407,15 @@ describe('R2 errors — ERR-2 handleGenerate catches + offers retry', () => {
     // Error banner should surface.
     const banner = await screen.findByTestId('mentor-generate-error');
     expect(banner.getAttribute('role')).toBe('alert');
-    expect(banner.textContent).toMatch(/network down/);
+    // F157: the banner shows stable human copy — the raw failure text must
+    // NOT reach the DOM (it used to leak endpoint URLs and status bodies).
+    expect(banner.textContent).toMatch(/temporarily unavailable/i);
+    expect(banner.textContent).not.toMatch(/network down/);
+    try {
+      expect(consoleError.mock.calls.some((call) => String(call[1]).includes('network down'))).toBe(true);
+    } finally {
+      consoleError.mockRestore();
+    }
     // Retry succeeds on the second call.
     generateMentorAdviceMock.mockResolvedValueOnce(buildMockResult());
     await act(async () => {
@@ -639,8 +653,9 @@ describe('R2 coverage — uncovered branches and handlers', () => {
     fireEvent.blur(wrap);
   });
 
-  it('ERR-2 handleGenerate surfaces non-Error throws via String()', async () => {
+  it('ERR-2 non-Error throws still reach console.error, never the banner (F157)', async () => {
     generateMentorAdviceMock.mockRejectedValueOnce('boom-string');
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     render(<MentorTablePage standalone />);
     await addPerson('Bill');
     fireEvent.click(screen.getByTestId('mentor-continue-wish'));
@@ -649,7 +664,14 @@ describe('R2 coverage — uncovered branches and handlers', () => {
       fireEvent.click(screen.getByTestId('mentor-begin-session'));
     });
     const banner = await screen.findByTestId('mentor-generate-error');
-    expect(banner.textContent).toMatch(/boom-string/);
+    // F157: stable copy in the DOM, raw string only in the console.
+    expect(banner.textContent).toMatch(/temporarily unavailable/i);
+    expect(banner.textContent).not.toMatch(/boom-string/);
+    try {
+      expect(consoleError.mock.calls.some((call) => String(call[1]).includes('boom-string'))).toBe(true);
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   it('KB-5 onBlur setHoveredDebugMentorId updater takes the prev-!==-id branch', async () => {
