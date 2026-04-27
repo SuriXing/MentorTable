@@ -45,16 +45,10 @@ import { DebugPromptPanel } from '../mentorTable/DebugPromptPanel';
 import { usePersonSearch } from '../mentorTable/hooks/usePersonSearch';
 import { useImageChain } from '../mentorTable/hooks/useImageChain';
 import { useMentorNotes } from '../mentorTable/hooks/useMentorNotes';
+import { MemoryCard, clearMemories, loadMemories, saveMemories } from '../../lib/memoryStore';
 
 type RitualPhase = 'invite' | 'wish' | 'session';
 type SessionMode = 'idle' | 'booting' | 'live';
-
-interface MemoryCard {
-  id: string;
-  title: string;
-  createdAt: string;
-  takeaways: string[];
-}
 
 interface ConversationTurn {
   id: string;
@@ -171,7 +165,12 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const [candleLevel, setCandleLevel] = useState(1);
   const [tableRipple, setTableRipple] = useState<{ x: number; y: number; key: string } | null>(null);
   const [memoryDrawerOpen, setMemoryDrawerOpen] = useState(false);
-  const [memories, setMemories] = useState<MemoryCard[]>([]);
+  // F163 (P16): memories survive refreshes — loaded once from localStorage
+  // (with schema migration) and persisted best-effort on every change.
+  const [memories, setMemories] = useState<MemoryCard[]>(() => loadMemories());
+  useEffect(() => {
+    saveMemories(memories);
+  }, [memories]);
   const [visibleReplyCount, setVisibleReplyCount] = useState(0);
   const [isConversationHovered, setIsConversationHovered] = useState(false);
   const [showSessionWrap, setShowSessionWrap] = useState(false);
@@ -912,6 +911,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     setConversationTurns([]);
     setReplyAllDraft('');
     resetNotes();
+    setMemories([]);
+    clearMemories();
     setExpandedReplyId('');
     setExpandedSuggestion(null);
     setOpenDebugMentorId('');
