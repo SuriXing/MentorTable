@@ -39,6 +39,9 @@ import {
 } from '../../features/mentorTable/personLookup';
 import { applyMentorSpeakerClass } from './applyMentorSpeakerClass';
 import styles from './MentorTablePage.module.css';
+import { OnboardingModal } from '../mentorTable/OnboardingModal';
+import { MemoryDrawer } from '../mentorTable/MemoryDrawer';
+import { DebugPromptPanel } from '../mentorTable/DebugPromptPanel';
 
 type RitualPhase = 'invite' | 'wish' | 'session';
 type SessionMode = 'idle' | 'booting' | 'live';
@@ -2442,18 +2445,19 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                 )}
 
                 {openDebugMentor && (
-                  <aside className={styles.debugPromptPanel}>
-                    <div className={styles.debugPromptHeader}>
-                      <strong>{t.debugPrompt}</strong>
-                      <span>{openDebugMentorDisplayName}</span>
-                    </div>
-                    <pre className={styles.debugPromptBody}>
-                      {openDebugPromptLoading ? t.loading : openDebugPromptText || openDebugPromptError || t.debugLoadFailed}
-                    </pre>
-                    <button type="button" className={styles.debugPromptCloseBtn} onClick={() => setOpenDebugMentorId('')}>
-                      {t.closeDebug}
-                    </button>
-                  </aside>
+                  <DebugPromptPanel
+                    mentorDisplayName={openDebugMentorDisplayName}
+                    loading={openDebugPromptLoading}
+                    promptText={openDebugPromptText}
+                    error={openDebugPromptError}
+                    onClose={() => setOpenDebugMentorId('')}
+                    labels={{
+                      title: t.debugPrompt,
+                      loading: t.loading,
+                      loadFailed: t.debugLoadFailed,
+                      close: t.closeDebug,
+                    }}
+                  />
                 )}
               </div>
 
@@ -2497,116 +2501,37 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
           </div>
         </div>
 
-        <button type="button" data-testid="mentor-memory-fab" className={styles.memoryFab} onClick={() => setMemoryDrawerOpen((v) => !v)}>
-          <FontAwesomeIcon icon={faBookOpen} /> {t.memories} ({memories.length})
-        </button>
-
-        {saveNotice && (
-          // SR-3: polite status announcement (non-interrupting).
-          <div
-            data-testid="mentor-save-notice"
-            className={styles.saveNotice}
-            role="status"
-            aria-live="polite"
-          >
-            {saveNotice}
-          </div>
-        )}
-
-        {memoryDrawerOpen && (
-          <div data-testid="mentor-memory-drawer" className={styles.memoryDrawer}>
-            <h3>{t.memoryDrawer}</h3>
-            <p className={styles.memoryHint}>{t.savedInDrawer}</p>
-            {memories.length === 0 && <p className={styles.emptyMemory}>{t.noMemories}</p>}
-            {memories.map((memory) => (
-              <article key={memory.id} className={styles.memoryCard}>
-                <header>{memory.title}</header>
-                <small>{memory.createdAt}</small>
-                <ul>
-                  {/* Bug #40: show all saved takeaways in the memory drawer. */}
-                  {memory.takeaways.map((item, idx) => (
-                    <li key={`${memory.id}-${idx}`}>{item}</li>
-                  ))}
-                </ul>
-              </article>
-            ))}
-          </div>
-        )}
+        <MemoryDrawer
+          open={memoryDrawerOpen}
+          onToggle={() => setMemoryDrawerOpen((v) => !v)}
+          memories={memories}
+          saveNotice={saveNotice}
+          labels={{
+            memories: t.memories,
+            drawerTitle: t.memoryDrawer,
+            drawerHint: t.savedInDrawer,
+            empty: t.noMemories,
+          }}
+        />
 
         {showOnboarding && (
-          // KB-3 + R3 I-4: proper dialog semantics + focus trap + focus
-          // return via useFocusTrap. Auto-focus and Escape are both
-          // handled inside the hook.
-          <div
-            className={styles.onboardingOverlay}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="mentor-onboarding-title"
-            ref={onboardingTrapRef}
-          >
-            <div className={styles.onboardingCard}>
-              {/* R2/F34: Skip button always visible — share-link visitors
-                  must be able to bypass the 3-slide tour to reach the form.
-                  R3/F50: label now routed through the `t` i18n bundle
-                  (`mt.skipOnboarding`). */}
-              <button
-                type="button"
-                className={styles.onboardingSkipBtn}
-                onClick={finishOnboarding}
-                aria-label={isZh ? '跳过引导' : 'Skip onboarding'}
-              >
-                {t.skipOnboarding}
-              </button>
-              <h3 id="mentor-onboarding-title">{localizedOnboardingSlides[currentSlide].title}</h3>
-              <p>{localizedOnboardingSlides[currentSlide].body}</p>
-              {currentSlide === localizedOnboardingSlides.length - 1 && (
-                <div className={styles.onboardingChoiceBoxes}>
-                  <button
-                    type="button"
-                    className={`${styles.onboardingChoiceBox} ${dontShowOnboardingAgain ? styles.onboardingChoiceBoxActive : ''}`}
-                    onClick={() => setDontShowOnboardingAgain(true)}
-                  >
-                    {t.dontShowAgain}
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.onboardingChoiceBox} ${!dontShowOnboardingAgain ? styles.onboardingChoiceBoxActive : ''}`}
-                    onClick={() => setDontShowOnboardingAgain(false)}
-                  >
-                    {t.keepShowing}
-                  </button>
-                </div>
-              )}
-              <div className={styles.slideDots}>
-                {localizedOnboardingSlides.map((_, idx) => (
-                  <span key={idx} className={`${styles.slideDot} ${currentSlide === idx ? styles.slideDotActive : ''}`} />
-                ))}
-              </div>
-              <div className={styles.onboardingActions}>
-                <button
-                  type="button"
-                  className={styles.onboardingBtnSecondary}
-                  onClick={() => setCurrentSlide((s) => Math.max(0, s - 1))}
-                  disabled={currentSlide === 0}
-                >
-                  {t.back}
-                </button>
-                {currentSlide < localizedOnboardingSlides.length - 1 ? (
-                  <button
-                    type="button"
-                    className={styles.onboardingBtnPrimary}
-                    onClick={() => setCurrentSlide((s) => Math.min(localizedOnboardingSlides.length - 1, s + 1))}
-                  >
-                    {t.next}
-                  </button>
-                ) : (
-                  <button type="button" className={styles.onboardingBtnPrimary} onClick={finishOnboarding}>
-                    {t.getStarted}
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+          <OnboardingModal
+            slides={localizedOnboardingSlides}
+            currentSlide={currentSlide}
+            onSlideChange={setCurrentSlide}
+            dontShowAgain={dontShowOnboardingAgain}
+            onDontShowAgainChange={setDontShowOnboardingAgain}
+            onFinish={finishOnboarding}
+            trapRef={onboardingTrapRef}
+            labels={{
+              skip: t.skipOnboarding,
+              back: t.back,
+              next: t.next,
+              getStarted: t.getStarted,
+              dontShowAgain: t.dontShowAgain,
+              keepShowing: t.keepShowing,
+            }}
+          />
         )}
       </section>
   );
