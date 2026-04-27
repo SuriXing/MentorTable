@@ -44,6 +44,7 @@ import { MemoryDrawer } from '../mentorTable/MemoryDrawer';
 import { DebugPromptPanel } from '../mentorTable/DebugPromptPanel';
 import { usePersonSearch } from '../mentorTable/hooks/usePersonSearch';
 import { useImageChain } from '../mentorTable/hooks/useImageChain';
+import { useMentorNotes } from '../mentorTable/hooks/useMentorNotes';
 
 type RitualPhase = 'invite' | 'wish' | 'session';
 type SessionMode = 'idle' | 'booting' | 'live';
@@ -169,9 +170,6 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const [lastSummonedName, setLastSummonedName] = useState<string>('');
   const [candleLevel, setCandleLevel] = useState(1);
   const [tableRipple, setTableRipple] = useState<{ x: number; y: number; key: string } | null>(null);
-  const [openNoteFor, setOpenNoteFor] = useState<string>('');
-  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
-  const [noteReplies, setNoteReplies] = useState<Record<string, Array<{ role: 'user' | 'mentor'; text: string }>>>({});
   const [memoryDrawerOpen, setMemoryDrawerOpen] = useState(false);
   const [memories, setMemories] = useState<MemoryCard[]>([]);
   const [visibleReplyCount, setVisibleReplyCount] = useState(0);
@@ -186,7 +184,6 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   // the hint unconditionally while selectedPeople.length === 0 so the user
   // understands *why* the button is disabled.
   const [expandedSuggestion, setExpandedSuggestion] = useState<ExpandedSuggestionCard | null>(null);
-  const [isRoundGenerating, setIsRoundGenerating] = useState(false);
   const [hoveredDebugMentorId, setHoveredDebugMentorId] = useState('');
   const [openDebugMentorId, setOpenDebugMentorId] = useState('');
   const [debugPromptByMentorId, setDebugPromptByMentorId] = useState<Record<string, string>>({});
@@ -476,6 +473,21 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
 
   const mentorThreadKey = (rawName: string) => normalizeMentorKey(resolveMentorName(rawName));
 
+  const normalizeMentorKey = (value: string) => value.trim().toLowerCase().replace(/\s+/g, '_');
+
+  const resolveMentorName = (rawName: string): string => {
+    const key = normalizeMentorKey(rawName);
+    const fromSelectedPeople = selectedPeople.find((p) => normalizeMentorKey(p.name) === key);
+    if (fromSelectedPeople) return fromSelectedPeople.name;
+    // selectedMentors is built 1:1 from selectedPeople (createCustomMentorProfile
+    // uses person.name as displayName), so if fromSelectedPeople missed, a
+    // mentor-displayName lookup would miss for the same key. Mentor.id is only
+    // ever derived internally — no caller here passes a raw id, so the
+    // fallback lookup on selectedMentors was unreachable and was removed.
+    return rawName;
+  };
+
+
   // R3 C-4: latestUserText is REQUIRED, not optional. All three call sites
   // (handleGenerate / handleReplyAll / submitNoteToMentor) guard their
   // `text` before invoking and never pass undefined or empty. Making it
@@ -567,78 +579,40 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     return history;
   };
 
-  const submitNoteToMentor = async (rawName: string) => {
-    const threadKey = mentorThreadKey(rawName);
-    const mentorName = localizeName(resolveMentorName(rawName));
-    const targetKey = normalizeMentorKey(rawName);
-    const text = (noteDrafts[threadKey] || '').trim();
-    if (!text) return;
-    // The inline-note send button is disabled while isRoundGenerating, so a
-    // re-entrant call is UI-unreachable. The belt-and-suspenders guard was
-    // removed.
-
-    setIsRoundGenerating(true);
-    let mentorReply = generateMentorFollowup(mentorName, text);
-    const targetMentor = selectedMentors.find((mentor) => {
-      return normalizeMentorKey(mentor.displayName) === targetKey || normalizeMentorKey(mentor.id) === targetKey;
-    });
-    const coordinatedMentorSet =
-      COORDINATE_PASS_NOTE_WITH_ALL && selectedMentors.length > 1
-        ? selectedMentors
-        : targetMentor
-          ? [targetMentor]
-          : selectedMentors.slice(0, 1);
-
-    try {
-      const aiResult = await generateMentorAdvice({
-        problem: text,
-        language: uiLanguage,
-        mentors: coordinatedMentorSet,
-        conversationHistory: buildConversationHistory(text)
-      });
-
-      const targetMentorIdKey = targetMentor ? normalizeMentorKey(targetMentor.id) : '';
-      const targetMentorNameKey = targetMentor ? normalizeMentorKey(targetMentor.displayName) : targetKey;
-      const aiReply =
-        aiResult.mentorReplies.find((reply) => targetMentorIdKey && normalizeMentorKey(reply.mentorId) === targetMentorIdKey) ||
-        aiResult.mentorReplies.find((reply) => normalizeMentorKey(reply.mentorName) === targetMentorNameKey) ||
-        aiResult.mentorReplies.find((reply) => normalizeMentorKey(reply.mentorName) === targetKey) ||
-        aiResult.mentorReplies[0];
-      if (aiReply?.likelyResponse) {
-        mentorReply = aiReply.likelyResponse;
-      }
-    } catch (err) {
-      // Bug-bash round 1: surface mentor API failures to the user instead of
-      // swallowing them. Fallback text from generateMentorFollowup is still
-      // used so the thread has some response.
-      // F157: full detail goes to console; the banner shows stable copy only.
+  // Shared by reply-all + note submits; owned here, passed into the hook.
+  const [isRoundGenerating, setIsRoundGenerating] = useState(false);
+  // F162 (P14): note threads + submit flow live in useMentorNotes; the page
+  // keeps the shared isRoundGenerating flag (reply-all also drives it) and
+  // the conversation-history builder.
+  const {
+    openNoteFor,
+    setOpenNoteFor,
+    noteDrafts,
+    setNoteDrafts,
+    noteReplies,
+    submitNoteToMentor,
+    resetNotes,
+  } = useMentorNotes({
+    selectedMentors,
+    uiLanguage,
+    threadKeyFor: mentorThreadKey,
+    localizeName,
+    resolveName: resolveMentorName,
+    normalizeKey: normalizeMentorKey,
+    buildConversationHistory,
+    generateFollowup: generateMentorFollowup,
+    reportGenerateError: (err) => {
+      // F157: full detail to console; banner shows stable copy only.
       console.error('[mentor-note] request failed:', err);
       setGenerateError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setIsRoundGenerating(false);
-    }
+    },
+    appendConversationTurn: (turn) => setConversationTurns((prev) => [...prev, turn]),
+    uniqueId,
+    coordinateWithAll: COORDINATE_PASS_NOTE_WITH_ALL,
+    isRoundGenerating,
+    setIsRoundGenerating,
+  });
 
-    setNoteReplies((prev) => ({
-      ...prev,
-      [threadKey]: [
-        ...(prev[threadKey] || []),
-        { role: 'user', text },
-        { role: 'mentor', text: mentorReply }
-      ]
-    }));
-    setConversationTurns((prev) => [
-      ...prev,
-      {
-        // Bug #22: collision-safe id via uniqueId (crypto.randomUUID fallback).
-        id: uniqueId(`turn-${threadKey}`),
-        user: text,
-        replies: [{ mentorName, text: mentorReply }]
-      }
-    ]);
-    setNoteDrafts((prev) => ({ ...prev, [threadKey]: '' }));
-    setOpenNoteFor(threadKey);
-    scrollConversationToBottom();
-  };
 
   const handleReplyAll = async () => {
     const text = replyAllDraft.trim();
@@ -765,20 +739,6 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   // `result` or `visibleReplyCount` also explicitly clears `expandedReplyId`
   // in the same batch (handleGenerate, restart, newTable, phase pills, edit,
   // chatBackBtn), so the cleanup branch was unreachable and was removed.
-
-  const normalizeMentorKey = (value: string) => value.trim().toLowerCase().replace(/\s+/g, '_');
-
-  const resolveMentorName = (rawName: string): string => {
-    const key = normalizeMentorKey(rawName);
-    const fromSelectedPeople = selectedPeople.find((p) => normalizeMentorKey(p.name) === key);
-    if (fromSelectedPeople) return fromSelectedPeople.name;
-    // selectedMentors is built 1:1 from selectedPeople (createCustomMentorProfile
-    // uses person.name as displayName), so if fromSelectedPeople missed, a
-    // mentor-displayName lookup would miss for the same key. Mentor.id is only
-    // ever derived internally — no caller here passes a raw id, so the
-    // fallback lookup on selectedMentors was unreachable and was removed.
-    return rawName;
-  };
 
   const findImage = (rawName: string): string => {
     const resolvedName = resolveMentorName(rawName);
@@ -951,9 +911,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     setShowGroupSolve(false);
     setConversationTurns([]);
     setReplyAllDraft('');
-    setOpenNoteFor('');
-    setNoteDrafts({});
-    setNoteReplies({});
+    resetNotes();
     setExpandedReplyId('');
     setExpandedSuggestion(null);
     setOpenDebugMentorId('');
