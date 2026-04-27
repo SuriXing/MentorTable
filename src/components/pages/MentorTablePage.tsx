@@ -42,6 +42,8 @@ import styles from './MentorTablePage.module.css';
 import { OnboardingModal } from '../mentorTable/OnboardingModal';
 import { MemoryDrawer } from '../mentorTable/MemoryDrawer';
 import { DebugPromptPanel } from '../mentorTable/DebugPromptPanel';
+import { usePersonSearch } from '../mentorTable/hooks/usePersonSearch';
+import { useImageChain } from '../mentorTable/hooks/useImageChain';
 
 type RitualPhase = 'invite' | 'wish' | 'session';
 type SessionMode = 'idle' | 'booting' | 'live';
@@ -134,10 +136,10 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const [sessionMode, setSessionMode] = useState<SessionMode>('idle');
   const [problem, setProblem] = useState('');
   const [personQuery, setPersonQuery] = useState('');
+  // F162 (P13): search suggestions + spinner state live in usePersonSearch.
+  const { suggestions, isSearching } = usePersonSearch(personQuery);
   const [selectedPeople, setSelectedPeople] = useState<PersonOption[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
-  const [suggestions, setSuggestions] = useState<PersonOption[]>([]);
   const [result, setResult] = useState<MentorSimulationResult | null>(null);
   // RERENDER-5: activeResultIndex lives in a ref below — removed from state.
   // This component only runs client-side (the app has no SSR), so `window`
@@ -178,8 +180,6 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const [showGroupSolve, setShowGroupSolve] = useState(false);
   const [replyAllDraft, setReplyAllDraft] = useState('');
   const [conversationTurns, setConversationTurns] = useState<ConversationTurn[]>([]);
-  const [imageAttemptByKey, setImageAttemptByKey] = useState<Record<string, number>>({});
-  const [imageRetryByKey, setImageRetryByKey] = useState<Record<string, number>>({});
   const [expandedReplyId, setExpandedReplyId] = useState('');
   // R3/F44: inviteTouched was dead — the CTA is `disabled` (F38) so
   // onClick never fires to set it, and the error hint stayed hidden. Render
@@ -440,65 +440,31 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const isLikelyFallbackAvatar = (src: string) =>
     src.startsWith('data:image/svg+xml') || src.includes('ui-avatars.com/api');
 
-  const buildImageChain = (name: string, imageUrl?: string, candidateImageUrls?: string[]) => {
-    const key = normalizeNameKey(name);
-    const person = selectedPeople.find((p) => normalizeNameKey(p.name) === key);
+  // F162 (P13): ladder progress lives in useImageChain; the page composes
+  // the chain itself (it owns selectedPeople + locale-aware initials).
+  const { imageSrcFor, markImageBroken, clearImageProgressForKey } = useImageChain({
+    buildChain: (name, imageUrl, candidateImageUrls) => {
+      const person = selectedPeople.find((p) => normalizeNameKey(p.name) === normalizeNameKey(name));
 
-    // F154: the ladder itself lives in personLookup.buildMentorImageChain —
-    // production is proxy → initials (CSP blocks every external host), dev
-    // keeps the full ladder. This wrapper only merges component state
-    // (selectedPeople images) into the external candidates.
-    return buildMentorImageChain({
-      name,
-      externalCandidates: [
-        imageUrl,
-        person?.imageUrl,
-        ...(candidateImageUrls ?? []),
-        ...(person?.candidateImageUrls ?? []),
-      ].filter(Boolean) as string[],
-      initialsAvatar: createInitialAvatar(name),
-      isDev: import.meta.env.DEV,
-    });
-  };
-
-  const imageSrcFor = (name: string, imageUrl?: string, candidateImageUrls?: string[]) => {
-    const key = normalizeNameKey(name);
-    const chain = buildImageChain(name, imageUrl, candidateImageUrls);
-    const idx = Math.min(imageAttemptByKey[key] || 0, chain.length - 1);
-    const src = chain[idx];
-    // Append cache-buster on retry so the browser re-fetches instead of reusing cached 429
-    const retry = imageRetryByKey[key] || 0;
-    if (retry > 0 && src && !src.startsWith('data:')) {
-      return `${src}${src.includes('?') ? '&' : '?'}_r=${retry}`;
-    }
-    return src;
-  };
-
-  const markImageBroken = (name: string, imageUrl?: string, candidateImageUrls?: string[]) => {
-    const key = normalizeNameKey(name);
-    const chain = buildImageChain(name, imageUrl, candidateImageUrls);
-    const currentAttempt = imageAttemptByKey[key] || 0;
-    const currentSrc = chain[Math.min(currentAttempt, chain.length - 1)];
-    const retries = imageRetryByKey[key] || 0;
-
-    // Wikimedia returns 429 under concurrent load — retry once after a delay.
-    // LEAK-4: scheduleTimeout is unmount-safe.
-    const isWikimedia = currentSrc?.includes('wikimedia.org') || currentSrc?.includes('wikipedia.org');
-    if (isWikimedia && retries < 1) {
-      scheduleTimeout(() => {
-        setImageRetryByKey((prev) => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
-      }, 600 + currentAttempt * 400);
-      return;
-    }
-
-    // Advance to next URL in chain
-    setImageRetryByKey((prev) => ({ ...prev, [key]: 0 }));
-    setImageAttemptByKey((prev) => {
-      const current = prev[key] || 0;
-      if (current >= chain.length - 1) return prev;
-      return { ...prev, [key]: current + 1 };
-    });
-  };
+      // F154: the ladder itself lives in personLookup.buildMentorImageChain —
+      // production is proxy → initials (CSP blocks every external host), dev
+      // keeps the full ladder. This wrapper only merges component state
+      // (selectedPeople images) into the external candidates.
+      return buildMentorImageChain({
+        name,
+        externalCandidates: [
+          imageUrl,
+          person?.imageUrl,
+          ...(candidateImageUrls ?? []),
+          ...(person?.candidateImageUrls ?? []),
+        ].filter(Boolean) as string[],
+        initialsAvatar: createInitialAvatar(name),
+        isDev: import.meta.env.DEV,
+      });
+    },
+    scheduleTimeout,
+    normalizeKey: normalizeNameKey,
+  });
 
   const generateMentorFollowup = (_mentorName: string, userText: string) => {
     const excerpt = userText.slice(0, 56).trim();
@@ -730,80 +696,6 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     });
   };
 
-  useEffect(() => {
-    const query = personQuery.trim();
-    if (!query) {
-      setSuggestions([]);
-      setIsSearching(false);
-      return;
-    }
-
-    // ── Instant local results (sync, 0ms) ──
-    // Try VERIFIED_PEOPLE search first, then fall back to MENTOR_PROFILES only
-    let verifiedHits: PersonOption[] = [];
-    try {
-      verifiedHits = searchVerifiedPeopleLocal(query);
-    } catch {
-      // searchVerifiedPeopleLocal may not be available (module HMR / cache)
-    }
-
-    let profileHits: PersonOption[] = [];
-    try {
-      profileHits = getSuggestedPeople(query).map((p) => {
-        let img: string | undefined;
-        let candidates: string[] | undefined;
-        try {
-          const v = findVerifiedPerson(p.displayName);
-          img = v?.imageUrl;
-          candidates = v?.candidateImageUrls;
-        } catch { /* findVerifiedPerson may not be available */ }
-        return { name: p.displayName, imageUrl: img, candidateImageUrls: candidates } as PersonOption;
-      });
-    } catch { /* getSuggestedPeople fallback */ }
-
-    const localUnique = new Map<string, PersonOption>();
-    for (const p of [...verifiedHits, ...profileHits]) {
-      const k = p.name.trim().toLowerCase();
-      if (k && !localUnique.has(k)) localUnique.set(k, p);
-    }
-    const instantResults = Array.from(localUnique.values()).slice(0, 8);
-    setSuggestions(instantResults);
-
-    // If we already have local matches, don't show "Searching..." spinner
-    const hasLocalHits = instantResults.length > 0;
-    setIsSearching(!hasLocalHits);
-
-    // ── Background remote search (async, debounced 120ms) ──
-    // searchPeopleWithPhotos ALSO searches VERIFIED_PEOPLE + Wikipedia,
-    // so even if local search failed, remote will fill in verified results.
-    let alive = true;
-    const timer = window.setTimeout(async () => {
-      try {
-        const remote = await searchPeopleWithPhotos(query);
-        if (!alive) return;
-
-        // Merge: verified local results first (most reliable), then remote
-        const merged = new Map<string, PersonOption>();
-        for (const p of [...verifiedHits, ...remote, ...instantResults]) {
-          const k = p.name.trim().toLowerCase();
-          if (k && !merged.has(k)) merged.set(k, p);
-        }
-
-        setSuggestions(Array.from(merged.values()).slice(0, 8));
-      } catch {
-        // Remote search failed — keep whatever local results we have
-        if (!alive) return;
-      } finally {
-        if (alive) setIsSearching(false);
-      }
-    }, 120);
-
-    return () => {
-      alive = false;
-      window.clearTimeout(timer);
-    };
-  }, [personQuery]);
-
   // RERENDER-5: imperative rotation — walks mentorNodeRefs and flips
   // the speaker class directly, so the tick costs 0 React re-renders.
   // MC-2: onFocus/onBlur mirror the hover pause so keyboard users can
@@ -961,21 +853,9 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     const hydrationSeq = (personHydrationSeqRef.current.get(hydrationKey) || 0) + 1;
     personHydrationSeqRef.current.set(hydrationKey, hydrationSeq);
 
-    // Bug #21: clear stale imageAttempt/imageRetry counters for this key so
-    // the re-added person starts at chain index 0 again.
-    const normalizedKey = name.trim().toLowerCase().replace(/\s+/g, ' ');
-    setImageAttemptByKey((prev) => {
-      if (!(normalizedKey in prev)) return prev;
-      const next = { ...prev };
-      delete next[normalizedKey];
-      return next;
-    });
-    setImageRetryByKey((prev) => {
-      if (!(normalizedKey in prev)) return prev;
-      const next = { ...prev };
-      delete next[normalizedKey];
-      return next;
-    });
+    // Bug #21: clear stale image-progress for this key so the re-added
+    // person starts at chain index 0 again.
+    clearImageProgressForKey(name.trim().toLowerCase().replace(/\s+/g, ' '));
 
     setLastSummonedName(name);
     // LEAK-2: tracked timer so it's cleaned up if the component unmounts.
@@ -1015,19 +895,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     // Bug #21: clear per-person image attempt/retry counters so that when
     // the user re-adds the same person, image loading restarts from chain
     // index 0 instead of the previously advanced state.
-    const normalizedKey = name.trim().toLowerCase().replace(/\s+/g, ' ');
-    setImageAttemptByKey((prev) => {
-      if (!(normalizedKey in prev)) return prev;
-      const next = { ...prev };
-      delete next[normalizedKey];
-      return next;
-    });
-    setImageRetryByKey((prev) => {
-      if (!(normalizedKey in prev)) return prev;
-      const next = { ...prev };
-      delete next[normalizedKey];
-      return next;
-    });
+    clearImageProgressForKey(name.trim().toLowerCase().replace(/\s+/g, ' '));
     // Bug #20: invalidate any in-flight hydration for this person. The key
     // is always set — removePerson is only reachable via the X button on a
     // guest card, which only renders for persons already added via addPerson
