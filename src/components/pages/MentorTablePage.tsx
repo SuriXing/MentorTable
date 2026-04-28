@@ -273,105 +273,101 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   // on every render. Callers that capture `t` in closures / deps will
   // also stay stable across renders when language doesn't change.
   const t = useMemo(() => ({
-    heroTitle: isZh ? '名人桌 · 召唤房间' : 'Celebrity Mentor Table · Summoning Room',
-    heroSub: isZh ? '这不是普通页面，而是一个互动舞台。' : 'Not a page. A stage.',
+    heroTitle: tI18n('mt.heroTitle'),
+    heroSub: tI18n('mt.heroSub'),
     // Bug-bash round 1: migrate 10 most user-visible ternaries to t() with
     // new namespaced keys. Falls back to the isZh branch if the key isn't
     // defined in the active locale yet.
-    summonGuests: tI18n('mt.summonGuests', { defaultValue: isZh ? '召唤人物' : 'Summon Guests' }),
-    placeArtifact: isZh ? '放下你的问题卡' : 'Place Your Artifact',
-    openCircle: isZh ? '开启圆桌' : 'Open Circle',
-    edit: isZh ? '编辑' : 'Edit',
-    shuffle: isZh ? '换座位' : 'Shuffle',
-    restart: tI18n('mt.restart', { defaultValue: isZh ? '重新开始' : 'Restart' }),
-    summoningRitual: isZh ? '召唤仪式' : 'Summoning Ritual',
-    invitePlaceholder: isZh ? '输入对象（名人/MBTI/角色）' : 'Enter target (celebrity/MBTI/character)',
-    flip: isZh ? '翻面' : 'flip',
-    keepGoing: isZh ? '继续加油' : 'keep going',
-    continueToWish: isZh ? '继续' : 'Continue',
-    artifactPlaceholder: isZh ? '写下你现在最困扰的问题，圆桌会听见。' : 'Write what’s weighing on you. The table will listen.',
-    beginSession: tI18n('mt.beginSession', { defaultValue: isZh ? '开启圆桌 ✨' : 'Open the Circle ✨' }),
-    generating: tI18n('mt.generating', { defaultValue: isZh ? '正在召唤...' : 'Summoning...' }),
-    sessionInProgress: isZh ? '会话进行中。' : 'Session in progress.',
-    source: isZh ? '来源' : 'Source',
-    llmApi: isZh ? 'LLM 接口' : 'LLM API',
-    localFallback: isZh ? '本地回退' : 'Local Fallback',
+    summonGuests: tI18n('mt.summonGuests'),
+    placeArtifact: tI18n('mt.placeArtifact'),
+    openCircle: tI18n('mt.openCircle'),
+    edit: tI18n('mt.edit'),
+    shuffle: tI18n('mt.shuffle'),
+    restart: tI18n('mt.restart'),
+    summoningRitual: tI18n('mt.summoningRitual'),
+    invitePlaceholder: tI18n('mt.invitePlaceholder'),
+    flip: tI18n('mt.flip'),
+    keepGoing: tI18n('mt.keepGoing'),
+    continueToWish: tI18n('mt.continueToWish'),
+    artifactPlaceholder: tI18n('mt.artifactPlaceholder'),
+    beginSession: tI18n('mt.beginSession'),
+    generating: tI18n('mt.generating'),
+    sessionInProgress: tI18n('mt.sessionInProgress'),
+    source: tI18n('mt.source'),
+    llmApi: tI18n('mt.llmApi'),
+    localFallback: tI18n('mt.localFallback'),
     aiDisclaimer: isZh
       ? '这是基于公开信息的AI模拟视角，不代表真实人物的观点。'
       : 'This is an AI-simulated perspective inspired by public information, not a real statement from the person.',
-    youFrontRow: isZh ? '你 · 第一视角' : 'You · Front row',
-    concernHint: isZh ? '把你的问题放在桌面上。' : 'Place your concern artifact on the table.',
-    tableListening: isZh ? '圆桌正在聆听。' : 'The table is listening.',
-    clothPattern: isZh ? '桌布纹理浮现' : 'cloth pattern appears',
-    ambientOn: isZh ? '环境粒子启动' : 'ambient particles activate',
-    cardsGlow: isZh ? '人物卡开始发光' : 'guest cards glow',
-    hoverPause: isZh ? '鼠标停留会暂停滚动，方便阅读。' : 'Hover to pause and read carefully.',
-    you: isZh ? '你' : 'You',
-    passNoteTo: isZh ? '给' : 'Pass a note to',
-    replyTo: isZh ? '回复给' : 'Reply to',
-    send: isZh ? '发送' : 'Send',
-    typing: isZh ? '正在输入...' : 'typing...',
-    typingNow: isZh ? '正在输入中' : 'Typing now',
-    mentorTyping: isZh ? '输入中' : 'Typing',
-    hideGroup: isZh ? '隐藏共同讨论' : 'Hide group solve',
-    showGroup: isZh ? '共同讨论方案' : 'Group solve together',
-    jointStrategy: isZh ? '全员讨论 · 联合方案' : 'All mentors · Joint strategy',
-    replyToAllHeader: isZh ? '你 · 回复所有导师' : 'You · Reply to all mentors',
-    replyAllPlaceholder: isZh ? '回复给所有人...' : 'Reply to all...',
-    sendToAll: isZh ? '发送给所有人' : 'Send to all',
-    showWrap: isZh ? '显示总结' : 'Show session wrap',
-    sessionComplete: isZh ? '会话完成。' : 'Session complete.',
-    tonightTakeaway: isZh ? '今晚总结' : 'Tonight’s takeaway',
-    save: isZh ? '保存聊天' : 'Save Chat',
-    newTable: tI18n('mt.newTable', { defaultValue: isZh ? '开启新圆桌' : 'Start a new table' }),
-    memories: isZh ? '记忆抽屉' : 'Memories',
-    memoryDrawer: isZh ? '记忆抽屉' : 'Memory Drawer',
-    savedInDrawer: isZh ? '已保存到右下角“记忆抽屉”。' : 'Saved to the Memories drawer in the bottom-right.',
-    savedSuccess: isZh ? '聊天记录已成功保存。' : 'Conversation saved successfully.',
-    noMemories: isZh ? '还没有保存内容。' : 'No saved memories yet.',
-    chatWindow: isZh ? '聊天窗口' : 'Conversation',
-    backToTable: isZh ? '返回上一页' : 'Back to previous view',
-    clickToExpand: isZh ? '点开看完整建议' : 'Open full advice',
-    debugPrompt: isZh ? 'Prompt 调试' : 'Prompt Debug',
-    closeDebug: isZh ? '关闭' : 'Close',
-    inspectPrompt: isZh ? '查看 Prompt' : 'Inspect Prompt',
-    loading: isZh ? '加载中...' : 'Loading...',
-    debugLoadFailed: isZh ? '加载失败' : 'Failed to load',
-    back: isZh ? '上一步' : 'Back',
-    next: isZh ? '下一步' : 'Next',
-    getStarted: isZh ? '开始' : 'Get Started',
-    dontShowAgain: isZh ? '下次不再显示' : "Don't show this again",
-    keepShowing: isZh ? '下次继续显示' : 'Keep showing on startup',
+    youFrontRow: tI18n('mt.youFrontRow'),
+    concernHint: tI18n('mt.concernHint'),
+    tableListening: tI18n('mt.tableListening'),
+    clothPattern: tI18n('mt.clothPattern'),
+    ambientOn: tI18n('mt.ambientOn'),
+    cardsGlow: tI18n('mt.cardsGlow'),
+    hoverPause: tI18n('mt.hoverPause'),
+    you: tI18n('mt.you'),
+    passNoteTo: tI18n('mt.passNoteTo'),
+    replyTo: tI18n('mt.replyTo'),
+    send: tI18n('mt.send'),
+    typing: tI18n('mt.typing'),
+    typingNow: tI18n('mt.typingNow'),
+    mentorTyping: tI18n('mt.mentorTyping'),
+    hideGroup: tI18n('mt.hideGroup'),
+    showGroup: tI18n('mt.showGroup'),
+    jointStrategy: tI18n('mt.jointStrategy'),
+    replyToAllHeader: tI18n('mt.replyToAllHeader'),
+    replyAllPlaceholder: tI18n('mt.replyAllPlaceholder'),
+    sendToAll: tI18n('mt.sendToAll'),
+    showWrap: tI18n('mt.showWrap'),
+    sessionComplete: tI18n('mt.sessionComplete'),
+    tonightTakeaway: tI18n('mt.tonightTakeaway'),
+    save: tI18n('mt.save'),
+    newTable: tI18n('mt.newTable'),
+    memories: tI18n('mt.memories'),
+    memoryDrawer: tI18n('mt.memoryDrawer'),
+    savedInDrawer: tI18n('mt.savedInDrawer'),
+    savedSuccess: tI18n('mt.savedSuccess'),
+    noMemories: tI18n('mt.noMemories'),
+    chatWindow: tI18n('mt.chatWindow'),
+    backToTable: tI18n('mt.backToTable'),
+    clickToExpand: tI18n('mt.clickToExpand'),
+    debugPrompt: tI18n('mt.debugPrompt'),
+    closeDebug: tI18n('mt.closeDebug'),
+    inspectPrompt: tI18n('mt.inspectPrompt'),
+    loading: tI18n('mt.loading'),
+    debugLoadFailed: tI18n('mt.debugLoadFailed'),
+    back: tI18n('mt.back'),
+    next: tI18n('mt.next'),
+    getStarted: tI18n('mt.getStarted'),
+    dontShowAgain: tI18n('mt.dontShowAgain'),
+    keepShowing: tI18n('mt.keepShowing'),
     // R3/F50: i18n-wire the onboarding Skip label (was hardcoded bilingual).
-    skipOnboarding: tI18n('mt.skipOnboarding', { defaultValue: isZh ? '跳过' : 'Skip' }),
+    skipOnboarding: tI18n('mt.skipOnboarding'),
     // ERR-2: retry-able error state for handleGenerate failures
-    generateFailed: tI18n('mt.generateFailed', { defaultValue: isZh ? '召唤失败，请重试。' : 'Could not reach the mentors. Please retry.' }),
+    generateFailed: tI18n('mt.generateFailed'),
     // F157: the banner stays human-readable; raw upstream text goes to the
     // console only — endpoint URLs / status bodies were leaking into the UI.
-    generateFailedHint: tI18n('mt.generateFailedHint', {
-      defaultValue: isZh
-        ? '可能是网络或服务暂时不可用，你的问题已保留，稍后点重试即可。'
-        : 'The network or service may be temporarily unavailable. Your session is saved — try again in a moment.'
-    }),
+    generateFailedHint: tI18n('mt.generateFailedHint'),
     // F160/F161: provider honesty — the server can answer 200 with fully
     // canned replies (meta.provider 'server-fallback') or a mix ('partial-
     // fallback'); the badge must not present those as live LLM output.
-    cannedReplies: isZh ? '预设回复' : 'Canned replies',
+    cannedReplies: tI18n('mt.cannedReplies'),
     cannedRepliesTitle: isZh
       ? 'LLM 服务本次不可用，展示的是本地预设回复模板'
       : 'The LLM was unavailable for this request — replies below are local preset templates',
-    partialFallback: isZh ? '部分预设回复' : 'Partly canned',
+    partialFallback: tI18n('mt.partialFallback'),
     partialFallbackTitle: isZh
       ? '部分嘉宾的回复由本地预设模板补充（LLM 未返回）'
       : 'Some guests\' replies were filled in from local preset templates (the LLM did not return them)',
-    retry: tI18n('mt.retry', { defaultValue: isZh ? '重试' : 'Retry' }),
+    retry: tI18n('mt.retry'),
     // MC-3: jump past the reveal timer
-    revealAll: isZh ? '立刻展示全部' : 'Reveal all now',
+    revealAll: tI18n('mt.revealAll'),
     // ERR-1: 0-mentor continue guard
-    needAtLeastOne: isZh ? '至少选择一个人物才能继续。' : 'Please add at least one guest to continue.',
+    needAtLeastOne: tI18n('mt.needAtLeastOne'),
     // R2/F39: empty-state copy via t map (was inline isZh ternaries — works
     // but breaks DRY with the rest of the bilingual surface).
-    emptyIntroTitle: isZh ? '邀请你的第一位名人' : 'Invite your first mentor',
+    emptyIntroTitle: tI18n('mt.emptyIntroTitle'),
     emptyIntroHint: isZh ? '在上方搜索框输入名字，按回车即可入席。' : 'Type a name above and press Enter to seat them.'
   }), [isZh, tI18n]);
 
@@ -1343,7 +1339,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                       type="button"
                       data-testid="mentor-add-person"
                       className={styles.addBtn}
-                      aria-label={String(tI18n('mt.addPerson', { defaultValue: isZh ? '添加人物' : 'Add person' }))}
+                      aria-label={String(tI18n('mt.addPerson'))}
                       onClick={() => addPerson(personQuery)}
                     >
                       <FontAwesomeIcon icon={faPlus} />
@@ -1385,9 +1381,9 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                             </button>
                           );
                         })}
-                        {isSearching && <div className={styles.searchingRow}>{tI18n('mt.searching', { defaultValue: isZh ? '搜索中...' : 'Searching...' })}</div>}
+                        {isSearching && <div className={styles.searchingRow}>{tI18n('mt.searching')}</div>}
                         {!isSearching && suggestions.length === 0 && (
-                          <div className={styles.searchingRow}>{tI18n('mt.noResults', { defaultValue: isZh ? '未找到结果，按回车添加自定义名人' : 'No results — press Enter to add as custom mentor' })}</div>
+                          <div className={styles.searchingRow}>{tI18n('mt.noResults')}</div>
                         )}
                       </div>
                     )}

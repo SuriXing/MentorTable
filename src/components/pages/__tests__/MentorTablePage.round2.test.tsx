@@ -36,11 +36,12 @@ const state = (globalThis as any).__mentorRound2State;
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    // Faithful t(): prefer the caller's defaultValue, fall back to the key.
-    // Real i18next resolves configured keys; keys WITHOUT a configured
-    // resource render their defaultValue, which is what the component relies
-    // on for its bilingual inline copy.
-    t: (k: string, opts?: { defaultValue?: string }) => opts?.defaultValue ?? k,
+    // Faithful t(): resolve from the real resources (P18 moved the t map
+    // onto mt.* keys), fall back to defaultValue, then the key.
+    t: (k: string, opts?: { defaultValue?: string }) => {
+      const lang = (globalThis as any).__mentorRound2State.language as string;
+      return String((RESOURCES[lang] ?? RESOURCES.en)[k] ?? opts?.defaultValue ?? k);
+    },
     i18n: {
       get language() {
         return (globalThis as any).__mentorRound2State.language;
@@ -115,6 +116,9 @@ vi.mock('../../../features/mentorTable/personLookup', async (importOriginal) => 
 });
 
 import MentorTablePage from '../MentorTablePage';
+import enResources from '../../../locales/en/translation.json';
+import zhResources from '../../../locales/zh-CN/translation.json';
+const RESOURCES: Record<string, Record<string, unknown>> = { en: enResources, 'zh-CN': zhResources };
 
 const buildMockResult = (overrides: Partial<any> = {}) => ({
   schemaVersion: 'mentor_table.v1',

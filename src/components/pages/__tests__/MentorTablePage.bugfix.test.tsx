@@ -39,7 +39,12 @@ const state = (globalThis as any).__mentorBugfixState;
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k: string) => k,
+    t: (k: string, opts?: { defaultValue?: string }) => {
+      // F162 (P18): the t map is now keyed into the real resources — the
+      // mock resolves from them so tests assert actual shipped copy.
+      const lang = (globalThis as any).__mentorBugfixState.language as string;
+      return String((RESOURCES[lang] ?? RESOURCES.en)[k] ?? opts?.defaultValue ?? k);
+    },
     i18n: {
       get language() {
         return (globalThis as any).__mentorBugfixState.language;
@@ -113,6 +118,9 @@ vi.mock('../../../features/mentorTable/personLookup', async (importOriginal) => 
 });
 
 import MentorTablePage from '../MentorTablePage';
+import enResources from '../../../locales/en/translation.json';
+import zhResources from '../../../locales/zh-CN/translation.json';
+const RESOURCES: Record<string, Record<string, unknown>> = { en: enResources, 'zh-CN': zhResources };
 
 // ---------- Helpers ----------
 
