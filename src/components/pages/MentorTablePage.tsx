@@ -42,6 +42,9 @@ import styles from './MentorTablePage.module.css';
 import { OnboardingModal } from '../mentorTable/OnboardingModal';
 import { MemoryDrawer } from '../mentorTable/MemoryDrawer';
 import { DebugPromptPanel } from '../mentorTable/DebugPromptPanel';
+import { SuggestionDeck, type ExpandedSuggestionCard, type SuggestionDeckEntry } from '../mentorTable/SuggestionDeck';
+import { ExpandedSuggestionOverlay } from '../mentorTable/ExpandedSuggestionOverlay';
+import { ReplyThreadOverlay } from '../mentorTable/ReplyThreadOverlay';
 import { usePersonSearch } from '../mentorTable/hooks/usePersonSearch';
 import { useImageChain } from '../mentorTable/hooks/useImageChain';
 import { useMentorNotes } from '../mentorTable/hooks/useMentorNotes';
@@ -54,22 +57,6 @@ interface ConversationTurn {
   id: string;
   user: string;
   replies: Array<{ mentorName: string; text: string }>;
-}
-
-interface ExpandedSuggestionCard {
-  mentorName: string;
-  likelyResponse: string;
-  oneActionStep: string;
-}
-
-interface SuggestionDeckEntry {
-  key: string;
-  mentorIndex: number;
-  displayName: string;
-  likelyResponse: string;
-  oneActionStep: string;
-  status?: 'ready' | 'typing';
-  replyId?: string;
 }
 
 const MAX_PEOPLE = 10;
@@ -999,40 +986,6 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     (name: string) => replyByNormalizedName.get(name.trim().toLowerCase().replace(/\s+/g, '_')),
     [replyByNormalizedName]
   );
-
-  const truncateWithEllipsis = (text: string, maxChars: number): { text: string; isTruncated: boolean } => {
-    const compact = text.replace(/\s+/g, ' ').trim();
-    if (compact.length <= maxChars) return { text: compact, isTruncated: false };
-    return { text: `${compact.slice(0, maxChars).trimEnd()}...`, isTruncated: true };
-  };
-
-  const simplifyLikelyResponse = (text: string) => {
-    const compact = text.replace(/\s+/g, ' ').trim();
-    // Callers (suggestionDeckEntries) only reach this when mentorReplies
-    // have been produced, and the API schema requires likelyResponse to be
-    // a non-empty string, so the empty-guard is dead and was removed.
-    if (isZh) {
-      return compact
-        .replace(/^我(?:会|建议)?先(?:把这个)?拆成可执行步骤(?:先)?[:：]?\s*/u, '')
-        .replace(/^我(?:会|建议)(?:先)?[:：]?\s*/u, '')
-        .replace(/^可以先[:：]?\s*/u, '')
-        .trim();
-    }
-    return compact
-      .replace(/^i\s+(?:would|will|suggest|recommend)\s+break\s+this\s+into\s+executable\s+steps\s+first[:,]?\s*/iu, '')
-      .replace(/^i\s+(?:would|will|suggest|recommend)\s+/iu, '')
-      .replace(/^let'?s\s+/iu, '')
-      .trim();
-  };
-
-  const simplifyActionStep = (text: string) => {
-    const compact = text.replace(/\s+/g, ' ').trim();
-    if (!compact) return compact;
-    if (isZh) {
-      return compact.replace(/^下一步[:：]\s*/u, '').trim();
-    }
-    return compact.replace(/^next\s+step(?:\s*\(today\))?[:：]\s*/iu, '').trim();
-  };
 
   const floatingCardPlacement = (mentorIndex: number, totalMentors: number): React.CSSProperties => {
     const safeTotal = Math.max(totalMentors, 1);
@@ -2084,191 +2037,64 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                   );
                 })}
 
-                <div className={styles.suggestionDeck}>
-                  {suggestionDeckEntries.map((entry) => {
-                    const totalMentorSlots = Math.max(selectedMentors.length, 1);
-                    const cardStyle = floatingCardPlacement(entry.mentorIndex, totalMentorSlots);
-                    const actionPreview = truncateWithEllipsis(
-                      simplifyActionStep(entry.oneActionStep),
-                      totalMentorSlots > 6 ? 24 : totalMentorSlots > 3 ? 32 : 44
-                    );
-                    const reasonPreview = truncateWithEllipsis(
-                      simplifyLikelyResponse(entry.likelyResponse),
-                      totalMentorSlots > 6 ? 28 : totalMentorSlots > 3 ? 36 : 50
-                    );
-                    const hasTrimmed = reasonPreview.isTruncated || actionPreview.isTruncated;
-
-                    if (!entry.replyId) {
-                      if (entry.status === 'typing') {
-                        return (
-                          <article
-                            key={entry.key}
-                            className={`${styles.suggestionCard} ${styles.suggestionCardTyping}`}
-                            style={cardStyle}
-                          >
-                            <h3>{entry.displayName}</h3>
-                            <p className={styles.suggestionPrimary}>{t.mentorTyping}</p>
-                          </article>
-                        );
-                      }
-
-                      return (
-                        <button
-                          type="button"
-                          key={entry.key}
-                          className={styles.suggestionCard}
-                          style={cardStyle}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setExpandedReplyId('');
-                            setExpandedSuggestion({
-                              mentorName: entry.displayName,
-                              likelyResponse: entry.likelyResponse,
-                              oneActionStep: entry.oneActionStep
-                            });
-                          }}
-                        >
-                          <h3>{entry.displayName}</h3>
-                          <p className={styles.suggestionPrimary}>{actionPreview.text}</p>
-                          <p className={styles.suggestionSecondary}>{reasonPreview.text}</p>
-                          {hasTrimmed && <span className={styles.replyExpandHint}>{t.clickToExpand}</span>}
-                        </button>
-                      );
-                    }
-
-                    return (
-                      <article
-                        key={entry.key}
-                        className={`${styles.tableReplyCard} ${styles.mentorReplyPreview} ${expandedReplyId === entry.replyId ? styles.tableReplyCardActive : ''}`}
-                        style={cardStyle}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setExpandedSuggestion(null);
-                          // narrowing doesn't survive the closure — rebind
-                          setExpandedReplyId(entry.replyId || '');
-                        }}
-                      >
-                        <header>{entry.displayName}</header>
-                        <p className={styles.suggestionPrimary}>{actionPreview.text}</p>
-                        <footer className={styles.suggestionSecondary}>{reasonPreview.text}</footer>
-                        {hasTrimmed && <span className={styles.replyExpandHint}>{t.clickToExpand}</span>}
-                      </article>
-                    );
-                  })}
-                </div>
+                <SuggestionDeck
+                  entries={suggestionDeckEntries}
+                  totalMentorSlots={Math.max(selectedMentors.length, 1)}
+                  lang={isZh ? 'zh' : 'en'}
+                  expandedReplyId={expandedReplyId}
+                  placementFor={floatingCardPlacement}
+                  onSelectSuggestion={(card) => {
+                    setExpandedReplyId('');
+                    setExpandedSuggestion(card);
+                  }}
+                  onSelectReply={(replyId) => {
+                    setExpandedSuggestion(null);
+                    setExpandedReplyId(replyId);
+                  }}
+                  labels={{ mentorTyping: t.mentorTyping, clickToExpand: t.clickToExpand }}
+                />
 
                 {expandedSuggestion && (
-                  // KB-4 + R3 I-4: proper dialog semantics + focus trap
-                  // + focus return via useFocusTrap hook.
-                  <div
-                    className={styles.replyExpandOverlay}
-                    role="dialog"
-                    aria-modal="true"
-                    aria-label={expandedSuggestion.mentorName}
-                    tabIndex={-1}
-                    ref={expandedSuggestionTrapRef}
-                    onClick={() => setExpandedSuggestion(null)}
-                  >
-                    <button
-                      type="button"
-                      className={styles.expandBackTopLeft}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setExpandedSuggestion(null);
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faChevronLeft} /> {t.backToTable}
-                    </button>
-                    <article
-                      className={`${styles.replyExpandedCard} ${styles.replyExpandedSticky}`}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <header>{expandedSuggestion.mentorName}</header>
-                      <p>{expandedSuggestion.likelyResponse}</p>
-                      <footer>{isZh ? '下一步：' : 'Next move: '} {expandedSuggestion.oneActionStep}</footer>
-                    </article>
-                  </div>
+                  <ExpandedSuggestionOverlay
+                    card={expandedSuggestion}
+                    trapRef={expandedSuggestionTrapRef}
+                    onClose={() => setExpandedSuggestion(null)}
+                    labels={{ backToTable: t.backToTable, nextMove: '' }}
+                    lang={isZh ? 'zh' : 'en'}
+                  />
                 )}
 
                 {phase === 'session' && sessionMode === 'live' && expandedReply && (
-                  // KB-4 + R3 I-4: proper dialog semantics + focus trap
-                  // + focus return via useFocusTrap hook. Escape handling
-                  // and auto-focus are both done inside the hook.
-                  <div
-                    className={styles.replyExpandOverlay}
-                    role="dialog"
-                    aria-modal="true"
-                    aria-label={localizeName(resolveMentorName(expandedReply.mentorName))}
-                    tabIndex={-1}
-                    ref={expandedReplyTrapRef}
-                    onClick={() => {
+                  <ReplyThreadOverlay
+                    reply={expandedReply}
+                    trapRef={expandedReplyTrapRef}
+                    onClose={() => {
                       setExpandedReplyId('');
                       setExpandedSuggestion(null);
                     }}
-                  >
-                    <button
-                      type="button"
-                      className={styles.expandBackTopLeft}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setExpandedReplyId('');
-                        setExpandedSuggestion(null);
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faChevronLeft} /> {t.backToTable}
-                    </button>
-                    <article
-                      className={`${styles.replyExpandedCard} ${styles.replyExpandedSticky}`}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {(() => {
-                        const mentorName = localizeName(resolveMentorName(expandedReply.mentorName));
-                        const threadKey = mentorThreadKey(expandedReply.mentorName);
-                        const notes = noteReplies[threadKey] || [];
-                        return (
-                          <>
-                            <header>{mentorName}</header>
-                            <p>{expandedReply.likelyResponse}</p>
-                            <footer>{isZh ? '下一步：' : 'Next move: '} {expandedReply.oneActionStep}</footer>
-                            <button
-                              type="button"
-                              className={styles.passNoteBtn}
-                              onClick={() => setOpenNoteFor((prev) => (prev === threadKey ? '' : threadKey))}
-                            >
-                              {t.passNoteTo} {mentorName}
-                            </button>
-                            {openNoteFor === threadKey && (
-                              <div className={styles.inlineNoteBox}>
-                                <textarea
-                                  value={noteDrafts[threadKey] || ''}
-                                  onChange={(e) =>
-                                    setNoteDrafts((prev) => ({ ...prev, [threadKey]: e.target.value }))
-                                  }
-                                  placeholder={`${t.replyTo} ${mentorName}...`}
-                                  rows={2}
-                                />
-                                <div className={styles.inlineNoteActions}>
-                                  <button
-                                    type="button"
-                                    className={styles.ghostBtn}
-                                    disabled={isRoundGenerating}
-                                    onClick={() => submitNoteToMentor(expandedReply.mentorName)}
-                                  >
-                                    {isRoundGenerating ? t.typing : t.send}
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                            {notes.map((note, idx) => (
-                              <div key={`${threadKey}-expanded-note-${idx}`} className={styles.noteThread}>
-                                {note.role === 'user' ? `${t.you}: ${note.text}` : `${mentorName}: ${note.text}`}
-                              </div>
-                            ))}
-                          </>
-                        );
-                      })()}
-                    </article>
-                  </div>
+                    displayName={localizeName(resolveMentorName(expandedReply.mentorName))}
+                    threadKey={mentorThreadKey(expandedReply.mentorName)}
+                    notes={noteReplies[mentorThreadKey(expandedReply.mentorName)] || []}
+                    noteDraft={noteDrafts[mentorThreadKey(expandedReply.mentorName)] || ''}
+                    onNoteDraftChange={(text) =>
+                      setNoteDrafts((prev) => ({ ...prev, [mentorThreadKey(expandedReply.mentorName)]: text }))
+                    }
+                    noteOpen={openNoteFor === mentorThreadKey(expandedReply.mentorName)}
+                    onToggleNoteOpen={() =>
+                      setOpenNoteFor((prev) => (prev === mentorThreadKey(expandedReply.mentorName) ? '' : mentorThreadKey(expandedReply.mentorName)))
+                    }
+                    onSubmitNote={() => submitNoteToMentor(expandedReply.mentorName)}
+                    isRoundGenerating={isRoundGenerating}
+                    labels={{
+                      backToTable: t.backToTable,
+                      passNoteTo: t.passNoteTo,
+                      replyTo: t.replyTo,
+                      typing: t.typing,
+                      send: t.send,
+                      you: t.you,
+                    }}
+                    lang={isZh ? 'zh' : 'en'}
+                  />
                 )}
 
                 {openDebugMentor && (
