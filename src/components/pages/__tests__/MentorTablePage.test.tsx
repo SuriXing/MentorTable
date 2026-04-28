@@ -16,10 +16,6 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 const navigateMock = vi.fn();
 
-vi.mock('react-router-dom', () => ({
-  useNavigate: () => navigateMock,
-}));
-
 // Shared mutable state for mocks (must live on globalThis because vi.mock
 // factories are hoisted above any module-level bindings).
 (globalThis as any).__mentorTestState = {

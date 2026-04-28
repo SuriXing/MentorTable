@@ -1,6 +1,5 @@
 import React, { Suspense, lazy } from 'react';
 import ReactDOM from 'react-dom/client';
-import { MemoryRouter } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import './i18n';
@@ -85,7 +84,6 @@ const root = document.getElementById('root');
 if (root) {
   ReactDOM.createRoot(root).render(
     <React.StrictMode>
-      <MemoryRouter>
         <ErrorBoundary>
           <Suspense fallback={<PageSkeleton />}>
             <MentorTablePage standalone />
@@ -114,7 +112,6 @@ if (root) {
           />
           <SpeedInsights />
         </ErrorBoundary>
-      </MemoryRouter>
     </React.StrictMode>
   );
 }

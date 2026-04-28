@@ -1,6 +1,5 @@
 // TODO: 73 more isZh ternaries to migrate, see .bugbash/mt-ux.md
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -109,7 +108,6 @@ function getMentorCategory(name: string): 'tech' | 'sports' | 'artist' | 'leader
 }
 
 const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = false }) => {
-  const navigate = useNavigate();
   const { i18n, t: tI18n } = useTranslation();
   const isZh = i18n.language?.toLowerCase().startsWith('zh');
   // Apply stored theme (primary color + light/dark mode) on mount

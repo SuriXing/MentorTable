@@ -17,10 +17,6 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 // ---------- Mocks (mirror MentorTablePage.bugfix.test.tsx) ----------
 
 const navigateMock = vi.fn();
-vi.mock('react-router-dom', () => ({
-  useNavigate: () => navigateMock,
-}));
-
 (globalThis as any).__mentorRound2State = {
   language: 'en',
   fetchPersonImage: async (_n: string) => undefined,

@@ -20,10 +20,6 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 const navigateMock = vi.fn();
 
-vi.mock('react-router-dom', () => ({
-  useNavigate: () => navigateMock,
-}));
-
 (globalThis as any).__mentorBugfixState = {
   language: 'en',
   fetchPersonImage: async (_n: string) => undefined,
