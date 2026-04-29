@@ -58,7 +58,9 @@ async function callChatCompletionsWithRetry({ url, apiKey, payload, signal, dead
       if (signal && signal.aborted) throw err;
       lastError = err;
       if (attempt + 1 < maxAttempts && (!deadlineAt || Date.now() < deadlineAt)) {
-        await _retrySleep(retryDelayMs(attempt));
+        const delay = retryDelayMs(attempt);
+        log('warn', 'llm_retry', { attempt: attempt + 1, nextAttempt: attempt + 2, status: 'network_error', retryAfterMs: delay });
+        await _retrySleep(delay);
         continue;
       }
       throw err;
@@ -66,7 +68,10 @@ async function callChatCompletionsWithRetry({ url, apiKey, payload, signal, dead
     if (response.ok || !RETRYABLE_STATUS.has(response.status)) return response;
     lastError = new Error(`Upstream status ${response.status}`);
     if (attempt + 1 < maxAttempts && (!deadlineAt || Date.now() < deadlineAt)) {
-      await _retrySleep(retryDelayMs(attempt, response.headers && response.headers.get('retry-after')));
+      const retryAfter = response.headers && response.headers.get('retry-after');
+      const delay = retryDelayMs(attempt, retryAfter);
+      log('warn', 'llm_retry', { attempt: attempt + 1, nextAttempt: attempt + 2, status: response.status, retryAfterMs: delay });
+      await _retrySleep(delay);
       continue;
     }
     return response;

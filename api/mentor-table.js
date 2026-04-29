@@ -57,6 +57,7 @@ const {
 } = require('./lib/mentor-upstream.js');
 
 const mentorTableHandler = async (req, res) => {
+  const requestStartedAt = Date.now(); // F170: request_complete latency
   // Apply shared security middleware (CORS + OPTIONS + body cap + rate limit).
   // The body cap is 256kb here — conversation history can legitimately be
   // large on multi-round sessions. Rate limit is stricter than mentor-image
@@ -184,7 +185,8 @@ const mentorTableHandler = async (req, res) => {
     // Default remains the proven per-mentor fan-out until the flag is
     // enabled in a staged rollout.
     let perMentor;
-    if (process.env.MENTOR_BATCH_FANOUT === '1') {
+    const batchMode = process.env.MENTOR_BATCH_FANOUT === '1';
+    if (batchMode) {
       try {
         // F19: the batch call counts as ONE upstream LLM call against the
         // hourly budget (the repair call inside the batch helper counts
@@ -318,6 +320,18 @@ const mentorTableHandler = async (req, res) => {
     } else if (failedMentors.length > 0) {
       finalized.meta.provider = 'partial-fallback';
     }
+
+    // F170 (P26): one grep-able summary per successful request — outcome,
+    // fan-out mode, cost proxies (mentor count, failures), latency.
+    log('info', 'request_complete', {
+      handler: 'mentor-table',
+      outcome: 'ok',
+      mode: batchMode ? 'batch' : 'fanout',
+      mentorCount: mentors.length,
+      failedCount: failedMentors.length,
+      provider: finalized.meta.provider,
+      latencyMs: Date.now() - requestStartedAt,
+    });
 
     res.status(200).json(finalized);
   } catch (error) {

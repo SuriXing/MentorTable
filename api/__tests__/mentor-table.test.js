@@ -602,7 +602,14 @@ describe('mentor-table LLM integration', () => {
     expect(res._json.mentorReplies[0].likelyResponse).toBeTruthy();
     expect(res._json.meta.provider).toBe('api.test.com');
     expect(res._json.meta.model).toBe('test-model');
-  });
+
+    // F170 (P26): every successful request emits one summary event.
+    const logSpy2 = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const res3 = mockRes();
+    await handler(mockReq({ method: 'POST', body: { problem: 'another problem entirely', language: 'en', mentors: [sampleMentor] } }), res3);
+    logSpy2.mockRestore();
+    expect(res3._status).toBe(200);
+  }, 15000);
 
   it('returns replies for multiple mentors', async () => {
     const mentor2 = { ...sampleMentor, id: 'bill_gates', displayName: 'Bill Gates' };
@@ -3438,11 +3445,20 @@ describe('mentor-table batch fan-out (F158)', () => {
       };
     });
 
+    const logSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const res = mockRes();
     await handler(mockReq({ method: 'POST', body: { problem: 'retry me', language: 'en', mentors: [sampleMentor] } }), res);
     expect(res._status).toBe(200);
     expect(res._json.mentorReplies[0].mentorId).toBe('elon_musk');
     expect(calls).toBe(2);
+    // F170 (P26): the retry itself is observable in Logs (warn level).
+    const retryEvent = logSpy.mock.calls
+      .map((c) => c[0])
+      .find((line) => {
+        try { return JSON.parse(line).event === 'llm_retry'; } catch { return false; }
+      });
+    expect(retryEvent).toBeTruthy();
+    logSpy.mockRestore();
   });
 
   it('F168: retries exhausted within budget fall back (server-fallback)', async () => {
