@@ -3422,6 +3422,61 @@ describe('mentor-table batch fan-out (F158)', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it('F168: retries a fast 429 and succeeds on the second attempt', async () => {
+    process.env.MENTOR_BATCH_FANOUT = '0';
+    const llmResponse = makeLLMResponse('elon_musk', 'Elon Musk', 'en');
+    let calls = 0;
+    globalThis.fetch = vi.fn().mockImplementation(async () => {
+      calls += 1;
+      if (calls === 1) {
+        return { ok: false, status: 429, headers: new Map([['retry-after', '0']]), json: async () => ({}) };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ choices: [{ message: { content: JSON.stringify(llmResponse) } }] }),
+      };
+    });
+
+    const res = mockRes();
+    await handler(mockReq({ method: 'POST', body: { problem: 'retry me', language: 'en', mentors: [sampleMentor] } }), res);
+    expect(res._status).toBe(200);
+    expect(res._json.mentorReplies[0].mentorId).toBe('elon_musk');
+    expect(calls).toBe(2);
+  });
+
+  it('F168: retries exhausted within budget fall back (server-fallback)', async () => {
+    process.env.MENTOR_BATCH_FANOUT = '0';
+    process.env.MENTOR_LLM_MAX_ATTEMPTS = '3';
+    let calls = 0;
+    globalThis.fetch = vi.fn().mockImplementation(async () => {
+      calls += 1;
+      return { ok: false, status: 503, headers: new Map(), json: async () => ({}) };
+    });
+
+    const res = mockRes();
+    await handler(mockReq({ method: 'POST', body: { problem: 'retry exhausted', language: 'en', mentors: [sampleMentor] } }), res);
+    expect(calls).toBe(3);
+    expect(res._status).toBe(200);
+    expect(res._json.meta.provider).toBe('server-fallback');
+  });
+
+  it('F168: MENTOR_LLM_MAX_ATTEMPTS=1 disables retries', async () => {
+    process.env.MENTOR_BATCH_FANOUT = '0';
+    process.env.MENTOR_LLM_MAX_ATTEMPTS = '1';
+    let calls = 0;
+    globalThis.fetch = vi.fn().mockImplementation(async () => {
+      calls += 1;
+      return { ok: false, status: 500, headers: new Map(), json: async () => ({}) };
+    });
+
+    const res = mockRes();
+    await handler(mockReq({ method: 'POST', body: { problem: 'no retry', language: 'en', mentors: [sampleMentor] } }), res);
+    expect(calls).toBe(1);
+    expect(res._status).toBe(200);
+    expect(res._json.meta.provider).toBe('server-fallback');
+  });
+
   it('MENTOR_LLM_CACHE=0 disables caching entirely', async () => {
     process.env.MENTOR_LLM_CACHE = '0';
     const llmResponse = makeLLMResponse('elon_musk', 'Elon Musk', 'en');

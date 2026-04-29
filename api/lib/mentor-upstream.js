@@ -14,6 +14,69 @@ const { buildSystemPrompt, buildUserPrompt } = require('./mentor-prompts.js');
 // Upstream LLM dispatch: per-mentor fan-out and batch (F158) modes, JSON
 // repair, and the shared chat-completions client.
 
+// F168 (P24): transient-failure retry with exponential backoff. 429 and
+// 5xx from the upstream LLM, plus network-level fetch throws, are retried
+// inside the REMAINING request budget — the endpoint's latency contract
+// (MENTOR_UPSTREAM_TIMEOUT_MS) does not change, so a retry only happens
+// when the first attempt failed fast. 4xx (except 429) are not retried:
+// they are deterministic rejections (bad key, bad payload).
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+
+function llmMaxAttempts() {
+  const n = Number(process.env.MENTOR_LLM_MAX_ATTEMPTS);
+  return Number.isInteger(n) && n >= 1 ? n : 3;
+}
+
+function retryDelayMs(attempt, retryAfterHeader) {
+  if (retryAfterHeader) {
+    const seconds = Number(retryAfterHeader);
+    if (Number.isFinite(seconds) && seconds > 0) return Math.min(seconds * 1000, 8000);
+  }
+  return Math.min(400 * 2 ** attempt, 8000);
+}
+
+const _retrySleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Fetch wrapper with bounded retries. Respects the caller's AbortSignal as
+ * the total budget: before each retry we check signal.aborted and the
+ * caller passes `deadlineAt` (epoch ms) — retries stop once it passes.
+ * Returns the final Response or throws the last network error.
+ */
+async function callChatCompletionsWithRetry({ url, apiKey, payload, signal, deadlineAt }) {
+  const maxAttempts = llmMaxAttempts();
+  let lastError = null;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    if (signal && signal.aborted) break;
+    if (deadlineAt && Date.now() >= deadlineAt) break;
+    let response = null;
+    try {
+      response = await callChatCompletions({ url, apiKey, payload, signal });
+    } catch (err) {
+      // Network-level failure (ECONNRESET, abort, DNS). Retry unless the
+      // abort came from our own budget timeout.
+      if (signal && signal.aborted) throw err;
+      lastError = err;
+      if (attempt + 1 < maxAttempts && (!deadlineAt || Date.now() < deadlineAt)) {
+        await _retrySleep(retryDelayMs(attempt));
+        continue;
+      }
+      throw err;
+    }
+    if (response.ok || !RETRYABLE_STATUS.has(response.status)) return response;
+    lastError = new Error(`Upstream status ${response.status}`);
+    if (attempt + 1 < maxAttempts && (!deadlineAt || Date.now() < deadlineAt)) {
+      await _retrySleep(retryDelayMs(attempt, response.headers && response.headers.get('retry-after')));
+      continue;
+    }
+    return response;
+  }
+  if (lastError) throw lastError;
+  // Unreachable in practice; defensive.
+  throw new Error('LLM retry loop exhausted without a response');
+}
+
+
 // F167 (P23): per-instance LLM response cache. Key =
 // sha256(model | mentor.id | language | problem | conversation history).
 // Only successful, strictly-normalized replies are cached — a repair-path
@@ -126,6 +189,7 @@ async function requestMentorReplyFromLLM({
   const startedAt = Date.now();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), upstreamTimeoutMs);
+  const deadlineAt = startedAt + upstreamTimeoutMs; // F168: retries fit inside the same budget
   let response;
   try {
     log('info', 'api_request', {
@@ -136,11 +200,12 @@ async function requestMentorReplyFromLLM({
     });
     // eslint-disable-next-line no-console
     console.log(`[mentor-api] upstream request start mentor=${mentor.id} model=${model}`);
-    response = await callChatCompletions({
+    response = await callChatCompletionsWithRetry({
       url: chatCompletionsUrl,
       apiKey,
       payload,
-      signal: controller.signal
+      signal: controller.signal,
+      deadlineAt
     });
 
     if (!response.ok && response.status >= 400 && response.status < 500 && payload.response_format?.type === 'json_schema') {
@@ -148,11 +213,12 @@ async function requestMentorReplyFromLLM({
         ...payload,
         response_format: { type: 'json_object' }
       };
-      response = await callChatCompletions({
+      response = await callChatCompletionsWithRetry({
         url: chatCompletionsUrl,
         apiKey,
         payload: fallbackPayload,
-        signal: controller.signal
+        signal: controller.signal,
+        deadlineAt
       });
     }
   } finally {
@@ -328,6 +394,7 @@ async function requestMentorBatchReplyFromLLM({
   const startedAt = Date.now();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), batchTimeoutMs);
+  const deadlineAt = startedAt + batchTimeoutMs; // F168: retries fit inside the same budget
   let response;
   try {
     log('info', 'api_request', {
@@ -341,11 +408,12 @@ async function requestMentorBatchReplyFromLLM({
     console.log(
       `[mentor-api] upstream request start mode=batch mentors=${mentors.length} model=${model}`
     );
-    response = await callChatCompletions({
+    response = await callChatCompletionsWithRetry({
       url: chatCompletionsUrl,
       apiKey,
       payload,
-      signal: controller.signal
+      signal: controller.signal,
+      deadlineAt
     });
 
     if (!response.ok && response.status >= 400 && response.status < 500 && payload.response_format?.type === 'json_schema') {
@@ -353,11 +421,12 @@ async function requestMentorBatchReplyFromLLM({
         ...payload,
         response_format: { type: 'json_object' }
       };
-      response = await callChatCompletions({
+      response = await callChatCompletionsWithRetry({
         url: chatCompletionsUrl,
         apiKey,
         payload: fallbackPayload,
-        signal: controller.signal
+        signal: controller.signal,
+        deadlineAt
       });
     }
   } finally {
@@ -498,6 +567,9 @@ function firstNonEmptyEnvValue(candidates) {
 
 module.exports = {
   callChatCompletions,
+  callChatCompletionsWithRetry,
+  _retrySleep,
+
   extractAssistantContent,
   firstNonEmptyEnvValue,
   requestMentorReplyFromLLM,
