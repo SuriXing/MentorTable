@@ -47,6 +47,13 @@ const {
   buildSystemPrompt,
 } = handler.__test__;
 
+// F167 (P23): the reply cache is module-level and would otherwise leak a
+// successful upstream response from one test into a later error-path test
+// that reuses the same (mentor, problem) key. Reset after every test.
+afterEach(() => {
+  if (handler.__test__._resetLlmReplyCache) handler.__test__._resetLlmReplyCache();
+});
+
 // ---------------------------------------------------------------------------
 // Mock req / res helpers
 // ---------------------------------------------------------------------------
@@ -561,6 +568,9 @@ describe('mentor-table LLM integration', () => {
     process.env.LLM_MODEL = 'test-model';
     process.env.LLM_API_BASE_URL = 'https://api.test.com/v1';
     process.env.MENTOR_UPSTREAM_TIMEOUT_MS = '5000';
+    if (handler.__test__._resetLlmReplyCache) handler.__test__._resetLlmReplyCache();
+    delete process.env.MENTOR_LLM_CACHE;
+    delete process.env.MENTOR_LLM_CACHE_TTL_SECONDS;
   });
 
   afterEach(() => {
@@ -3312,6 +3322,7 @@ describe('mentor-table handler per-mentor reply field fallbacks', () => {
 // ---------------------------------------------------------------------------
 // F158: batch fan-out (MENTOR_BATCH_FANOUT=1) — one upstream call per table
 // ---------------------------------------------------------------------------
+
 describe('mentor-table batch fan-out (F158)', () => {
   const batchEnvKeys = [
     'LLM_API_KEY', 'LLM_MODEL', 'LLM_API_BASE_URL',
@@ -3369,6 +3380,65 @@ describe('mentor-table batch fan-out (F158)', () => {
     process.env.LLM_API_BASE_URL = 'https://api.test.com/v1';
     process.env.MENTOR_UPSTREAM_TIMEOUT_MS = '5000';
   });
+  it('caches identical single-mentor requests within TTL (one upstream call)', async () => {
+    const llmResponse = makeLLMResponse('elon_musk', 'Elon Musk', 'en');
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ choices: [{ message: { content: JSON.stringify(llmResponse) } }] }),
+    });
+    globalThis.fetch = fetchMock;
+
+    const body = {
+      problem: 'How do I start a company?',
+      language: 'en',
+      mentors: [sampleMentor],
+    };
+    const res1 = mockRes();
+    await handler(mockReq({ method: 'POST', body }), res1);
+    const res2 = mockRes();
+    await handler(mockReq({ method: 'POST', body: { ...body } }), res2);
+
+    expect(res1._status).toBe(200);
+    expect(res2._status).toBe(200);
+    expect(res2._json.mentorReplies[0].likelyResponse).toBe(res1._json.mentorReplies[0].likelyResponse);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('different problems miss the cache', async () => {
+    const llmResponse = makeLLMResponse('elon_musk', 'Elon Musk', 'en');
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ choices: [{ message: { content: JSON.stringify(llmResponse) } }] }),
+    });
+    globalThis.fetch = fetchMock;
+
+    const res1 = mockRes();
+    await handler(mockReq({ method: 'POST', body: { problem: 'problem one', language: 'en', mentors: [sampleMentor] } }), res1);
+    const res2 = mockRes();
+    await handler(mockReq({ method: 'POST', body: { problem: 'problem two', language: 'en', mentors: [sampleMentor] } }), res2);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('MENTOR_LLM_CACHE=0 disables caching entirely', async () => {
+    process.env.MENTOR_LLM_CACHE = '0';
+    const llmResponse = makeLLMResponse('elon_musk', 'Elon Musk', 'en');
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ choices: [{ message: { content: JSON.stringify(llmResponse) } }] }),
+    });
+    globalThis.fetch = fetchMock;
+
+    const body = { problem: 'cache off', language: 'en', mentors: [sampleMentor] };
+    await handler(mockReq({ method: 'POST', body }), mockRes());
+    await handler(mockReq({ method: 'POST', body }), mockRes());
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
 
   afterEach(() => {
     globalThis.fetch = originalFetch;

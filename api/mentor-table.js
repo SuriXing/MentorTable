@@ -53,6 +53,7 @@ const {
   firstNonEmptyEnvValue,
   requestMentorReplyFromLLM,
   requestMentorBatchReplyFromLLM,
+  _resetLlmReplyCache,
 } = require('./lib/mentor-upstream.js');
 
 const mentorTableHandler = async (req, res) => {
@@ -389,6 +390,7 @@ mentorTableHandler.__test__ = {
   defaultDisclaimer,
   providerFromBaseUrl,
   buildSystemPrompt,
+  _resetLlmReplyCache,
 };
 
 module.exports = mentorTableHandler;

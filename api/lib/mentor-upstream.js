@@ -14,6 +14,74 @@ const { buildSystemPrompt, buildUserPrompt } = require('./mentor-prompts.js');
 // Upstream LLM dispatch: per-mentor fan-out and batch (F158) modes, JSON
 // repair, and the shared chat-completions client.
 
+// F167 (P23): per-instance LLM response cache. Key =
+// sha256(model | mentor.id | language | problem | conversation history).
+// Only successful, strictly-normalized replies are cached — a repair-path
+// success is cacheable, a throw is not. Semantics: identical inputs replay
+// the identical reply within the TTL, cutting cost and latency for
+// accidental resubmits (double-click, strict-mode double render). Env:
+// MENTOR_LLM_CACHE=0 disables; MENTOR_LLM_CACHE_TTL_SECONDS caps freshness
+// (default 900).
+const LLM_REPLY_CACHE = new Map();
+const LLM_REPLY_CACHE_MAX = 200;
+const LLM_REPLY_CACHE_TTL_MS_DEFAULT = 15 * 60 * 1000;
+
+function llmCacheTtlMs() {
+  const n = Number(process.env.MENTOR_LLM_CACHE_TTL_SECONDS);
+  return Number.isFinite(n) && n >= 0 ? n * 1000 : LLM_REPLY_CACHE_TTL_MS_DEFAULT;
+}
+
+function llmCacheEnabled() {
+  return process.env.MENTOR_LLM_CACHE !== '0';
+}
+
+function llmReplyCacheKey({ model, mentor, language, problem, compactedConversation }) {
+  const crypto = require('crypto');
+  const hash = crypto.createHash('sha256');
+  hash.update(String(model || ''));
+  hash.update('|');
+  hash.update(String(mentor && mentor.id || ''));
+  hash.update('|');
+  hash.update(String(language || ''));
+  hash.update('|');
+  hash.update(String(problem || ''));
+  hash.update('|');
+  hash.update(JSON.stringify(compactedConversation || []));
+  return hash.digest('hex');
+}
+
+function llmCacheGet(key) {
+  if (!llmCacheEnabled()) return null;
+  const entry = LLM_REPLY_CACHE.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.storedAt > llmCacheTtlMs()) {
+    LLM_REPLY_CACHE.delete(key);
+    return null;
+  }
+  // Refresh insertion recency (Map iteration order = LRU-ish eviction).
+  LLM_REPLY_CACHE.delete(key);
+  LLM_REPLY_CACHE.set(key, entry);
+  return entry.value;
+}
+
+function llmCachePut(key, value) {
+  if (!llmCacheEnabled()) return;
+  if (LLM_REPLY_CACHE.size >= LLM_REPLY_CACHE_MAX) {
+    const drop = Math.max(1, Math.floor(LLM_REPLY_CACHE_MAX / 10));
+    let dropped = 0;
+    for (const k of LLM_REPLY_CACHE.keys()) {
+      if (dropped >= drop) break;
+      LLM_REPLY_CACHE.delete(k);
+      dropped += 1;
+    }
+  }
+  LLM_REPLY_CACHE.set(key, { storedAt: Date.now(), value });
+}
+
+function _resetLlmReplyCache() {
+  LLM_REPLY_CACHE.clear();
+}
+
 async function requestMentorReplyFromLLM({
   mentor,
   problem,
@@ -25,6 +93,18 @@ async function requestMentorReplyFromLLM({
   isDashscope,
   upstreamTimeoutMs
 }) {
+  const cacheKey = llmReplyCacheKey({ model, mentor, language, problem, compactedConversation });
+  const cached = llmCacheGet(cacheKey);
+  if (cached) {
+    log('info', 'api_cache_hit', {
+      handler: 'mentor-table',
+      stage: 'upstream_cache_hit',
+      mentorId: mentor.id,
+      model,
+    });
+    return cached;
+  }
+
   const payload = {
     model,
     temperature: 0.55,
@@ -176,7 +256,9 @@ async function requestMentorReplyFromLLM({
   // normalizeSafety() always produces a safety object — no null guard needed.
   const reply = pickReplyForMentor(mentor, normalized);
 
-  return { reply, safety: normalized.safety };
+  const result = { reply, safety: normalized.safety };
+  llmCachePut(cacheKey, result);
+  return result;
 }
 
 function extractAssistantContent(data) {
@@ -419,5 +501,7 @@ module.exports = {
   extractAssistantContent,
   firstNonEmptyEnvValue,
   requestMentorReplyFromLLM,
+  _resetLlmReplyCache,
+  llmReplyCacheKey,
   requestMentorBatchReplyFromLLM,
 };
