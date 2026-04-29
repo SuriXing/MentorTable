@@ -81,7 +81,7 @@ module.exports = async (req, res) => {
   // Apply shared security middleware: CORS, OPTIONS, body-size cap, rate limit.
   // This runs in BOTH the Vercel prod path (direct api/* routing) and the
   // server.js dev path (Express wrapper) — see lib/security.js header comment.
-  if (!applyApiSecurity(req, res, { maxBodyBytes: '64kb' })) return;
+  if (!(await applyApiSecurity(req, res, { maxBodyBytes: '64kb' }))) return;
 
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });

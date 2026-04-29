@@ -242,10 +242,14 @@ module.exports = async function mentorImageHandler(req, res) {
   // image proxy is GET-only; body cap is tiny, rate limit is more generous
   // since browsers may legitimately burst 10 image requests when a table
   // with 10 mentors first loads.
-  if (!applyApiSecurity(req, res, {
+  if (!(await applyApiSecurity(req, res, {
     maxBodyBytes: '4kb',
-    rateLimit: { capacity: 60, refillPerSecond: 2 },
-  })) return;
+    rateLimit: {
+      capacity: 60,
+      refillPerSecond: 2,
+      kvLimit: Number(process.env.MENTOR_IMAGE_KV_LIMIT || 120), kvWindowSeconds: 60, bucketName: 'image',
+    },
+  }))) return;
 
   const name = (req.query && req.query.name ? String(req.query.name) : '').trim();
   if (!name) {

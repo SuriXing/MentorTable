@@ -60,10 +60,14 @@ const mentorTableHandler = async (req, res) => {
   // The body cap is 256kb here — conversation history can legitimately be
   // large on multi-round sessions. Rate limit is stricter than mentor-image
   // because each request fans out to 10 upstream LLM calls.
-  if (!applyApiSecurity(req, res, {
+  if (!(await applyApiSecurity(req, res, {
     maxBodyBytes: '256kb',
-    rateLimit: { capacity: 20, refillPerSecond: 0.3 },
-  })) return;
+    rateLimit: {
+      capacity: 20,
+      refillPerSecond: 0.3,
+      kvLimit: Number(process.env.MENTOR_TABLE_KV_LIMIT || 30), kvWindowSeconds: 60, bucketName: 'table',
+    },
+  }))) return;
 
   // F19: global LLM cost ceiling. Per-IP rate limit above is best-effort and
   // does not bound autoscale cost. The breaker + LLM_DISABLED kill switch
