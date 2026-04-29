@@ -1365,6 +1365,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                             >
                               <img
                                 src={imageSrcFor(s.name, s.imageUrl, s.candidateImageUrls)}
+                                loading="lazy"
+                                decoding="async"
                                 // SR-5: decorative avatar — the adjacent text
                                 // already names the person.
                                 alt=""
@@ -1436,6 +1438,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                           <div className={`${styles.summonRing} ${styles[`summon${category[0].toUpperCase()}${category.slice(1)}`]}`} />
                           <img
                             src={imageSrcFor(person.name, person.imageUrl, person.candidateImageUrls)}
+                            loading="lazy"
+                            decoding="async"
                             alt={person.name}
                             width={96}
                             height={96}
@@ -2005,6 +2009,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                           <img
                             src={findImage(displayName)}
                             alt={displayName}
+                            loading="lazy"
+                            decoding="async"
                             width={64}
                             height={64}
                             referrerPolicy="no-referrer"
