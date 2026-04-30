@@ -481,3 +481,21 @@ vercel logs <domain> --since 1h | grep request_complete | grep -c '"provider":"s
 # retry storm check
 vercel logs <domain> --since 1h | grep -c '"event":"llm_retry"'
 ```
+
+## Dependency Audit Posture (P30)
+
+`npm audit --omit=dev` (the set that ships to Vercel): **0
+vulnerabilities**. The API endpoints run on raw Node `http` via
+`api/*.js` — express is NOT in the request path in production.
+
+Known dev-chain advisories (accepted, reviewed 2026-04-30):
+
+| Package | Severity | Exposure | Disposition |
+|---|---|---|---|
+| `body-parser` (via express) | moderate (DoS via invalid limit) + `qs` chain | local dev server only (`server.js`) | Accepted — no fix available upstream; the dev server binds `127.0.0.1`. Revisit when express patches ship. |
+| `brace-expansion` | high (DoS in glob expansion) | transitive via dev tooling (vitest/eslint chains) | Accepted — build-time only, no untrusted glob input. Patch with `npm update brace-expansion` when registry access allows. |
+| `esbuild` (via vitest/vite-node) | moderate (dev server request smuggling) | dev/test only | Accepted — the advisory affects `--host` dev servers; local dev binds localhost. |
+
+Rotation policy: re-run `npm audit` before each release; any PROD-chain
+finding is a release blocker, dev-chain findings are triaged by
+exposure. Node engines: `>=24` (matches the Vercel Node.js 24 runtime).
