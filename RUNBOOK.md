@@ -357,15 +357,16 @@ before merge:
 4. `npm test -- --coverage` — coverage gate **≥95%** (configured in
    `vite.config.mts`; do not bypass without writing the missing tests).
 5. `npm run build`
-6. **E2E** — both frameworks run, in this order, against a single
-   shared dev server (`vite` on `:3001`, `node server.js` on `:8787`)
-   started by the workflow before either runner:
+6. **E2E** — Playwright only, against a single shared dev server (`vite`
+   on `:3001`, `node server.js` on `:8787`) started by the workflow
+   before the runner:
    - `npx playwright test` — primary suite (`e2e/*.spec.ts`,
      Chromium only per `playwright.config.ts`; WebKit was dropped in
      U9.1 R3 because the config has no `projects:` array, so installing
      it would download a browser that never executes — F89).
-   - `npx cypress run` — single critical-flow smoke
-     (`cypress/e2e/mentor-table.cy.js`, config at `cypress.config.ts`).
+   - Cypress was removed (P28): the Playwright suite superseded it and
+     the duplicate smoke cost a 10MB dev dependency plus a second
+     browser install in CI.
 
 To make this a hard merge gate (one-time, in GitHub UI):
 
