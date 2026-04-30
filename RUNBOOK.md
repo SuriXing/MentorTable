@@ -85,6 +85,12 @@ Local dev reads from `.env` at repo root (gitignored). Never commit keys.
 | `LLM_DISABLED` | No (operator kill switch) | Vercel env | Set to `1` or `true` to 503 every LLM call. Use during an incident. |
 | `LLM_HOURLY_BUDGET` | No | Vercel env | Per-instance rolling-hour cap on upstream LLM calls. Default: `1000`. |
 | `DISABLE_RATE_LIMIT` | No | local only | Set to `1` to skip per-IP rate limiting — test harness only. |
+| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | No | Vercel env (or Upstash equivalents `UPSTASH_REDIS_REST_*`) | F166 (P22): enables GLOBAL rate limiting via Vercel KV / Upstash REST fixed-window counters. Unset → per-instance in-memory buckets only. |
+| `MENTOR_TABLE_KV_LIMIT` | No | Vercel env | Global per-IP request budget per 60s window for `/api/mentor-table` when KV is configured. Default: `30`. |
+| `MENTOR_IMAGE_KV_LIMIT` | No | Vercel env | Same for `/api/mentor-image`. Default: `120`. |
+| `MENTOR_LLM_CACHE` | No | Vercel env | F167 (P23): set to `0` to disable the per-instance LLM reply cache. Default: on. |
+| `MENTOR_LLM_CACHE_TTL_SECONDS` | No | Vercel env | Reply cache freshness window. Default: `900` (15 min). |
+| `MENTOR_LLM_MAX_ATTEMPTS` | No | Vercel env | F168 (P24): upstream retry attempts for transient failures (429/5xx/network). Default: `3`; `1` disables retries. |
 | `NODE_ENV` | Auto | Vercel / local | `production` in prod; disables in-process rate limiter when `test`. |
 | `VERCEL_ENV` | Auto | Vercel-injected | `production` / `preview` / `development`. Used by CORS posture and health endpoint. |
 | `VERCEL_GIT_COMMIT_SHA` | Auto | Vercel-injected | Commit SHA returned by `/api/health`. |
@@ -119,12 +125,16 @@ below.
 ### Bucket A — Rate-limit exhaustion (429, not 5xx, but often misreported)
 
 **Symptom.** Clients see `429 Rate limit exceeded`. `lib/security.js`
-returns this from `enforceRateLimit` once a per-IP token bucket is empty.
+returns this from `enforceRateLimit` once a per-IP token bucket is empty
+(memory limiter) or the KV fixed-window count exceeds the budget
+(F166/P22 — filter by `limiter` to tell them apart).
 
 **Log query.**
 
 ```bash
-vercel logs <domain> --since 15m | grep -E '"status":429|Rate limit exceeded'
+vercel logs <domain> --since 15m | grep -E '"event":"rate_limited"'
+# KV-limiting vs memory-limiting:
+vercel logs <domain> --since 15m | grep 'rate_limited' | grep -c '"limiter":"kv"'
 ```
 
 **Remediation.**
@@ -149,7 +159,7 @@ isn't responding". Error responses include `upstream_error` or
 **Log query.**
 
 ```bash
-vercel logs <domain> --since 30m | grep -E 'api_error|upstream_error|upstream_timeout|LLM hourly budget'
+vercel logs <domain> --since 30m | grep -E '"event":"(api_error|llm_breaker_blocked|llm_retry|rate_limited)"'
 ```
 
 Check DashScope status directly:
@@ -447,3 +457,27 @@ curl -sS https://mentor-table.vercel.app/api/health | jq .sha
 If step 4 doesn't flip the sha within ~10s, the dashboard path is the
 fallback: Deployments → previous → ⋯ → Promote to Production.
 
+
+## Observability Events (F170 / P26)
+
+Every server log line is one JSON object: `{ ts, level, event, ...fields }`.
+Events an operator will actually filter on:
+
+| Event | Level | Meaning |
+|---|---|---|
+| `request_complete` | info | One per successful `/api/mentor-table` request: `mode` (batch/fanout), `mentorCount`, `failedCount`, `provider` (api / partial-fallback / server-fallback), `latencyMs`. Baseline health signal — alert on failedCount spikes. |
+| `rate_limited` | warn | A 429 was sent (`limiter`: memory vs kv). Sustained kv-limiting means real traffic pressure; sustained memory-limiting on ONE instance means a hot client. |
+| `llm_breaker_blocked` | warn | F19 cost ceiling tripped — the instance is 503ing LLM work until the hour window rolls. Flip `LLM_DISABLED` only if you need a longer stop. |
+| `llm_retry` | warn | F168 transient-failure retry (`status`, `retryAfterMs`). A burst of these with eventual `request_complete` is healthy vendor flakiness; retries with `api_error` after = vendor outage. |
+| `api_cache_hit` | info | F167 reply cache served a replay (does NOT count against the LLM hourly budget). |
+| `api_request` / `api_ok` | info | Per-mentor upstream lifecycle (fan-out and batch). |
+| `api_error` | error | Upstream non-OK or parse failure, body redacted to 200 chars. |
+
+Quick dashboards (Vercel Logs → filter by event):
+
+```bash
+# error budget: share of requests degrading to fallback
+vercel logs <domain> --since 1h | grep request_complete | grep -c '"provider":"server-fallback"'
+# retry storm check
+vercel logs <domain> --since 1h | grep -c '"event":"llm_retry"'
+```
