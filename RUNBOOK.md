@@ -522,3 +522,27 @@ overload), **0 errors, p50 21ms / p95 24ms / p99 25ms**.
 Pass criteria: non-429 error rate < 1% and p95 < 500ms. Do NOT set
 `LLM_DISABLED=1` during a smoke — the breaker 503s every table request
 by design and the run will read as an error storm.
+
+## v1.0.0 Release Checklist (P32)
+
+Verified locally before tag (2026-04-30):
+
+- 986/986 unit tests (33 files), type-check (tsconfig + tsconfig.node),
+  lint, production build — all green.
+- Load smoke: 10 VUs / full API path through mock upstream — 0 errors,
+  p95 24ms (`npm run test:load`).
+- Dependency posture: prod chain 0 vulnerabilities (see Dependency
+  Audit Posture above).
+- Rollback path: `vercel rollback` steps rehearsed in the Rollback
+  section; the drill itself needs operator Vercel access.
+
+Operator steps at release time (require Vercel auth, cannot run from a
+dev machine CI:
+
+1. `vercel deploy --prod` (or merge to `main` and let the pipeline).
+2. Prod smoke: `curl -sS https://mentor-table.vercel.app/api/health`
+   → 200 with the new sha; one real mentor-table round-trip with a
+   configured key; confirm `request_complete` in Logs.
+3. Rollback drill (quarterly): run the script in the Rollback section,
+   confirm the alias sha flips and restores.
+4. Tag: `git tag v1.0.0 && git push origin v1.0.0`.
