@@ -499,3 +499,26 @@ Known dev-chain advisories (accepted, reviewed 2026-04-30):
 Rotation policy: re-run `npm audit` before each release; any PROD-chain
 finding is a release blocker, dev-chain findings are triaged by
 exposure. Node engines: `>=24` (matches the Vercel Node.js 24 runtime).
+
+## Load Smoke (P31 / F172)
+
+`scripts/load-smoke.mjs` drives N concurrent virtual users against a
+LOCAL `server.js` and reports latency percentiles, error rate, and 429
+count. It requires a mock upstream so the full path (middleware →
+fan-out → normalize → finalize) executes:
+
+```bash
+node scripts/mock-llm.mjs &                                # :8790
+LLM_API_KEY=smoke LLM_API_BASE_URL=http://127.0.0.1:8790/v1 \
+  LLM_MODEL=mock node server.js &                          # :8787
+npm run test:load                                          # 10 VUs / 30s
+```
+
+Baseline (2026-04-30, MacBook local, 10 VUs / 25s): 5,010 requests,
+280 ok (full 3-mentor fan-out through the mock), 4,730 rate-limited
+(the 0.3/s refill + 20 burst per IP is the DESIGN under sustained
+overload), **0 errors, p50 21ms / p95 24ms / p99 25ms**.
+
+Pass criteria: non-429 error rate < 1% and p95 < 500ms. Do NOT set
+`LLM_DISABLED=1` during a smoke — the breaker 503s every table request
+by design and the run will read as an error storm.

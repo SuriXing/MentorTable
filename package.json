@@ -36,7 +36,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "server": "node server.js",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "test:load": "node scripts/load-smoke.mjs --vus 10 --duration 30"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.1",
