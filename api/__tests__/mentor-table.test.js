@@ -1945,6 +1945,69 @@ describe('handler no-reply-for-mentor fallback', () => {
 // ---------------------------------------------------------------------------
 // Small helper function edge cases
 // ---------------------------------------------------------------------------
+// ---------- P29 / F171: safety surface invariants ----------
+
+describe('safety surface invariants (P29)', () => {
+  it('mergeSafetyState is monotone: a later low-risk payload cannot lower an earlier high', () => {
+    const high = { riskLevel: 'high', needsProfessionalHelp: true, emergencyMessage: 'call a line now' };
+    const low = { riskLevel: 'low', needsProfessionalHelp: false, emergencyMessage: '' };
+    const merged = mergeSafetyState(high, low);
+    expect(merged.riskLevel).toBe('high');
+    expect(merged.needsProfessionalHelp).toBe(true);
+    expect(merged.emergencyMessage).toBe('call a line now');
+  });
+
+  it('mergeSafetyState keeps the highest emergencyMessage and ORs professional-help', () => {
+    const a = { riskLevel: 'low', needsProfessionalHelp: false, emergencyMessage: '' };
+    const b = { riskLevel: 'medium', needsProfessionalHelp: true, emergencyMessage: 'consider talking to someone' };
+    const merged = mergeSafetyState(a, b);
+    expect(merged.riskLevel).toBe('medium');
+    expect(merged.needsProfessionalHelp).toBe(true);
+    expect(merged.emergencyMessage).toBe('consider talking to someone');
+  });
+
+  it('normalizeRiskLevel maps junk and injections to low, never escalates', () => {
+    for (const junk of [undefined, null, '', 'CRITICAL', 'high); DROP TABLE', 42, {}, 'high\' OR 1=1']) {
+      expect(normalizeRiskLevel(junk)).toBe('low');
+    }
+    for (const valid of ['none', 'low', 'medium', 'high']) {
+      expect(normalizeRiskLevel(valid)).toBe(valid);
+    }
+  });
+
+  it('finalizeContractShape always emits a complete safety block even when the LLM omits it', () => {
+    const finalized = finalizeContractShape(
+      { mentorReplies: [{ mentorId: 'm', mentorName: 'M', likelyResponse: 'x', whyThisFits: 'y', oneActionStep: 'z' }] },
+      { language: 'en', baseUrl: 'https://api.test.com/v1', model: 'test-model' }
+    );
+    expect(finalized.safety).toEqual({
+      riskLevel: 'low',
+      needsProfessionalHelp: false,
+      emergencyMessage: '',
+    });
+  });
+
+  it('finalizeContractShape passes through an LLM high-risk flag without sanitizing it away', () => {
+    const finalized = finalizeContractShape(
+      {
+        safety: { riskLevel: 'high', needsProfessionalHelp: true, emergencyMessage: 'Please reach out to a local crisis line now.' },
+        mentorReplies: [{ mentorId: 'm', mentorName: 'M', likelyResponse: 'x', whyThisFits: 'y', oneActionStep: 'z' }],
+      },
+      { language: 'en', baseUrl: 'https://api.test.com/v1', model: 'test-model' }
+    );
+    expect(finalized.safety.riskLevel).toBe('high');
+    expect(finalized.safety.needsProfessionalHelp).toBe(true);
+    expect(finalized.safety.emergencyMessage).toContain('crisis line');
+  });
+
+  it('server fallback (no LLM) never reports professional-help need it cannot assess', () => {
+    const fallback = buildServerFallbackNormalized({ mentors: [sampleMentor], language: 'en' });
+    expect(fallback.safety.riskLevel).toBe('low');
+    expect(fallback.safety.needsProfessionalHelp).toBe(false);
+    expect(fallback.mentorReplies.length).toBe(1);
+  });
+});
+
 describe('riskLevelScore', () => {
   it('returns 1 for unknown risk level values', () => {
     expect(riskLevelScore('unknown')).toBe(1);
