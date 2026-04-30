@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# F90: explicit least-privilege token. The verify job only needs to read repo.
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Lint • Type-check • Test • Build • E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Unit tests (Vitest with coverage)
+        # Coverage gate: must stay >=95% (statements/branches/lines/functions).
+        # Configured in vite.config.mts coverage.thresholds; do NOT bypass.
+        run: npm test -- --coverage
+
+      - name: Build
+        run: npm run build
+
+      # E2E is Playwright-only (P28 removed Cypress): e2e/*.spec.ts is the
+      # primary suite with its own webServer wiring in playwright.config.ts.
+
+      # F89: install ONLY chromium. playwright.config.ts has no `projects:`
+      # array so WebKit (if installed) would never run — RUNBOOK-lies pattern.
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      # F110: server.js is a STATELESS thin OpenAI-compatible proxy
+      # (api/mentor-table.js + api/mentor-debug-prompt.js have no in-memory
+      # state, no DB, no caches that survive a request). If server.js ever
+      # grows persistent state (Redis, in-mem cache, mock-mode flags),
+      # restart it here.
+      - name: Start app servers (vite :3001 + api :8787 + prod-header preview :5001)
+        run: |
+          nohup node server.js > /tmp/api.log 2>&1 &
+          nohup npx vite --port 3001 --host 127.0.0.1 > /tmp/vite.log 2>&1 &
+          nohup npx vite preview --port 5001 --strictPort --host 127.0.0.1 > /tmp/preview.log 2>&1 &
+          npx -y wait-on http://127.0.0.1:8787/api/health http://127.0.0.1:3001 http://127.0.0.1:5001 -t 60000
+        env:
+          # If LLM_API_KEY is set as a GitHub secret, server.js picks it up
+          # and the valid-data Playwright test exercises the real LLM path.
+          # If unset, validation tests still pass (they hit 4xx before
+          # touching the LLM); the valid-data test is gated via test.skip().
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_API_BASE_URL: ${{ secrets.LLM_API_BASE_URL }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}
+
+      # F80, F103: Playwright actually runs now (was installed but never invoked).
+      - name: Playwright tests
+        run: npx playwright test
+        env:
+          CI: 'true'
+          # Pass through so the test fixture can detect whether LLM is configured.
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+
+      # F92-new: preserve traces/screenshots/videos when Playwright fails.
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+      # F153: the main Playwright run includes e2e/prod-headers.spec.ts, which
+      # asserts the vercel.ts security headers are served verbatim by the
+      # :5001 preview server AND that CSP actually blocks external requests
+      # in a real browser. A header regression now fails CI instead of
+      # shipping silently.
+      - name: Verify production security headers (compiled config parity)
+        run: |
+          npx @vercel/config compile > /tmp/vercel-compiled.json
+          node -e "
+            const compiled = require('/tmp/vercel-compiled.json');
+            const block = compiled.headers.find((h) => h.source === '/(.*)');
+            if (!block || block.headers.length === 0) {
+              console.error('compiled vercel config lost the security header block');
+              process.exit(1);
+            }
+            console.log('compiled config carries', block.headers.length, 'security headers');
+          "
+
+      # F101: the webserver above is shared via reuseExistingServer; the
+      # prod-headers assertion runs against the compiled Vercel config.
+      - name: Verify production security headers (compiled config parity)
+        run: |
+          npx @vercel/config compile > /tmp/vercel-compiled.json
+          node -e "
+            const compiled = require('/tmp/vercel-compiled.json');
+            const block = compiled.headers.find((h) => h.source === '/(.*)');
+            if (!block || block.headers.length === 0) {
+              console.error('compiled vercel config lost the security header block');
+              process.exit(1);
+            }
+            console.log('compiled config carries', block.headers.length, 'security headers');
+          "

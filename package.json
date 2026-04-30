@@ -1,0 +1,87 @@
+{
+  "name": "mentor-table",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "browserslist": [
+    ">0.2%",
+    "last 2 versions",
+    "Firefox ESR",
+    "not dead",
+    "not op_mini all",
+    "not ie 11"
+  ],
+  "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^6.7.2",
+    "@fortawesome/free-solid-svg-icons": "^6.7.2",
+    "@fortawesome/react-fontawesome": "^0.2.2",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
+    "i18next": "^26.0.6",
+    "i18next-browser-languagedetector": "^8.2.1",
+    "i18next-http-backend": "^3.0.5",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-i18next": "^17.0.4"
+  },
+  "scripts": {
+    "dev": "node server.js & vite",
+    "build": "vite build",
+    "type-check": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
+    "preview": "vite preview --host --strictPort --port 5001",
+    "lint": "npm run lint:fe && npm run lint:be",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "server": "node server.js",
+    "test:e2e:ui": "playwright test --ui",
+    "test:load": "node scripts/load-smoke.mjs --vus 10 --duration 30",
+    "lint:fe": "eslint src vitest.setup.ts",
+    "lint:be": "eslint api lib server.js scripts",
+    "prepare": "husky",
+    "test:load:sweep": "node scripts/load-smoke.mjs --sweep"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.11.1",
+    "@playwright/test": "^1.59.1",
+    "@testing-library/jest-dom": "^5.16.5",
+    "@testing-library/react": "^14.0.0",
+    "@types/node": "^24.12.2",
+    "@types/react": "^18.0.28",
+    "@types/react-dom": "^18.0.11",
+    "@typescript-eslint/eslint-plugin": "^8.68.0",
+    "@typescript-eslint/parser": "^8.68.0",
+    "@vercel/config": "^0.2.1",
+    "@vitejs/plugin-react": "^4.7.0",
+    "@vitest/coverage-v8": "^2.1.9",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "express": "^4.18.2",
+    "globals": "^17.11.0",
+    "husky": "^9.1.7",
+    "jsdom": "^21.1.1",
+    "lint-staged": "^17.4.1",
+    "rollup-plugin-visualizer": "^7.0.1",
+    "typescript": "^5.0.2",
+    "vite": "^6.4.2",
+    "vite-plugin-istanbul": "^7.2.1",
+    "vitest": "^2.1.9"
+  },
+  "prepare": "husky",
+  "lint-staged": {
+    "src/**/*.{ts,tsx}": [
+      "eslint --fix"
+    ],
+    "{api,lib}/**/*.js": [
+      "eslint --fix"
+    ],
+    "scripts/**/*.mjs": [
+      "eslint --fix"
+    ],
+    "server.js": [
+      "eslint --fix"
+    ]
+  }
+}
