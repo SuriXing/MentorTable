@@ -56,6 +56,12 @@ const {
   _resetLlmReplyCache,
 } = require('./lib/mentor-upstream.js');
 
+// F174: single source for the mentor-count ceiling. The response schema
+// (schemas/mentor-table-response.v1.json) and the client cap
+// (MAX_PEOPLE in MentorTablePage.tsx) must both equal this — the
+// contract-parity test pins all three.
+const MENTORS_MAX = 10;
+
 const mentorTableHandler = async (req, res) => {
   const requestStartedAt = Date.now(); // F170: request_complete latency
   // Apply shared security middleware (CORS + OPTIONS + body cap + rate limit).
@@ -142,7 +148,6 @@ const mentorTableHandler = async (req, res) => {
     }
 
     // Cap mentor count — each mentor spawns a parallel upstream LLM call.
-    const MENTORS_MAX = 10;
     if (mentors.length > MENTORS_MAX) {
       res.status(413).json({ error: `too many mentors (max ${MENTORS_MAX})` });
       return;
@@ -405,6 +410,7 @@ mentorTableHandler.__test__ = {
   providerFromBaseUrl,
   buildSystemPrompt,
   _resetLlmReplyCache,
+  MENTORS_MAX,
 };
 
 module.exports = mentorTableHandler;

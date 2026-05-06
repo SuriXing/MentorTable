@@ -45,6 +45,7 @@ const {
   defaultDisclaimer,
   providerFromBaseUrl,
   buildSystemPrompt,
+  MENTORS_MAX,
 } = handler.__test__;
 
 // F167 (P23): the reply cache is module-level and would otherwise leak a
@@ -177,6 +178,28 @@ describe('mentor-table handler', () => {
     }), res);
     expect(res._status).toBe(413);
     expect(res._json.error).toMatch(/too many mentors.*10/);
+  });
+
+  it('F174: mentor-count ceiling agrees across schema, server, and client', () => {
+    // The three ceilings drifted once (schema 8 vs server/client 10) and no
+    // lint or type rule can catch a JSON schema disagreeing with a server
+    // constant. Pin them to each other so the next drift fails CI here.
+    const fs = require('fs');
+    const path = require('path');
+
+    const schema = JSON.parse(fs.readFileSync(
+      path.join(__dirname, '../../schemas/mentor-table-response.v1.json'),
+      'utf8'
+    ));
+    expect(schema.properties.mentorReplies.maxItems).toBe(MENTORS_MAX);
+
+    const pageSrc = fs.readFileSync(
+      path.join(__dirname, '../../src/components/pages/MentorTablePage.tsx'),
+      'utf8'
+    );
+    const match = pageSrc.match(/const MAX_PEOPLE = (\d+);/);
+    expect(match).not.toBeNull();
+    expect(Number(match[1])).toBe(MENTORS_MAX);
   });
 
   it('returns Unknown server error when the caught error has an empty message', async () => {
