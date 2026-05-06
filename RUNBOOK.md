@@ -586,3 +586,40 @@ Found by the external v1.0.0 review, fixed in one patch set:
 Post-tag patch set: 991/991 unit tests, type-check + lint + build green.
 These fixes are candidates for a v1.0.1 tag once the operator steps
 above have been run against a deployed build.
+
+## Local Tooling (P34-P36, 2026-05-06)
+
+Lint now covers the whole repo, not just `src`:
+
+- `npm run lint` = `lint:fe` (src, TS) + `lint:be` (api/, lib/,
+  server.js as CommonJS-on-Node; scripts/ as ESM). CI keeps calling
+  `lint` — no workflow change was needed.
+- `.eslintrc.cjs` is built on `eslint:recommended`. For TS files
+  `no-undef` is deliberately off (tsc owns that) and the TS-aware
+  `no-unused-vars` is on; for backend JS `no-undef` is on and the
+  browser env is revoked. Two suites under `api/**/__tests__` use
+  top-level `await import` — they parse as ESM with vitest globals
+  declared.
+- Backend typecheck is intentionally NOT attempted: the backend is
+  plain JS, and JSDoc + `checkJs` across 3,600 existing lines is a
+  migration project, not a config line. Lint + 991 unit tests are the
+  backend's contract for now.
+
+Git hooks (husky + lint-staged, activated by the `prepare` script on
+`npm install`):
+
+- `pre-commit`: lint-staged runs `eslint --fix` on staged files only
+  (sub-second; respects partial staging).
+- `pre-push`: `type-check + lint + full vitest` (~1 min). Build and
+  Playwright stay in CI — a push gate that costs five minutes gets
+  bypassed, and a bypassed gate is worse than no gate.
+- `--no-verify` is legitimate exactly once per bootstrap (the P34
+  commit used it because the gate didn't exist yet) and for the rare
+  WIP checkpoint you intend to rework before push. Anything else that
+  skips the gates should fail CI within minutes — the hooks are a
+  convenience layer, CI is the enforcement layer.
+- The two intentional control-character regexes in api tests carry
+  inline `eslint-disable` comments with justification; the redaction
+  regexes in lib/security.js were re-escaped with probe-verified
+  match equivalence, not by hand-waving.
+
