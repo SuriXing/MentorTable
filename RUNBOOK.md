@@ -519,6 +519,17 @@ Baseline (2026-04-30, MacBook local, 10 VUs / 25s): 5,010 requests,
 (the 0.3/s refill + 20 burst per IP is the DESIGN under sustained
 overload), **0 errors, p50 21ms / p95 24ms / p99 25ms**.
 
+Reading the shed percentage honestly (F176 review follow-up): the
+~94% shed figure is arithmetic against a 10x-overloaded target, not a
+production prediction. Each of the 10 VUs holds a distinct
+x-forwarded-for IP, so the budget is 10 × (20 burst + 0.3/s × 25s) ≈
+280 admitted against 5,010 attempted — any target hammered at 10x its
+configured budget sheds ~94% by construction. The smoke's real signal
+is that the admitted ~5.6% flows through the full path with 0 errors
+and p95 24ms. To measure a meaningful shed curve, raise VU count until
+429s appear, then sweep down; the per-IP budget knobs are
+`MENTOR_TABLE_KV_LIMIT` / memory-bucket `capacity`.
+
 Pass criteria: non-429 error rate < 1% and p95 < 500ms. Do NOT set
 `LLM_DISABLED=1` during a smoke — the breaker 503s every table request
 by design and the run will read as an error storm.
@@ -546,3 +557,32 @@ dev machine CI:
 3. Rollback drill (quarterly): run the script in the Rollback section,
    confirm the alias sha flips and restores.
 4. Tag: `git tag v1.0.0 && git push origin v1.0.0`.
+
+Release-gate status (F176 review follow-up): the four operator steps
+above are POST-tag operational duties, not gates that block v1.0.0 —
+the tag was cut on local verification alone. The two contract defects
+the external review marked blocking (mentor-count schema drift, client
+timeout above the function ceiling) were found AFTER the tag and fixed
+in the 2026-05-06 patch set below; if a future release treats contract
+parity as a gate, run `npm test` contract tests + the chain test before
+tagging, not after.
+
+## Post-Release Fixes (2026-05-06)
+
+Found by the external v1.0.0 review, fixed in one patch set:
+
+- **F174 — mentor-count ceiling drift**: response schema capped
+  `mentorReplies` at 8 while server (`MENTORS_MAX`) and client
+  (`MAX_PEOPLE`) both allowed 10. Schema aligned to 10; a contract-parity
+  test now pins all three to one constant.
+- **F175 — inverted timeout chain**: client timeout (35s) outlived the
+  30s Vercel function ceiling. Client default now 28s — upstream (25s) <
+  client (28s) < function (30s) — with a chain test pinning the order.
+- **F176 — untested KV-outage semantics**: KV failure was already
+  fail-safe (degrades to the per-instance memory bucket) but nothing
+  locked that in; an integration test now proves a KV outage still
+  rate-limits and logs `limiter: 'memory'`.
+
+Post-tag patch set: 991/991 unit tests, type-check + lint + build green.
+These fixes are candidates for a v1.0.1 tag once the operator steps
+above have been run against a deployed build.
