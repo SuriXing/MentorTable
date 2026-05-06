@@ -62,6 +62,10 @@ const {
 // contract-parity test pins all three.
 const MENTORS_MAX = 10;
 
+// F175: upstream budget default. The timeout-chain test pins the order
+// upstream (25s) < client (28s) < platform function ceiling (30s).
+const DEFAULT_UPSTREAM_TIMEOUT_MS = 25000;
+
 const mentorTableHandler = async (req, res) => {
   const requestStartedAt = Date.now(); // F170: request_complete latency
   // Apply shared security middleware (CORS + OPTIONS + body cap + rate limit).
@@ -95,7 +99,7 @@ const mentorTableHandler = async (req, res) => {
   ]);
   const model = process.env.LLM_MODEL || process.env.OPENAI_MODEL || 'qwen-max';
   const baseUrl = process.env.LLM_API_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
-  const upstreamTimeoutMs = Number(process.env.MENTOR_UPSTREAM_TIMEOUT_MS || 25000);
+  const upstreamTimeoutMs = Number(process.env.MENTOR_UPSTREAM_TIMEOUT_MS || DEFAULT_UPSTREAM_TIMEOUT_MS);
   const chatCompletionsUrl = `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
   const isDashscope = /dashscope\.aliyuncs\.com/i.test(baseUrl);
 
@@ -411,6 +415,7 @@ mentorTableHandler.__test__ = {
   buildSystemPrompt,
   _resetLlmReplyCache,
   MENTORS_MAX,
+  DEFAULT_UPSTREAM_TIMEOUT_MS,
 };
 
 module.exports = mentorTableHandler;

@@ -36,17 +36,24 @@ function allowLocalMentorFallbackEndpoint(): boolean {
   return Boolean(import.meta.env.DEV);
 }
 
-// Bug-bash round 1: `Number(env || 35000)` returned NaN when the env var was
-// set to a non-numeric string (e.g. "35s"). setTimeout(…, NaN) fires on the
-// next tick, so every request was aborted before fetch opened. Clamp to the
-// fallback when the parsed number is not a finite positive integer.
+// Bug-bash round 1: `Number(env || fallback)` returned NaN when the env var
+// was set to a non-numeric string (e.g. "35s"). setTimeout(…, NaN) fires on
+// the next tick, so every request was aborted before fetch opened. Clamp to
+// the fallback when the parsed number is not a finite positive integer.
 function toTimeoutMs(raw: unknown, fallback: number): number {
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
+// F175: client timeout must sit BETWEEN the server's upstream budget (25s)
+// and the platform function ceiling (30s on Vercel). Below 25s the client
+// would abort before the server's structured upstream-timeout response can
+// arrive; at 35s it outlived the function itself, so the last 5s of patience
+// could only ever observe platform-level errors instead of our own fallback.
+export const DEFAULT_REQUEST_TIMEOUT_MS = 28000;
+
 export async function generateMentorAdvice(input: MentorApiRequest): Promise<MentorSimulationResult> {
-  const requestTimeoutMs = toTimeoutMs(import.meta.env.VITE_MENTOR_API_TIMEOUT_MS, 35000);
+  const requestTimeoutMs = toTimeoutMs(import.meta.env.VITE_MENTOR_API_TIMEOUT_MS, DEFAULT_REQUEST_TIMEOUT_MS);
   const endpoints = uniqueNonEmpty([
     import.meta.env.VITE_MENTOR_API_URL as string | undefined,
     '/api/mentor-table',
@@ -110,7 +117,7 @@ export async function generateMentorAdvice(input: MentorApiRequest): Promise<Men
 }
 
 export async function fetchMentorDebugPrompt(input: MentorDebugPromptRequest): Promise<string> {
-  const requestTimeoutMs = toTimeoutMs(import.meta.env.VITE_MENTOR_API_TIMEOUT_MS, 35000);
+  const requestTimeoutMs = toTimeoutMs(import.meta.env.VITE_MENTOR_API_TIMEOUT_MS, DEFAULT_REQUEST_TIMEOUT_MS);
   const endpoints = uniqueNonEmpty([
     import.meta.env.VITE_MENTOR_DEBUG_API_URL as string | undefined,
     '/api/mentor-debug-prompt',

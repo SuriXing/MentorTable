@@ -46,6 +46,7 @@ const {
   providerFromBaseUrl,
   buildSystemPrompt,
   MENTORS_MAX,
+  DEFAULT_UPSTREAM_TIMEOUT_MS,
 } = handler.__test__;
 
 // F167 (P23): the reply cache is module-level and would otherwise leak a
@@ -200,6 +201,30 @@ describe('mentor-table handler', () => {
     const match = pageSrc.match(/const MAX_PEOPLE = (\d+);/);
     expect(match).not.toBeNull();
     expect(Number(match[1])).toBe(MENTORS_MAX);
+  });
+
+  it('F175: timeout chain is upstream < client < platform function ceiling', () => {
+    // The client must out-wait the server's upstream budget (so the
+    // structured upstream-timeout response arrives before the client aborts)
+    // but die before the 30s Vercel function ceiling (so a hung server
+    // surfaces as the client's own fallback, not a platform 502). This was
+    // inverted at v1.0.0 (client 35s > function 30s) — pin the correct order.
+    const fs = require('fs');
+    const path = require('path');
+
+    const FUNCTION_CEILING_MS = 30000; // Vercel hobby/pro default
+    expect(DEFAULT_UPSTREAM_TIMEOUT_MS).toBe(25000);
+
+    const apiSrc = fs.readFileSync(
+      path.join(__dirname, '../../src/features/mentorTable/mentorApi.ts'),
+      'utf8'
+    );
+    const match = apiSrc.match(/DEFAULT_REQUEST_TIMEOUT_MS = (\d+);/);
+    expect(match).not.toBeNull();
+    const clientTimeoutMs = Number(match[1]);
+
+    expect(clientTimeoutMs).toBeGreaterThan(DEFAULT_UPSTREAM_TIMEOUT_MS);
+    expect(clientTimeoutMs).toBeLessThan(FUNCTION_CEILING_MS);
   });
 
   it('returns Unknown server error when the caught error has an empty message', async () => {

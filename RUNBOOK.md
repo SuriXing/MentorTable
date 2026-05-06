@@ -100,7 +100,7 @@ Local dev reads from `.env` at repo root (gitignored). Never commit keys.
 | `VITE_COVERAGE` | No | local only | Set to `1` to enable Istanbul coverage in the Vite dev build. |
 | `VITE_MENTOR_API_URL` | No | **build time (Vite inlines)** | Override the production `/api/mentor-table` endpoint URL at build time. Read in `src/features/mentorTable/mentorApi.ts`. Changing it requires a rebuild + redeploy. |
 | `VITE_MENTOR_DEBUG_API_URL` | No | **build time (Vite inlines)** | Override the `/api/mentor-debug-prompt` endpoint URL. Same build-time semantics as above. |
-| `VITE_MENTOR_API_TIMEOUT_MS` | No | **build time (Vite inlines)** | Client-side fetch timeout (ms) for mentor API calls. Default in code: `30000`. Build time only. |
+| `VITE_MENTOR_API_TIMEOUT_MS` | No | **build time (Vite inlines)** | Client-side fetch timeout (ms) for mentor API calls. Default in code: `28000` — must stay between the upstream budget (25s) and the 30s function ceiling (F175). Build time only. |
 | `VITE_MENTOR_NOTE_COORDINATE_ALL` | No | **build time (Vite inlines)** | Feature flag: `1` to enable cross-mentor note coordination on `MentorTablePage`. Build time only. |
 | `COLLECT_UI_COVERAGE` | No | local only (Playwright) | Set to `1` to collect Istanbul UI coverage during `playwright` runs. Read in `playwright.config.ts`. |
 | `ANALYZE` | No | local only | Set to `1` to emit bundle-stats HTML/JSON outside `dist/`. |
