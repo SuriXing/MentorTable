@@ -62,7 +62,6 @@ export function useMentorNotes(options: UseMentorNotesOptions): {
     appendConversationTurn,
     uniqueId,
     coordinateWithAll,
-    isRoundGenerating,
     setIsRoundGenerating,
   } = options;
 

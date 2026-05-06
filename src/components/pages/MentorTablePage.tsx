@@ -22,7 +22,7 @@ import {
 // `standalone` render path). Theme controls are mounted directly in main.tsx.
 import { useTheme } from '../../hooks/useTheme';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
-import { MentorProfile, createCustomMentorProfile, getCartoonAvatarUrl, getSuggestedPeople } from '../../features/mentorTable/mentorProfiles';
+import { MentorProfile, createCustomMentorProfile } from '../../features/mentorTable/mentorProfiles';
 import { MentorSimulationResult } from '../../features/mentorTable/mentorEngine';
 import { fetchMentorDebugPrompt, generateMentorAdvice, MentorConversationMessage } from '../../features/mentorTable/mentorApi';
 import {
@@ -31,10 +31,7 @@ import {
   fetchPersonImage,
   fetchPersonImageCandidates,
   findVerifiedPerson,
-  getChineseDisplayName,
-  getVerifiedPlaceholderImage,
-  searchPeopleWithPhotos,
-  searchVerifiedPeopleLocal
+  getChineseDisplayName
 } from '../../features/mentorTable/personLookup';
 import { applyMentorSpeakerClass } from './applyMentorSpeakerClass';
 import styles from './MentorTablePage.module.css';
@@ -64,7 +61,6 @@ const MAX_PEOPLE = 10;
 const MAX_CONVERSATION_TURNS_IN_HISTORY = 12;
 const COORDINATE_PASS_NOTE_WITH_ALL = (import.meta.env.VITE_MENTOR_NOTE_COORDINATE_ALL ?? '1') !== '0';
 const ONBOARDING_KEY = 'mentorTableOnboardingHiddenV2';
-const DEFAULT_PLACEHOLDER_AVATAR = getVerifiedPlaceholderImage();
 
 const onboardingSlides = [
   {

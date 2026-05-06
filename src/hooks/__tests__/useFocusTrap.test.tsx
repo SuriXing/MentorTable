@@ -13,7 +13,7 @@
  */
 import React, { useRef } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, act, cleanup } from '@testing-library/react';
+import { render, cleanup } from '@testing-library/react';
 import { useFocusTrap } from '../useFocusTrap';
 
 function Dialog({

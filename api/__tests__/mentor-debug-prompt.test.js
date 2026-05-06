@@ -217,6 +217,7 @@ describe('mentor-debug-prompt handler', () => {
     expect(res._status).toBe(200);
     // control chars and newline replaced by spaces
     expect(res._json.prompt).toContain('MentorName: Name With Ctrl Chars');
+    // eslint-disable-next-line no-control-regex -- the assertion TARGETS control-char handling
     expect(res._json.prompt).not.toMatch(/Name\u0001/);
   });
 

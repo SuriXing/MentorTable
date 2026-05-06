@@ -2437,6 +2437,7 @@ describe('buildMentorDirectiveBlock field fallbacks', () => {
       displayName: 'Name\u0001With\u0007Ctrl\nNewline',
     }]);
     expect(result).toContain('MentorName: Name With Ctrl Newline');
+    // eslint-disable-next-line no-control-regex -- the assertion TARGETS control-char handling
     expect(result).not.toMatch(/\u0001/);
   });
 

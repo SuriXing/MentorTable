@@ -122,8 +122,6 @@ describe('mentor-image cached file serving', () => {
 
   it('serves cached webp file with correct mime', async () => {
     const slug = 'bill-gates';
-    const jpgPath = path.join(CACHE_DIR, slug + '.jpg');
-    const pngPath = path.join(CACHE_DIR, slug + '.png');
     const webpPath = path.join(CACHE_DIR, slug + '.webp');
 
     vi.spyOn(fs, 'existsSync').mockImplementation((p) => {
@@ -1351,9 +1349,7 @@ describe('fetchBuffer redirect following', () => {
     vi.spyOn(fs, 'existsSync').mockReturnValue(false);
 
     const https = require('https');
-    let callIndex = 0;
     vi.spyOn(https, 'get').mockImplementation((url, opts, callback) => {
-      callIndex += 1;
       if (typeof opts === 'function') {
         callback = opts;
       }

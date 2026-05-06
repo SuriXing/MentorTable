@@ -32,7 +32,6 @@ const mentorDebugHandler = require('../mentor-debug-prompt.js');
 
 const {
   sanitizeMentorField,
-  sanitizeMentorFieldArray,
   redactSensitive,
   extractTopLevelJsonObjects,
   tryParseJson,

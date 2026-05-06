@@ -1,13 +1,9 @@
 'use strict';
 
-const { log } = require('../../lib/logger.js');
-const { sanitizeMentorField, sanitizeMentorFieldArray } = require('../../lib/security.js');
+const { sanitizeMentorField } = require('../../lib/security.js');
 const {
-  detectLanguageFromText,
   normalizeLanguage,
   tryParseJson,
-  extractTopLevelJsonObjects,
-  defaultActionStep,
 } = require('./mentor-contract.js');
 const { callChatCompletions, extractAssistantContent } = require('./mentor-upstream.js');
 const { formatConversationHistoryForPrompt } = require('./mentor-prompts.js');

@@ -4,7 +4,6 @@ const { sanitizeMentorField, sanitizeMentorFieldArray } = require('../../lib/sec
 const {
   RESPONSE_SCHEMA_VERSION,
   defaultDisclaimer,
-  detectLanguageFromText,
   normalizeLanguage,
 } = require('./mentor-contract.js');
 

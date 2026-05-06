@@ -4,7 +4,6 @@ const { log } = require('../../lib/logger.js');
 const { redactSensitive, recordLlmCall } = require('../../lib/security.js');
 const {
   RESPONSE_SCHEMA,
-  normalizeLanguage,
   normalizeProviderPayload,
   pickReplyForMentor,
   tryParseJson,

@@ -11,7 +11,7 @@
  * - Real-device frame times under React's reconciler
  * - Bundle size at runtime in a real browser (do that with `npm run build`)
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 describe('R3 perf verification', () => {
   describe('findVerifiedPerson exact-match O(1) Map lookup (R2D ALGO-1)', () => {

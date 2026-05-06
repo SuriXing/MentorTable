@@ -8,11 +8,8 @@ const {
 } = require('../lib/security.js');
 const { log, truncateErrorMessage } = require('../lib/logger.js');
 const {
-  RESPONSE_SCHEMA_VERSION,
-  RESPONSE_SCHEMA,
   riskLevelScore,
   mergeSafetyState,
-  normalizeLanguage,
   defaultDisclaimer,
   detectLanguageFromText,
   resolveEffectiveLanguage,
@@ -44,11 +41,9 @@ const {
   buildConversationRounds,
   summarizeCompactedMiddleDeterministic,
   compactConversationHistoryDeterministic,
-  summarizeCompactedMiddleWithLLM,
   compactConversationHistory,
 } = require('./lib/mentor-history.js');
 const {
-  callChatCompletions,
   extractAssistantContent,
   firstNonEmptyEnvValue,
   requestMentorReplyFromLLM,

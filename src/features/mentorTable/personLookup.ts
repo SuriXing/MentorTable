@@ -1291,12 +1291,6 @@ const WORD_TO_PEOPLE: Map<string, Set<number>> = (() => {
   return map;
 })();
 
-// Pre-computed list of normalized "haystack strings" for searchVerifiedPeopleLocal.
-// Each slot corresponds to VERIFIED_PEOPLE[i] and contains every normalized
-// form of that person's canonical + aliases (so .includes() checks can run
-// directly without re-normalizing on every keystroke).
-const SEARCH_HAYSTACKS: string[][] = NORMALIZED_ENTRIES.map((e) => e.haystack);
-
 function buildNameAvatar(name: string): string {
   const label = name.trim() || 'Mentor';
   return createInlineAvatarDataUri(label, '#e7efff', '#2a4f90');

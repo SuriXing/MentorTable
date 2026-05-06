@@ -51,9 +51,9 @@ export default class ErrorBoundary extends React.Component<Props, State> {
         // stays in the client bundle without pulling in server code.
         const rawMessage = error?.message || '';
         const scrubbedMessage = rawMessage
-          .replace(/\bBearer\s+[A-Za-z0-9_\-.=+/]+/gi, 'Bearer [REDACTED]')
-          .replace(/\bsk-ant-[A-Za-z0-9_\-]{8,}/gi, 'sk-ant-[REDACTED]')
-          .replace(/\bsk-[A-Za-z0-9_\-]{16,}/g, 'sk-[REDACTED]')
+          .replace(/\bBearer\s+[A-Za-z0-9_.=+/-]+/gi, 'Bearer [REDACTED]')
+          .replace(/\bsk-ant-[A-Za-z0-9_-]{8,}/gi, 'sk-ant-[REDACTED]')
+          .replace(/\bsk-[A-Za-z0-9_-]{16,}/g, 'sk-[REDACTED]')
           .replace(/\bLTAI[A-Za-z0-9]{12,30}\b/g, 'LTAI[REDACTED]')
           .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, 'eyJ[REDACTED]');
         w.va?.track?.('client_error', {
