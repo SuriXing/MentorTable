@@ -33,7 +33,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
-    // eslint-disable-next-line no-console
+     
     console.error('[ErrorBoundary] captured render error:', error, info);
     // U8.1: report to Vercel Analytics as a custom event. Guarded so SSR /
     // tests without window.va are no-ops. We intentionally truncate

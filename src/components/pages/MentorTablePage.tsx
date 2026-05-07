@@ -881,7 +881,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   );
   const expandedReply = visibleReplies.find((reply) => reply.mentorId === expandedReplyId) || null;
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- resolveMentorName
+   
   // reads only `selectedPeople` (already a dep); localizeName is memoized and
   // firing on its identity change would be spurious. Deps intentionally minimal.
   const groupSolveText = useMemo(() => {

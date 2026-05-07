@@ -1017,7 +1017,7 @@ describe('fetchBuffer redirect following', () => {
     vi.spyOn(fs, 'existsSync').mockReturnValue(false);
     vi.spyOn(fs, 'mkdirSync').mockReturnValue(undefined);
     vi.spyOn(fs, 'writeFileSync').mockImplementation(() => {
-      // eslint-disable-next-line no-throw-literal
+       
       throw 'string-error-no-code';
     });
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});

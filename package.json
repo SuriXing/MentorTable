@@ -38,8 +38,8 @@
     "server": "node server.js",
     "test:e2e:ui": "playwright test --ui",
     "test:load": "node scripts/load-smoke.mjs --vus 10 --duration 30",
-    "lint:fe": "eslint src vitest.setup.ts --ext ts,tsx --rulesdir eslint-rules",
-    "lint:be": "eslint api lib server.js scripts --ext js,mjs --rulesdir eslint-rules",
+    "lint:fe": "eslint src vitest.setup.ts",
+    "lint:be": "eslint api lib server.js scripts",
     "prepare": "husky"
   },
   "devDependencies": {
@@ -50,14 +50,15 @@
     "@types/node": "^24.12.2",
     "@types/react": "^18.0.28",
     "@types/react-dom": "^18.0.11",
-    "@typescript-eslint/eslint-plugin": "^5.57.1",
-    "@typescript-eslint/parser": "^5.57.1",
+    "@typescript-eslint/eslint-plugin": "^8.68.0",
+    "@typescript-eslint/parser": "^8.68.0",
     "@vercel/config": "^0.2.1",
     "@vitejs/plugin-react": "^4.7.0",
     "@vitest/coverage-v8": "^2.1.9",
-    "eslint": "^8.38.0",
-    "eslint-plugin-react-hooks": "^4.6.2",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "express": "^4.18.2",
+    "globals": "^17.11.0",
     "husky": "^9.1.7",
     "jsdom": "^21.1.1",
     "lint-staged": "^17.4.1",
@@ -70,16 +71,16 @@
   "prepare": "husky",
   "lint-staged": {
     "src/**/*.{ts,tsx}": [
-      "eslint --fix --rulesdir eslint-rules"
+      "eslint --fix"
     ],
     "{api,lib}/**/*.js": [
-      "eslint --fix --rulesdir eslint-rules"
+      "eslint --fix"
     ],
     "scripts/**/*.mjs": [
-      "eslint --fix --rulesdir eslint-rules"
+      "eslint --fix"
     ],
     "server.js": [
-      "eslint --fix --rulesdir eslint-rules"
+      "eslint --fix"
     ]
   }
 }

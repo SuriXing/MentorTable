@@ -145,7 +145,7 @@ describe('generateMentorAdvice', () => {
 
   it('falls back when caught value is not an Error', async () => {
     globalThis.fetch = vi.fn().mockImplementation(() => {
-      // eslint-disable-next-line no-throw-literal
+       
       throw 'string error';
     }) as unknown as typeof fetch;
     const out = await generateMentorAdvice({
@@ -279,7 +279,7 @@ describe('fetchMentorDebugPrompt', () => {
 
   it('wraps non-Error throws into Error', async () => {
     globalThis.fetch = vi.fn().mockImplementation(() => {
-      // eslint-disable-next-line no-throw-literal
+       
       throw 'plain string';
     }) as unknown as typeof fetch;
     await expect(

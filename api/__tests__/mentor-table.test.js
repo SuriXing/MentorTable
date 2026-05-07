@@ -2719,7 +2719,7 @@ describe('handler req.body and per-mentor error edge cases', () => {
   it('logs per-mentor error when fetch throws a non-Error value (exercises String(item.error) branch)', async () => {
     // fetch throws a plain string → per-mentor error is a string → `String(item.error)` branch
     globalThis.fetch = vi.fn().mockImplementation(async () => {
-      throw 'plain string error'; // eslint-disable-line no-throw-literal
+      throw 'plain string error';  
     });
 
     const res = mockRes();

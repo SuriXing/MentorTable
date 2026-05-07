@@ -19,7 +19,7 @@
 // deployed bundle), but fall back to 'unknown' rather than crashing.
 let VERSION = 'unknown';
 try {
-  // eslint-disable-next-line global-require
+   
   const pkg = require('../package.json');
   if (pkg && typeof pkg.version === 'string') VERSION = pkg.version;
 } catch {

@@ -202,7 +202,7 @@ async function requestMentorReplyFromLLM({
       mentorId: mentor.id,
       model,
     });
-    // eslint-disable-next-line no-console
+     
     console.log(`[mentor-api] upstream request start mentor=${mentor.id} model=${model}`);
     response = await callChatCompletionsWithRetry({
       url: chatCompletionsUrl,
@@ -236,7 +236,7 @@ async function requestMentorReplyFromLLM({
     status: response.status,
     latency_ms: Date.now() - startedAt,
   });
-  // eslint-disable-next-line no-console
+   
   console.log(
     `[mentor-api] upstream response mentor=${mentor.id} status=${response.status} elapsed=${Date.now() - startedAt}ms`
   );
@@ -408,7 +408,7 @@ async function requestMentorBatchReplyFromLLM({
       mentorCount: mentors.length,
       model,
     });
-    // eslint-disable-next-line no-console
+     
     console.log(
       `[mentor-api] upstream request start mode=batch mentors=${mentors.length} model=${model}`
     );
@@ -445,7 +445,7 @@ async function requestMentorBatchReplyFromLLM({
     status: response.status,
     latency_ms: Date.now() - startedAt,
   });
-  // eslint-disable-next-line no-console
+   
   console.log(
     `[mentor-api] upstream response mode=batch mentors=${mentors.length} status=${response.status} elapsed=${Date.now() - startedAt}ms`
   );
