@@ -23,8 +23,7 @@ import {
 import { useTheme } from '../../hooks/useTheme';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { MentorProfile, createCustomMentorProfile } from '../../features/mentorTable/mentorProfiles';
-import { MentorSimulationResult } from '../../features/mentorTable/mentorEngine';
-import { fetchMentorDebugPrompt, generateMentorAdvice, MentorConversationMessage } from '../../features/mentorTable/mentorApi';
+import { fetchMentorDebugPrompt, MentorConversationMessage } from '../../features/mentorTable/mentorApi';
 import {
   PersonOption,
   buildMentorImageChain,
@@ -45,15 +44,8 @@ import { usePersonSearch } from '../mentorTable/hooks/usePersonSearch';
 import { useImageChain } from '../mentorTable/hooks/useImageChain';
 import { useMentorNotes } from '../mentorTable/hooks/useMentorNotes';
 import { MemoryCard, clearMemories, loadMemories, saveMemories } from '../../lib/memoryStore';
-
-type RitualPhase = 'invite' | 'wish' | 'session';
-type SessionMode = 'idle' | 'booting' | 'live';
-
-interface ConversationTurn {
-  id: string;
-  user: string;
-  replies: Array<{ mentorName: string; text: string }>;
-}
+import { useSessionFlow, uniqueId } from './useSessionFlow';
+import type { RitualPhase } from './useSessionFlow';
 
 const MAX_PEOPLE = 10;
 // Cap for conversation history forwarded to the mentor API on each round
@@ -82,19 +74,6 @@ const vibeTagsZh = ['构建者', '讲述者', '行动派', '战略派', '梦想�
 
 
 // Bug #22: Date.now() alone can collide within the same millisecond when
-// React 18 StrictMode double-invokes or when auto-reply fires on the same
-// tick as a user click. Use crypto.randomUUID when available, with a
-// Date.now + random fallback for older browsers/test environments.
-// globalThis is always defined in ES2020+ / Node 12+ (our Vite target is
-// es2015 but node+modern browsers always have it), so no existence check.
-let __uniqueIdCounter = 0;
-function uniqueId(prefix = 'id'): string {
-  const cryptoObj = ((globalThis as unknown) as { crypto?: { randomUUID?: () => string } }).crypto;
-  if (cryptoObj?.randomUUID) return `${prefix}-${cryptoObj.randomUUID()}`;
-  __uniqueIdCounter += 1;
-  return `${prefix}-${Date.now()}-${__uniqueIdCounter}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
 function getMentorCategory(name: string): 'tech' | 'sports' | 'artist' | 'leader' {
   const normalized = name.toLowerCase();
   if (normalized.includes('kobe')) return 'sports';
@@ -108,15 +87,62 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const isZh = i18n.language?.toLowerCase().startsWith('zh');
   // Apply stored theme (primary color + light/dark mode) on mount
   useTheme();
-  const [phase, setPhase] = useState<RitualPhase>('invite');
-  const [sessionMode, setSessionMode] = useState<SessionMode>('idle');
-  const [problem, setProblem] = useState('');
   const [personQuery, setPersonQuery] = useState('');
   // F162 (P13): search suggestions + spinner state live in usePersonSearch.
   const { suggestions, isSearching } = usePersonSearch(personQuery);
   const [selectedPeople, setSelectedPeople] = useState<PersonOption[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [result, setResult] = useState<MentorSimulationResult | null>(null);
+  const uiLanguage: 'zh-CN' | 'en' = isZh ? 'zh-CN' : 'en';
+  const selectedMentors = useMemo(
+    () => selectedPeople.map((person) => createCustomMentorProfile(person.name)),
+    [selectedPeople]
+  );
+  const [isConversationHovered, setIsConversationHovered] = useState(false);
+  const isMountedRef = useRef(true);
+  // LEAK-2/3/4: unified timer bag — every setTimeout gets tracked and
+  // cleared on unmount so no fire-and-forget timers leak.
+  const pendingTimersRef = useRef<Set<number>>(new Set());
+  // RERENDER-5: rotation tick used to drive setState every 4.2s, forcing
+  // the whole tree to re-render just to toggle a class. Now the tick
+  // walks mentorNodeRefs and toggles the active class imperatively.
+  const activeIndexRef = useRef(0);
+  // LEAK-1: provide a safe replacement for setTimeout that records
+  // handles and is auto-cleared on unmount. The unmount effect calls
+  // clearTimeout on every pending handle *before* React finishes tearing
+  // down, so a post-unmount `isMountedRef.current === false` check inside
+  // the callback is unreachable — if we're still running, we're mounted.
+  const scheduleTimeout = useCallback((fn: () => void, ms: number): number => {
+    const handle = window.setTimeout(() => {
+      pendingTimersRef.current.delete(handle);
+      fn();
+    }, ms);
+    pendingTimersRef.current.add(handle);
+    return handle;
+  }, []);
+
+  // P15 second half: the session state machine (phase/mode/problem/result/
+  // orchestrators/reveal heartbeat) lives in useSessionFlow now. Identity
+  // helpers, notes, memories, and panel choreography stay page-side and
+  // arrive as options; the destructure keeps every original name so the
+  // JSX and downstream hooks are untouched.
+  const {
+    phase, setPhase, sessionMode, setSessionMode, problem, setProblem, result, setResult,
+    isGenerating, generateError, setGenerateError, isRoundGenerating, setIsRoundGenerating,
+    conversationTurns, setConversationTurns, replyAllDraft, setReplyAllDraft,
+    visibleReplyCount, setVisibleReplyCount, showSessionWrap, setShowSessionWrap,
+    showGroupSolve, setShowGroupSolve, generateFollowup, handleGenerate, handleReplyAll,
+  } = useSessionFlow({
+    selectedMentors,
+    uiLanguage,
+    isZh,
+    isConversationHovered,
+    scheduleTimeout,
+    isMountedRef,
+    activeIndexRef,
+    normalizeKey: (value) => normalizeMentorKey(value),
+    buildConversationHistory: (text) => buildConversationHistory(text),
+    beginSessionChoreography: () => beginSessionChoreography(),
+    scrollConversationToBottom: () => scrollConversationToBottom(),
+  });
   // RERENDER-5: activeResultIndex lives in a ref below — removed from state.
   // This component only runs client-side (the app has no SSR), so `window`
   // and `localStorage` are always available.
@@ -152,12 +178,6 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   useEffect(() => {
     saveMemories(memories);
   }, [memories]);
-  const [visibleReplyCount, setVisibleReplyCount] = useState(0);
-  const [isConversationHovered, setIsConversationHovered] = useState(false);
-  const [showSessionWrap, setShowSessionWrap] = useState(false);
-  const [showGroupSolve, setShowGroupSolve] = useState(false);
-  const [replyAllDraft, setReplyAllDraft] = useState('');
-  const [conversationTurns, setConversationTurns] = useState<ConversationTurn[]>([]);
   const [expandedReplyId, setExpandedReplyId] = useState('');
   // R3/F44: inviteTouched was dead — the CTA is `disabled` (F38) so
   // onClick never fires to set it, and the error hint stayed hidden. Render
@@ -172,38 +192,16 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const [saveNotice, setSaveNotice] = useState('');
   // ERR-2: surface a retry-able error banner when handleGenerate throws
   // (e.g. network failure) instead of silently dropping to an empty panel.
-  const [generateError, setGenerateError] = useState('');
   const conversationPanelRef = useRef<HTMLDivElement | null>(null);
   // SR-4: focus the safety risk banner when it first appears.
   const riskBannerRef = useRef<HTMLDivElement | null>(null);
   const lastRiskSignatureRef = useRef<string>('');
   // LEAK-1: guard against setState after unmount. handleGenerate and
   // other async paths check this before state transitions.
-  const isMountedRef = useRef(true);
-  // LEAK-2/3/4: unified timer bag — every setTimeout gets tracked and
-  // cleared on unmount so no fire-and-forget timers leak.
-  const pendingTimersRef = useRef<Set<number>>(new Set());
-  // RERENDER-5: rotation tick used to drive setState every 4.2s, forcing
-  // the whole tree to re-render just to toggle a class. Now the tick
-  // walks mentorNodeRefs and toggles the active class imperatively.
-  const activeIndexRef = useRef(0);
   const mentorNodeRefs = useRef<Array<HTMLDivElement | null>>([]);
   // ARCH-3: coalesce rapid-fire addPerson calls for the same key so a
   // double-click on the add button doesn't cancel the prior hydration.
   const addPersonTimestampRef = useRef<Map<string, number>>(new Map());
-  // LEAK-1: provide a safe replacement for setTimeout that records
-  // handles and is auto-cleared on unmount. The unmount effect calls
-  // clearTimeout on every pending handle *before* React finishes tearing
-  // down, so a post-unmount `isMountedRef.current === false` check inside
-  // the callback is unreachable — if we're still running, we're mounted.
-  const scheduleTimeout = useCallback((fn: () => void, ms: number): number => {
-    const handle = window.setTimeout(() => {
-      pendingTimersRef.current.delete(handle);
-      fn();
-    }, ms);
-    pendingTimersRef.current.add(handle);
-    return handle;
-  }, []);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -256,11 +254,6 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   // overwriting fresh data when the user quickly removes and re-adds a
   // person.
   const personHydrationSeqRef = useRef<Map<string, number>>(new Map());
-
-  const selectedMentors = useMemo(
-    () => selectedPeople.map((person) => createCustomMentorProfile(person.name)),
-    [selectedPeople]
-  );
 
   const ritualStep = phase === 'invite' ? 0 : phase === 'wish' ? 1 : 2;
   const localizedVibeTags = isZh ? vibeTagsZh : vibeTags;
@@ -367,8 +360,6 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     emptyIntroHint: isZh ? '在上方搜索框输入名字，按回车即可入席。' : 'Type a name above and press Enter to seat them.'
   }), [isZh, tI18n]);
 
-  const uiLanguage: 'zh-CN' | 'en' = isZh ? 'zh-CN' : 'en';
-
   const normalizeNameKey = useCallback(
     (name: string) => name.trim().toLowerCase().replace(/\s+/g, ' '),
     []
@@ -438,14 +429,6 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     scheduleTimeout,
     normalizeKey: normalizeNameKey,
   });
-
-  const generateMentorFollowup = (_mentorName: string, userText: string) => {
-    const excerpt = userText.slice(0, 56).trim();
-    if (uiLanguage === 'zh-CN') {
-      return `收到你的补充（“${excerpt}${userText.length > 56 ? '...' : ''}”）。我会先给你一个最小可执行动作，你做完后我们再迭代下一步。`;
-    }
-    return `I got your follow-up (“${excerpt}${userText.length > 56 ? '...' : ''}”). I would start with one smallest executable step, then iterate with you from there.`;
-  };
 
   const mentorThreadKey = (rawName: string) => normalizeMentorKey(resolveMentorName(rawName));
 
@@ -555,8 +538,6 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     return history;
   };
 
-  // Shared by reply-all + note submits; owned here, passed into the hook.
-  const [isRoundGenerating, setIsRoundGenerating] = useState(false);
   // F162 (P14): note threads + submit flow live in useMentorNotes; the page
   // keeps the shared isRoundGenerating flag (reply-all also drives it) and
   // the conversation-history builder.
@@ -576,7 +557,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     resolveName: resolveMentorName,
     normalizeKey: normalizeMentorKey,
     buildConversationHistory,
-    generateFollowup: generateMentorFollowup,
+    generateFollowup,
     reportGenerateError: (err) => {
       // F157: full detail to console; banner shows stable copy only.
       console.error('[mentor-note] request failed:', err);
@@ -590,50 +571,21 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   });
 
 
-  const handleReplyAll = async () => {
-    const text = replyAllDraft.trim();
-    if (!text || isRoundGenerating || selectedMentors.length === 0) return;
-
-    setIsRoundGenerating(true);
-    try {
-      const aiResult = await generateMentorAdvice({
-        problem: text,
-        language: uiLanguage,
-        mentors: selectedMentors,
-        conversationHistory: buildConversationHistory(text)
-      });
-
-      const replies = selectedMentors.map((mentor) => {
-        const matched =
-          aiResult.mentorReplies.find((reply) => normalizeMentorKey(reply.mentorId) === normalizeMentorKey(mentor.id)) ||
-          aiResult.mentorReplies.find((reply) => normalizeMentorKey(reply.mentorName) === normalizeMentorKey(mentor.displayName));
-        return {
-          mentorName: mentor.displayName,
-          text: matched?.likelyResponse || generateMentorFollowup(mentor.displayName, text)
-        };
-      });
-
-      setConversationTurns((prev) => [
-        ...prev,
-        {
-          // Bug #22: collision-safe id via uniqueId.
-          id: uniqueId('turn-all'),
-          user: text,
-          replies
-        }
-      ]);
-      setReplyAllDraft('');
-      scrollConversationToBottom();
-    } catch (err) {
-      // Bug-bash round 1: previously this try/finally had no catch — a
-      // malformed response from res.json() bubbled as SyntaxError and the
-      // user's message was silently dropped. Surface via generateError.
-      // F157: full detail goes to console; the banner shows stable copy only.
-      console.error('[mentor-reply-all] request failed:', err);
-      setGenerateError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setIsRoundGenerating(false);
-    }
+  // P15: everything handleGenerate used to reset that is NOT machine state
+  // — notes, memories, reply/debug panels, rotation cursor. The session
+  // orchestrator calls this at session start; the page owns the targets.
+  const beginSessionChoreography = () => {
+    resetNotes();
+    setMemories([]);
+    clearMemories();
+    setExpandedReplyId('');
+    setExpandedSuggestion(null);
+    setOpenDebugMentorId('');
+    setHoveredDebugMentorId('');
+    setDebugPromptByMentorId({});
+    setDebugPromptLoadingByMentorId({});
+    setDebugPromptErrorByMentorId({});
+    activeIndexRef.current = 0;
   };
 
   const scrollConversationToBottom = () => {
@@ -669,30 +621,9 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   }, [result?.mentorReplies.length, sessionMode, isConversationHovered]);
 
   useEffect(() => {
-    if (sessionMode !== 'live' || !result?.mentorReplies?.length || isConversationHovered) return;
-    const timer = window.setTimeout(() => {
-      setVisibleReplyCount((count) => Math.min(count + 1, result.mentorReplies.length));
-    }, 2600);
-    return () => window.clearTimeout(timer);
-  }, [sessionMode, result?.mentorReplies.length, visibleReplyCount, isConversationHovered]);
-
-  useEffect(() => {
     if (phase !== 'session' || sessionMode !== 'live') return;
     scrollConversationToBottom();
   }, [phase, sessionMode, visibleReplyCount, noteReplies, conversationTurns, showGroupSolve, showSessionWrap]);
-
-  // U7.1: phase-aware document.title. Single-route SPA → can't do per-route
-  // <title> tags, but we can update the tab title as the user moves through
-  // the lifecycle so it's obvious at a glance which phase they're in
-  // (useful when multitasking across browser tabs).
-  useEffect(() => {
-    const base = '名人桌 — Mentor Table';
-    const phaseLabel =
-      phase === 'invite' ? (isZh ? '邀请' : 'Invite')
-      : phase === 'wish' ? (isZh ? '提问' : 'Ask')
-      : (isZh ? '答题中' : 'In session');
-    document.title = `${phaseLabel} · ${base}`;
-  }, [phase, isZh]);
 
   // SR-4: focus the risk banner on first appearance so screen-reader
   // users land on the safety message immediately. Uses a stable string
@@ -869,73 +800,6 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     try {
       localStorage.setItem(ONBOARDING_KEY, persistValue);
     } catch { /* Safari Private — state only persists for this session */ }
-  };
-
-  const handleGenerate = async () => {
-    // The mentor-begin-session button is `disabled` unless
-    // problem.trim() && selectedMentors.length > 0, so this handler cannot
-    // be invoked with empty inputs from the UI. Both defensive guards were
-    // removed as unreachable.
-    const language = uiLanguage;
-
-    setGenerateError('');
-    setIsGenerating(true);
-    setPhase('session');
-    setSessionMode('booting');
-    setVisibleReplyCount(0);
-    setShowSessionWrap(false);
-    setShowGroupSolve(false);
-    setConversationTurns([]);
-    setReplyAllDraft('');
-    resetNotes();
-    setMemories([]);
-    clearMemories();
-    setExpandedReplyId('');
-    setExpandedSuggestion(null);
-    setOpenDebugMentorId('');
-    setHoveredDebugMentorId('');
-    setDebugPromptByMentorId({});
-    setDebugPromptLoadingByMentorId({});
-    setDebugPromptErrorByMentorId({});
-    activeIndexRef.current = 0;
-
-    // LEAK-1: tracked boot timer so an unmount mid-boot doesn't flip
-    // sessionMode on a dead component.
-    const bootTimer = scheduleTimeout(() => {
-      setSessionMode('live');
-    }, 2600);
-
-    try {
-      // USER-2: clamp by code-points (spread into an array) so we never
-      // cut a 4-byte UTF-16 surrogate pair in half.
-      const safeProblem = [...problem.trim()].slice(0, 5000).join('');
-      const aiResult = await generateMentorAdvice({
-        problem: safeProblem,
-        language,
-        mentors: selectedMentors,
-        conversationHistory: buildConversationHistory(safeProblem)
-      });
-      // LEAK-1: only commit state if we're still mounted.
-      if (!isMountedRef.current) return;
-      setResult(aiResult);
-      activeIndexRef.current = 0;
-      setVisibleReplyCount(Math.min(1, aiResult.mentorReplies.length));
-      window.clearTimeout(bootTimer);
-      setIsGenerating(false);
-      setSessionMode('live');
-    } catch (err) {
-      // ERR-2: surface the failure instead of silently leaving the user
-      // with an empty conversation panel.
-      // F157: full detail goes to console; the banner shows stable copy only.
-      if (!isMountedRef.current) return;
-      console.error('[mentor-generate] request failed:', err);
-      window.clearTimeout(bootTimer);
-      setIsGenerating(false);
-      setGenerateError(err instanceof Error ? err.message : String(err));
-      // Drop back to the wish phase so the Retry button is reachable.
-      setPhase('wish');
-      setSessionMode('idle');
-    }
   };
 
   const seatPoint = (index: number, total: number) => {
