@@ -526,9 +526,51 @@ x-forwarded-for IP, so the budget is 10 × (20 burst + 0.3/s × 25s) ≈
 280 admitted against 5,010 attempted — any target hammered at 10x its
 configured budget sheds ~94% by construction. The smoke's real signal
 is that the admitted ~5.6% flows through the full path with 0 errors
-and p95 24ms. To measure a meaningful shed curve, raise VU count until
-429s appear, then sweep down; the per-IP budget knobs are
-`MENTOR_TABLE_KV_LIMIT` / memory-bucket `capacity`.
+and p95 24ms.
+
+**Shed-curve sweep (P39, 2026-05-07)** — `npm run test:load:sweep`
+replaces the old "raise VUs until 429s appear, then sweep down" manual
+procedure. 429s appear at every VU count (a VU's 20 rps think-time
+empties the 20-token burst in ~1s against a 0.3/s refill), so the sweep
+instead walks a VU staircase — each level on its own
+`10.<level>.0.<vu>` IP subnet so per-IP buckets never carry state
+between levels — and reports shed %, error rate, and latency
+percentiles per level:
+
+```bash
+node scripts/mock-llm.mjs &
+LLM_API_KEY=smoke LLM_API_BASE_URL=http://127.0.0.1:8790/v1 \
+  LLM_MODEL=mock LLM_HOURLY_BUDGET=1000000 node server.js &
+npm run test:load:sweep
+```
+
+Measured curve (2026-05-07, MacBook local, 6s bursts, levels
+1/2/5/10/20/40): every level HEALTHY with **0 non-429 errors**; shed
+flat at ~80.4% at all six levels; p95 14→28ms even at 40 VUs; admitted
+per VU measured 21.0 against the arithmetic expectation 20 + 0.3/s × 6s
+≈ 21.8 — the per-IP token-bucket math is confirmed to within 4%. The
+design invariant is the constant shed %, not a saturation cliff: on a
+local MacBook the fallback path had no boundary inside the swept range.
+
+Two operational caveats the first sweep run taught:
+
+1. **The F19 breaker will eat an un-raised sweep.** Each admitted
+   request fans out per-mentor and every fan-out call counts against
+   the rolling `LLM_HOURLY_BUDGET` (default 1000/instance) — the first
+   sweep run spent it by ~20 VUs and every later admitted request 503'd
+   ("LLM hourly budget exceeded"). The sweep now classifies budget-503s
+   separately, stops at the first breaker level, and tells the operator
+   to restart the server with a raised budget. The counter is
+   in-memory per process, so a restart alone resets it.
+2. **The mock must survive aborted keep-alive sockets.** Under
+   concurrency the fetch client can abort sockets between requests;
+   the mock now installs no-op `error`/`clientError` handlers so a
+   transport abort cannot crash it (previously an unhandled `'error'`
+   event would kill the process and every later admitted request 502'd,
+   masquerading as a service failure).
+
+Sweep exit code is 1 if any level reports non-429 errors, or if the
+breaker opens (rerun with the raised budget above).
 
 Pass criteria: non-429 error rate < 1% and p95 < 500ms. Do NOT set
 `LLM_DISABLED=1` during a smoke — the breaker 503s every table request

@@ -10,7 +10,12 @@ const replies = {
   ada_lovelace: ['Write the algorithm down before touching a keyboard.', 'Trace the loop by hand once.'],
 };
 
-http.createServer((req, res) => {
+const mockServer = http.createServer((req, res) => {
+  // Under a sweep, the fetch client can abort a keep-alive socket between
+  // requests; without handlers an 'error' event here kills the process
+  // (unhandled 'error' event) and every later admitted request 502s.
+  req.on('error', () => {});
+  res.on('error', () => {});
   let body = '';
   req.on('data', (c) => { body += c; });
   req.on('end', () => {
@@ -40,3 +45,9 @@ http.createServer((req, res) => {
     res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify(payload) } }] }));
   });
 }).listen(port, '127.0.0.1', () => console.log(`mock LLM on :${port}`));
+
+// Same for transport-level client errors (malformed request line, TLS to an
+// HTTP port, aborted upgrades) — log-and-continue, never crash the mock.
+mockServer.on('clientError', (err, socket) => {
+  if (socket.writable) socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
+});

@@ -40,7 +40,8 @@
     "test:load": "node scripts/load-smoke.mjs --vus 10 --duration 30",
     "lint:fe": "eslint src vitest.setup.ts",
     "lint:be": "eslint api lib server.js scripts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:load:sweep": "node scripts/load-smoke.mjs --sweep"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.1",
