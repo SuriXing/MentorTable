@@ -512,8 +512,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
       // whitespace-only mentor replies. The original justification claimed
       // writers always set trimmed strings, but a remote LLM can return
       // `likelyResponse: "   "` which passes the truthiness check and would
-      // otherwise be forwarded to the API as an empty mentor turn. See
-      // .harness/nodes/deadcode-audit/eval.md (deletion #2).
+      // otherwise be forwarded to the API as an empty mentor turn.
       for (const reply of turn.replies) {
         if (!reply?.text?.trim()) continue;
         history.push({
