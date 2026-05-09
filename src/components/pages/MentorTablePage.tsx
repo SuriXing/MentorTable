@@ -285,9 +285,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     source: tI18n('mt.source'),
     llmApi: tI18n('mt.llmApi'),
     localFallback: tI18n('mt.localFallback'),
-    aiDisclaimer: isZh
-      ? '这是基于公开信息的AI模拟视角，不代表真实人物的观点。'
-      : 'This is an AI-simulated perspective inspired by public information, not a real statement from the person.',
+    aiDisclaimer: tI18n('mt.aiDisclaimer'),
     youFrontRow: tI18n('mt.youFrontRow'),
     concernHint: tI18n('mt.concernHint'),
     tableListening: tI18n('mt.tableListening'),

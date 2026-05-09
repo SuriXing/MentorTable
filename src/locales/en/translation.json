@@ -243,6 +243,7 @@
   "mt.source": "Source",
   "mt.llmApi": "LLM API",
   "mt.localFallback": "Local Fallback",
+  "mt.aiDisclaimer": "This is an AI-simulated perspective inspired by public information, not a real statement from the person.",
   "mt.youFrontRow": "You · Front row",
   "mt.concernHint": "Place your concern artifact on the table.",
   "mt.tableListening": "The table is listening.",
