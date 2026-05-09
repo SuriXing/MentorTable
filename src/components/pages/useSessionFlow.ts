@@ -88,13 +88,18 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
     const text = replyAllDraft.trim();
     if (!text || isRoundGenerating || selectedMentors.length === 0) return;
 
+    // USER-2 parity with handleGenerate: clamp by code points so a surrogate
+    // pair is never split and the upstream payload stays bounded no matter
+    // what the textarea accepted.
+    const safeText = [...text].slice(0, 5000).join('');
+
     setIsRoundGenerating(true);
     try {
       const aiResult = await generateMentorAdvice({
-        problem: text,
+        problem: safeText,
         language: uiLanguage,
         mentors: selectedMentors,
-        conversationHistory: buildConversationHistory(text)
+        conversationHistory: buildConversationHistory(safeText)
       });
 
       const replies: MentorReplyTurn[] = selectedMentors.map((mentor) => {
@@ -112,7 +117,7 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
         {
           // Bug #22: collision-safe id via uniqueId.
           id: uniqueId('turn-all'),
-          user: text,
+          user: safeText,
           replies
         }
       ]);

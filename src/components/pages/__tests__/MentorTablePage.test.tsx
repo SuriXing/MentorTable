@@ -435,6 +435,34 @@ describe('MentorTablePage (unit)', () => {
     expect(serialized).toMatch(/What about teamwork\?/);
   });
 
+  it('reply-all clamps oversized drafts to 5000 code points before sending', async () => {
+    render(<MentorTablePage standalone />);
+    await runSession();
+
+    const callsBefore = generateMentorAdviceMock.mock.calls.length;
+    const replyAllTextarea = document.querySelector(
+      '[class*="replyAllDockCard"] textarea'
+    ) as HTMLTextAreaElement;
+    // 7000 chars of BMP text — past the 5000 code-point budget.
+    const oversized = 'ab'.repeat(3500);
+    fireEvent.change(replyAllTextarea, { target: { value: oversized } });
+
+    const sendAllBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Send to all')
+    )!;
+    await act(async () => {
+      fireEvent.click(sendAllBtn);
+    });
+
+    expect(generateMentorAdviceMock.mock.calls.length).toBe(callsBefore + 1);
+    const call = generateMentorAdviceMock.mock.calls[callsBefore][0];
+    expect([...(call.problem || '')].length).toBe(5000);
+    // The stored turn and forwarded history carry the clamped text too.
+    const history = call.conversationHistory || [];
+    const lastUser = [...history].reverse().find((m: { role: string }) => m.role === 'user');
+    expect([...(lastUser?.text || '')].length).toBe(5000);
+  });
+
   it('pass-a-note to a single mentor triggers follow-up generation', async () => {
     // Seed a distinct follow-up reply so we can assert it rendered to the DOM.
     generateMentorAdviceMock.mockReset();
