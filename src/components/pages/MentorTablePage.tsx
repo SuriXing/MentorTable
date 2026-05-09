@@ -46,8 +46,11 @@ import { useMentorNotes } from '../mentorTable/hooks/useMentorNotes';
 import { MemoryCard, clearMemories, loadMemories, saveMemories } from '../../lib/memoryStore';
 import { useSessionFlow, uniqueId } from './useSessionFlow';
 import type { RitualPhase } from './useSessionFlow';
+import mentorsContract from '../../../shared/mentors-contract.json';
 
-const MAX_PEOPLE = 10;
+// F174: the ceiling is owned by shared/mentors-contract.json, the same file
+// the API requires — parity is structural, not a regex over this file.
+const MAX_PEOPLE = mentorsContract.mentorsMax;
 // Cap for conversation history forwarded to the mentor API on each round
 // (bug #44). Prevents unbounded token growth across many reply rounds.
 const MAX_CONVERSATION_TURNS_IN_HISTORY = 12;
