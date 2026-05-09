@@ -51,11 +51,11 @@ const {
   _resetLlmReplyCache,
 } = require('./lib/mentor-upstream.js');
 
-// F174: single source for the mentor-count ceiling. The response schema
-// (schemas/mentor-table-response.v1.json) and the client cap
-// (MAX_PEOPLE in MentorTablePage.tsx) must both equal this — the
-// contract-parity test pins all three.
-const MENTORS_MAX = 10;
+// F174: single source for the mentor-count ceiling. The number itself lives
+// in shared/mentors-contract.json, imported by the client (MAX_PEOPLE) and
+// required here — the contract-parity test pins it against the schema's
+// maxItems.
+const MENTORS_MAX = require('../shared/mentors-contract.json').mentorsMax;
 
 // F175: upstream budget default. The timeout-chain test pins the order
 // upstream (25s) < client (28s) < platform function ceiling (30s).

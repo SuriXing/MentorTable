@@ -194,13 +194,13 @@ describe('mentor-table handler', () => {
     ));
     expect(schema.properties.mentorReplies.maxItems).toBe(MENTORS_MAX);
 
-    const pageSrc = fs.readFileSync(
-      path.join(__dirname, '../../src/components/pages/MentorTablePage.tsx'),
+    // The ceiling is data, not a regex over a component file: the shared
+    // contract JSON is what both the API and the client import.
+    const contract = JSON.parse(fs.readFileSync(
+      path.join(__dirname, '../../shared/mentors-contract.json'),
       'utf8'
-    );
-    const match = pageSrc.match(/const MAX_PEOPLE = (\d+);/);
-    expect(match).not.toBeNull();
-    expect(Number(match[1])).toBe(MENTORS_MAX);
+    ));
+    expect(contract.mentorsMax).toBe(MENTORS_MAX);
   });
 
   it('F175: timeout chain is upstream < client < platform function ceiling', () => {
