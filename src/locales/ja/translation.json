@@ -263,6 +263,7 @@
   "mt.aiDisclaimer": "これは公開情報に基づくAIシミュレーションの視点であり、実在の人物の発言ではありません。",
   "mt.noteDeliveryFailed": "{name}に届きませんでした。メモは送信されていません。もう一度お試しください。",
   "mt.noteNoResponse": "{name}はこのメモに応答しませんでした。",
+  "mt.mentorNoReplySuffix": "はこのラウンドで応答しませんでした。",
   "mt.memories": "メモリー",
   "mt.memoryDrawer": "メモリードロワー",
   "mt.mentorTyping": "入力中",

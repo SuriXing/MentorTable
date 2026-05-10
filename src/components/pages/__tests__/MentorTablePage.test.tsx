@@ -772,8 +772,8 @@ describe('MentorTablePage (unit)', () => {
     // Chinese guest count label
     expect(screen.getByText(/人物数/)).toBeInTheDocument();
 
-    // Run a session in Chinese — hits Chinese aiDisclaimer (line 185) and
-    // the Chinese branch of localizeName / generateMentorFollowup / simplify*
+    // Run a session in Chinese — hits the Chinese aiDisclaimer and the
+    // Chinese branches of localizeName / simplify*
     await runSession({ lang: 'zh' });
     expect(screen.getByText(/这是基于公开信息的AI模拟视角/)).toBeInTheDocument();
     // Chinese localized mentor name via getChineseDisplayName
@@ -1105,7 +1105,7 @@ describe('MentorTablePage (unit)', () => {
               confidenceNote: '',
             },
             {
-              // completely unmatched — will fall back to generateMentorFollowup
+              // completely unmatched — renders as an explicit no-response entry
               mentorId: 'mismatch-id-2',
               mentorName: 'Nobody At All',
               likelyResponse: 'Should not render for Kobe',
@@ -1146,12 +1146,13 @@ describe('MentorTablePage (unit)', () => {
       fireEvent.click(sendAllBtn!);
     });
 
-    // Bill matched by name (line 479 fallback); Kobe fell back to generateMentorFollowup.
+    // Bill matched by name; Kobe got no reply from the API and shows the
+    // explicit no-response line instead of fabricated speech.
     await waitFor(() => {
       expect(document.body.textContent).toMatch(/Reply-all Bill by name/);
     });
-    // Kobe follow-up uses English generateMentorFollowup
-    expect(document.body.textContent).toMatch(/I got your follow-up/);
+    expect(document.body.textContent).toMatch(/Kobe Bryant didn't respond this round/);
+    expect(document.body.textContent).not.toMatch(/I got your follow-up/);
   });
 
   // ---------- Search error / remote paths ----------
@@ -2417,7 +2418,7 @@ describe('MentorTablePage (branch closure — zh-CN + multi-mentor)', () => {
     });
   });
 
-  it('fires Chinese pass-a-note follow-up (exercises zh generateMentorFollowup branch)', async () => {
+  it('fires Chinese pass-a-note follow-up with real replies (zh note path)', async () => {
     render(<MentorTablePage standalone />);
     await addMentorName('Bill Gates');
     fireEvent.click(screen.getByTestId('mentor-continue-wish'));
@@ -2446,12 +2447,12 @@ describe('MentorTablePage (branch closure — zh-CN + multi-mentor)', () => {
         const sendBtn = Array.from(
           document.querySelectorAll('[class*="inlineNoteBox"] button')
         )[0] as HTMLButtonElement;
-        // Make generateMentorAdvice take a bit so generateMentorFollowup zh text is used initially
+        // The note submit resolves through the mocked API and the reply renders in the thread.
         await act(async () => {
           fireEvent.click(sendBtn);
         });
         await waitFor(() => {
-          // zh text contains "收到你的补充" from line 350
+          // zh copy from the live reply or localized fixture text
           expect(screen.getAllByText(/收到你的补充|我会先找出|我会先给你/).length).toBeGreaterThan(0);
         });
       }
