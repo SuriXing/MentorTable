@@ -238,6 +238,8 @@
   "mt.llmApi": "LLM 接口",
   "mt.localFallback": "本地回退",
   "mt.aiDisclaimer": "这是基于公开信息的AI模拟视角，不代表真实人物的观点。",
+  "mt.noteDeliveryFailed": "没能联系上{name}，纸条未送达，请重试。",
+  "mt.noteNoResponse": "{name}没有回应这张纸条。",
   "mt.youFrontRow": "你 · 第一视角",
   "mt.concernHint": "把你的问题放在桌面上。",
   "mt.tableListening": "圆桌正在聆听。",

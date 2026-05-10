@@ -132,7 +132,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     isGenerating, generateError, setGenerateError, isRoundGenerating, setIsRoundGenerating,
     conversationTurns, setConversationTurns, replyAllDraft, setReplyAllDraft,
     visibleReplyCount, setVisibleReplyCount, showSessionWrap, setShowSessionWrap,
-    showGroupSolve, setShowGroupSolve, generateFollowup, handleGenerate, handleReplyAll,
+    showGroupSolve, setShowGroupSolve, handleGenerate, handleReplyAll,
   } = useSessionFlow({
     selectedMentors,
     uiLanguage,
@@ -289,6 +289,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     llmApi: tI18n('mt.llmApi'),
     localFallback: tI18n('mt.localFallback'),
     aiDisclaimer: tI18n('mt.aiDisclaimer'),
+    noteDeliveryFailed: tI18n('mt.noteDeliveryFailed'),
+    noteNoResponse: tI18n('mt.noteNoResponse'),
     youFrontRow: tI18n('mt.youFrontRow'),
     concernHint: tI18n('mt.concernHint'),
     tableListening: tI18n('mt.tableListening'),
@@ -557,7 +559,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     resolveName: resolveMentorName,
     normalizeKey: normalizeMentorKey,
     buildConversationHistory,
-    generateFollowup,
+    formatNoteDeliveryFailure: (mentorName) => t.noteDeliveryFailed.replace('{name}', mentorName),
+    formatNoteNoResponse: (mentorName) => t.noteNoResponse.replace('{name}', mentorName),
     reportGenerateError: (err) => {
       // F157: full detail to console; banner shows stable copy only.
       console.error('[mentor-note] request failed:', err);
@@ -1622,6 +1625,20 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                                         {isRoundGenerating ? t.typing : t.send}
                                       </button>
                                     </div>
+                                    {/* Inline surface shows only what the
+                                        conversation turn cannot: delivery
+                                        failures and no-response markers.
+                                        Successful exchanges surface via the
+                                        turn below; the full thread lives in
+                                        the expanded overlay. */}
+                                    {(noteReplies[threadKey] || []).filter((entry) => entry.role === 'error').map((entry, noteIdx) => (
+                                      <div
+                                        key={`${threadKey}-inline-note-${noteIdx}`}
+                                        className={styles.noteThreadError}
+                                      >
+                                        {entry.text}
+                                      </div>
+                                    ))}
                                   </div>
                                 )}
                               </article>

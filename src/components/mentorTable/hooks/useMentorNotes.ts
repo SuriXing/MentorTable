@@ -3,7 +3,7 @@ import { MentorProfile } from '../../../features/mentorTable/mentorProfiles';
 import { generateMentorAdvice, MentorConversationMessage } from '../../../features/mentorTable/mentorApi';
 
 export interface NoteThreadEntry {
-  role: 'user' | 'mentor';
+  role: 'user' | 'mentor' | 'error';
   text: string;
 }
 
@@ -23,7 +23,10 @@ interface UseMentorNotesOptions {
   normalizeKey: (name: string) => string;
   /** Page-owned: full conversation history incl. table replies. */
   buildConversationHistory: (latestUserText: string) => MentorConversationMessage[];
-  generateFollowup: (mentorName: string, userText: string) => string;
+  /** Locale copy for a note the API could not deliver (transport failure). */
+  formatNoteDeliveryFailure: (mentorName: string) => string;
+  /** Locale copy for a 200 response that carried no reply for the mentor. */
+  formatNoteNoResponse: (mentorName: string) => string;
   reportGenerateError: (err: unknown) => void;
   appendConversationTurn: (turn: ConversationTurn) => void;
   uniqueId: (prefix: string) => string;
@@ -57,7 +60,8 @@ export function useMentorNotes(options: UseMentorNotesOptions): {
     resolveName,
     normalizeKey,
     buildConversationHistory,
-    generateFollowup,
+    formatNoteDeliveryFailure,
+    formatNoteNoResponse,
     reportGenerateError,
     appendConversationTurn,
     uniqueId,
@@ -80,7 +84,9 @@ export function useMentorNotes(options: UseMentorNotesOptions): {
     // removed.
 
     setIsRoundGenerating(true);
-    let mentorReply = generateFollowup(mentorName, text);
+    let mentorReply: string | null = null;
+    let delivered = false;
+    let transportFailed = false;
     const targetMentor = selectedMentors.find((mentor) => {
       return normalizeKey(mentor.displayName) === targetKey || normalizeKey(mentor.id) === targetKey;
     });
@@ -108,15 +114,36 @@ export function useMentorNotes(options: UseMentorNotesOptions): {
         aiResult.mentorReplies[0];
       if (aiReply?.likelyResponse) {
         mentorReply = aiReply.likelyResponse;
+        delivered = true;
       }
     } catch (err) {
-      // Bug-bash round 1: surface mentor API failures to the user instead of
-      // swallowing them. Fallback text from generateFollowup is still used so
-      // the thread has some response.
+      transportFailed = true;
       // F157: full detail goes to console; the banner shows stable copy only.
       reportGenerateError(err);
     } finally {
       setIsRoundGenerating(false);
+    }
+
+    if (!delivered) {
+      // A failed or empty response never becomes mentor speech. The thread
+      // gets an explicit non-speech marker instead: delivery failure leaves
+      // the draft in place so the note can be retried; a 200 without a
+      // matching reply reads as "no response". Nothing is appended to the
+      // table conversation either way — the table only records exchanges
+      // that actually happened.
+      const markerText = transportFailed
+        ? formatNoteDeliveryFailure(mentorName)
+        : formatNoteNoResponse(mentorName);
+      setNoteReplies((prev) => ({
+        ...prev,
+        [threadKey]: [
+          ...(prev[threadKey] || []),
+          { role: 'user', text },
+          { role: 'error', text: markerText }
+        ]
+      }));
+      setOpenNoteFor(threadKey);
+      return;
     }
 
     setNoteReplies((prev) => ({
@@ -124,14 +151,14 @@ export function useMentorNotes(options: UseMentorNotesOptions): {
       [threadKey]: [
         ...(prev[threadKey] || []),
         { role: 'user', text },
-        { role: 'mentor', text: mentorReply }
+        { role: 'mentor', text: mentorReply! }
       ]
     }));
     appendConversationTurn({
       // Bug #22: collision-safe id via uniqueId (crypto.randomUUID fallback).
       id: uniqueId(`turn-${threadKey}`),
       user: text,
-      replies: [{ mentorName, text: mentorReply }]
+      replies: [{ mentorName, text: mentorReply! }]
     });
     setNoteDrafts((prev) => ({ ...prev, [threadKey]: '' }));
     setOpenNoteFor(threadKey);
