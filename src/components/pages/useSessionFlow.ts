@@ -76,14 +76,6 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
   const [showSessionWrap, setShowSessionWrap] = useState(false);
   const [showGroupSolve, setShowGroupSolve] = useState(false);
 
-  const generateMentorFollowup = (_mentorName: string, userText: string) => {
-    const excerpt = userText.slice(0, 56).trim();
-    if (uiLanguage === 'zh-CN') {
-      return `收到你的补充（“${excerpt}${userText.length > 56 ? '...' : ''}”）。我会先给你一个最小可执行动作，你做完后我们再迭代下一步。`;
-    }
-    return `I got your follow-up (“${excerpt}${userText.length > 56 ? '...' : ''}”). I would start with one smallest executable step, then iterate with you from there.`;
-  };
-
   const handleReplyAll = async () => {
     const text = replyAllDraft.trim();
     if (!text || isRoundGenerating || selectedMentors.length === 0) return;
@@ -106,9 +98,13 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
         const matched =
           aiResult.mentorReplies.find((reply) => normalizeKey(reply.mentorId) === normalizeKey(mentor.id)) ||
           aiResult.mentorReplies.find((reply) => normalizeKey(reply.mentorName) === normalizeKey(mentor.displayName));
+        // No reply for this mentor means an empty turn entry, which the UI
+        // renders as an explicit "didn't respond" line. It used to fall back
+        // to a fabricated first-person follow-up — a mentor who never spoke
+        // got quoted words the model never produced.
         return {
           mentorName: mentor.displayName,
-          text: matched?.likelyResponse || generateMentorFollowup(mentor.displayName, text)
+          text: matched?.likelyResponse || ''
         };
       });
 
@@ -239,7 +235,6 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
     setShowSessionWrap,
     showGroupSolve,
     setShowGroupSolve,
-    generateFollowup: generateMentorFollowup,
     handleGenerate,
     handleReplyAll,
   };

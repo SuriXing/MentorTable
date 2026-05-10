@@ -263,6 +263,7 @@
   "mt.aiDisclaimer": "Esta es una perspectiva simulada por IA basada en información pública; no es una declaración real de la persona.",
   "mt.noteDeliveryFailed": "No se pudo contactar a {name}: la nota no se entregó. Inténtalo de nuevo.",
   "mt.noteNoResponse": "{name} no respondió a esta nota.",
+  "mt.mentorNoReplySuffix": " no respondió en esta ronda.",
   "mt.memories": "Memorias",
   "mt.memoryDrawer": "Cajón de Memorias",
   "mt.mentorTyping": "Escribiendo",

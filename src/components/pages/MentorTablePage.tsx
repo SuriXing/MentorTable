@@ -291,6 +291,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     aiDisclaimer: tI18n('mt.aiDisclaimer'),
     noteDeliveryFailed: tI18n('mt.noteDeliveryFailed'),
     noteNoResponse: tI18n('mt.noteNoResponse'),
+    mentorNoReplySuffix: tI18n('mt.mentorNoReplySuffix'),
     youFrontRow: tI18n('mt.youFrontRow'),
     concernHint: tI18n('mt.concernHint'),
     tableListening: tI18n('mt.tableListening'),
@@ -1683,7 +1684,9 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                               <div key={`${turn.id}-${reply.mentorName}-${idx}`} className={styles.conversationRowLeft}>
                                 <article className={`${styles.conversationBubble} ${styles.conversationLeftBubble} `}>
                                   <header>{localizeName(reply.mentorName)}</header>
-                                  <p>{reply.text}</p>
+                                  {reply.text
+                                    ? <p>{reply.text}</p>
+                                    : <p className={styles.noReplyLine}>{localizeName(reply.mentorName)}{t.mentorNoReplySuffix}</p>}
                                 </article>
                               </div>
                             ))}
