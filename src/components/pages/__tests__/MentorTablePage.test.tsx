@@ -788,9 +788,7 @@ describe('MentorTablePage (unit)', () => {
     expect(screen.getByText(/欢迎来到名人桌/)).toBeInTheDocument();
   });
 
-  it('Chinese pass-a-note triggers Chinese generateMentorFollowup fallback', async () => {
-    // Make generateMentorAdvice return NO mentorReplies so the mentorReply
-    // falls through to generateMentorFollowup (which is the Chinese branch).
+  it('note to a mentor whose 200 response carries no reply shows a no-response marker, not fabricated speech', async () => {
     mentorTestState.language = 'zh-CN';
     generateMentorAdviceMock.mockResolvedValueOnce(buildMockResult());
     generateMentorAdviceMock.mockResolvedValueOnce(
@@ -808,9 +806,8 @@ describe('MentorTablePage (unit)', () => {
     const noteTextarea = document.querySelector(
       '[class*="inlineNoteBox"] textarea'
     ) as HTMLTextAreaElement;
-    fireEvent.change(noteTextarea, {
-      target: { value: '这是一个很长的补充问题，超过五十六个字符的长度好让我们命中那个截断分支啊啊啊啊啊啊啊啊啊啊啊' },
-    });
+    const noteText = '这是一个补充问题';
+    fireEvent.change(noteTextarea, { target: { value: noteText } });
     const sendBtn = document.querySelector(
       '[class*="inlineNoteBox"] button'
     ) as HTMLButtonElement;
@@ -818,10 +815,47 @@ describe('MentorTablePage (unit)', () => {
       fireEvent.click(sendBtn);
     });
 
-    // The fallback Chinese follow-up text should have been rendered.
+    // The thread shows the localized no-response marker; the old fabricated
+    // follow-up speech must be gone.
     await waitFor(() => {
-      expect(document.body.textContent).toMatch(/收到你的补充/);
+      expect(document.body.textContent).toMatch(/没有回应这张纸条/);
     });
+    expect(document.body.textContent).not.toMatch(/收到你的补充/);
+  });
+
+  it('note delivery failure renders an error marker and preserves the draft for retry', async () => {
+    generateMentorAdviceMock.mockReset();
+    generateMentorAdviceMock
+      .mockResolvedValueOnce(buildMockResult())
+      .mockRejectedValueOnce(new Error('network down'));
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(<MentorTablePage standalone />);
+    await runSession();
+
+    const passNoteBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      /Pass a note to/.test(b.textContent || '')
+    );
+    fireEvent.click(passNoteBtn!);
+
+    const noteTextarea = document.querySelector(
+      '[class*="inlineNoteBox"] textarea'
+    ) as HTMLTextAreaElement;
+    const noteText = 'did the note survive the failure?';
+    fireEvent.change(noteTextarea, { target: { value: noteText } });
+    const sendBtn = document.querySelector(
+      '[class*="inlineNoteBox"] button'
+    ) as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(sendBtn);
+    });
+
+    expect(errSpy).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(document.body.textContent).toMatch(/Couldn't reach Bill Gates/);
+    });
+    // The draft is preserved so the user can retry without retyping.
+    expect((document.querySelector('[class*="inlineNoteBox"] textarea') as HTMLTextAreaElement).value).toBe(noteText);
+    errSpy.mockRestore();
   });
 
   it('simplifyLikelyResponse / simplifyActionStep Chinese branches', async () => {
@@ -2880,162 +2914,6 @@ describe('MentorTablePage (branch closure — final pass)', () => {
     }
     // Still rendered — no crash means `return prev` fired at end of chain.
     expect(getGuestStrong()).toContain('Bill Gates');
-  });
-
-  // ---- L350/L352 generateMentorFollowup with SHORT text (≤56 chars) ----
-
-  it('generateMentorFollowup handles short text in English (no ellipsis)', async () => {
-    // First session; second call returns NO mentorReplies → falls back to
-    // generateMentorFollowup. Short pass-note text <= 56 chars hits the ''
-    // arm of the ternary.
-    generateMentorAdviceMock
-      .mockResolvedValueOnce(buildMockResult())
-      .mockResolvedValueOnce(buildMockResult({ mentorReplies: [] }));
-    render(<MentorTablePage standalone />);
-    await runSessionBill();
-
-    const passNoteBtn = Array.from(document.querySelectorAll('button')).find((b) =>
-      /Pass a note to/.test(b.textContent || '')
-    );
-    fireEvent.click(passNoteBtn!);
-    const noteTextarea = document.querySelector(
-      '[class*="inlineNoteBox"] textarea'
-    ) as HTMLTextAreaElement;
-    fireEvent.change(noteTextarea, { target: { value: 'Short note' } });
-    const sendBtn = document.querySelector(
-      '[class*="inlineNoteBox"] button'
-    ) as HTMLButtonElement;
-    await act(async () => {
-      fireEvent.click(sendBtn);
-    });
-    // The English follow-up fallback renders; with short text, no ellipsis.
-    await waitFor(() => {
-      expect(document.body.textContent).toMatch(/I got your follow-up/);
-    });
-    // The follow-up bubble must (a) quote the short note text verbatim and
-    // (b) contain NO ellipsis — that's the whole point of the short-text arm.
-    const followUpTexts = Array.from(
-      document.querySelectorAll('[class*="conversationBubble"]')
-    )
-      .map((n) => n.textContent || '')
-      .filter((t) => /I got your follow-up/.test(t));
-    expect(followUpTexts.length).toBeGreaterThan(0);
-    // Positive: the quoted text appears somewhere in the bubble.
-    expect(
-      followUpTexts.some((t) =>
-        /\(\u201cShort note\u201d\)/.test(t) ||
-          /("|\u201c)Short note("|\u201d)/.test(t)
-      )
-    ).toBe(true);
-    // Negative: NO ellipsis inside any follow-up bubble (the > 56 char arm
-    // would append '...').
-    expect(followUpTexts.some((t) => t.includes('...'))).toBe(false);
-    expect(followUpTexts.some((t) => t.includes('\u2026'))).toBe(false);
-  });
-
-  it('generateMentorFollowup with >56 chars in English shows the ellipsis arm', async () => {
-    generateMentorAdviceMock
-      .mockResolvedValueOnce(buildMockResult())
-      .mockResolvedValueOnce(buildMockResult({ mentorReplies: [] }));
-    render(<MentorTablePage standalone />);
-    await runSessionBill();
-    const passNoteBtn = Array.from(document.querySelectorAll('button')).find((b) =>
-      /Pass a note to/.test(b.textContent || '')
-    );
-    fireEvent.click(passNoteBtn!);
-    const noteTextarea = document.querySelector(
-      '[class*="inlineNoteBox"] textarea'
-    ) as HTMLTextAreaElement;
-    const longText = 'This is a very long English follow-up note meant to exceed the fifty six character threshold easily.';
-    fireEvent.change(noteTextarea, { target: { value: longText } });
-    const sendBtn = document.querySelector(
-      '[class*="inlineNoteBox"] button'
-    ) as HTMLButtonElement;
-    await act(async () => {
-      fireEvent.click(sendBtn);
-    });
-    await waitFor(() => {
-      expect(document.body.textContent).toMatch(/I got your follow-up/);
-    });
-    // ellipsis appears in the excerpt
-    expect(document.body.textContent).toMatch(/follow-up \(\u201c.*\.\.\.\u201d\)/);
-  });
-
-  it('generateMentorFollowup with >56 chars in Chinese shows the ellipsis arm', async () => {
-    mentorTestState.language = 'zh-CN';
-    generateMentorAdviceMock
-      .mockResolvedValueOnce(buildMockResult())
-      .mockResolvedValueOnce(buildMockResult({ mentorReplies: [] }));
-    render(<MentorTablePage standalone />);
-    await addPlain('Bill');
-    fireEvent.click(screen.getByTestId('mentor-continue-wish'));
-    fireEvent.change(screen.getByTestId('mentor-problem-input'), {
-      target: { value: 'question' },
-    });
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('mentor-begin-session'));
-    });
-    await waitFor(() => {
-      expect(screen.getAllByText(/下一步/).length).toBeGreaterThan(0);
-    });
-    const passNoteBtn = Array.from(document.querySelectorAll('button')).find((b) =>
-      /给/.test(b.textContent || '')
-    );
-    fireEvent.click(passNoteBtn!);
-    const noteTextarea = document.querySelector(
-      '[class*="inlineNoteBox"] textarea'
-    ) as HTMLTextAreaElement;
-    // 100+ Chinese chars — guarantees userText.length > 56 so excerpt is trimmed with '...'
-    const longZh = '这是一条非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常非常长的补充';
-    fireEvent.change(noteTextarea, { target: { value: longZh } });
-    const sendBtn = document.querySelector(
-      '[class*="inlineNoteBox"] button'
-    ) as HTMLButtonElement;
-    await act(async () => {
-      fireEvent.click(sendBtn);
-    });
-    await waitFor(() => {
-      expect(document.body.textContent).toMatch(/收到你的补充/);
-    });
-    // Truncated excerpt is rendered with trailing '...' inside the fallback.
-    expect(document.body.textContent).toMatch(/\.\.\./);
-  });
-
-  it('generateMentorFollowup handles short text in Chinese (no ellipsis)', async () => {
-    mentorTestState.language = 'zh-CN';
-    generateMentorAdviceMock
-      .mockResolvedValueOnce(buildMockResult())
-      .mockResolvedValueOnce(buildMockResult({ mentorReplies: [] }));
-    render(<MentorTablePage standalone />);
-    await addPlain('Bill');
-    fireEvent.click(screen.getByTestId('mentor-continue-wish'));
-    fireEvent.change(screen.getByTestId('mentor-problem-input'), {
-      target: { value: 'question' },
-    });
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('mentor-begin-session'));
-    });
-    await waitFor(() => {
-      expect(screen.getAllByText(/下一步/).length).toBeGreaterThan(0);
-    });
-
-    const passNoteBtn = Array.from(document.querySelectorAll('button')).find((b) =>
-      /给/.test(b.textContent || '')
-    );
-    fireEvent.click(passNoteBtn!);
-    const noteTextarea = document.querySelector(
-      '[class*="inlineNoteBox"] textarea'
-    ) as HTMLTextAreaElement;
-    fireEvent.change(noteTextarea, { target: { value: '短' } });
-    const sendBtn = document.querySelector(
-      '[class*="inlineNoteBox"] button'
-    ) as HTMLButtonElement;
-    await act(async () => {
-      fireEvent.click(sendBtn);
-    });
-    await waitFor(() => {
-      expect(document.body.textContent).toMatch(/收到你的补充/);
-    });
   });
 
   // ---- L545/L546 findVerifiedPerson returning a truthy value inside getSuggestedPeople map ----

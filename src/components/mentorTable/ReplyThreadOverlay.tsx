@@ -105,8 +105,15 @@ export function ReplyThreadOverlay({
           </div>
         )}
         {notes.map((note, idx) => (
-          <div key={`${threadKey}-expanded-note-${idx}`} className={styles.noteThread}>
-            {note.role === 'user' ? `${labels.you}: ${note.text}` : `${displayName}: ${note.text}`}
+          <div
+            key={`${threadKey}-expanded-note-${idx}`}
+            className={note.role === 'error' ? styles.noteThreadError : styles.noteThread}
+          >
+            {note.role === 'user'
+              ? `${labels.you}: ${note.text}`
+              : note.role === 'error'
+                ? note.text
+                : `${displayName}: ${note.text}`}
           </div>
         ))}
       </article>

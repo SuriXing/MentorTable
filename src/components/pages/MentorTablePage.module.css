@@ -1680,6 +1680,13 @@
   padding: 6px 8px;
 }
 
+.noteThreadError {
+  composes: noteThread;
+  border-color: rgba(214, 116, 108, 0.8);
+  background: rgba(255, 240, 238, 0.92);
+  color: #9c4a42;
+}
+
 .groupActions {
   display: flex;
   justify-content: center;

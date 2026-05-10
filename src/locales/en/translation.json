@@ -244,6 +244,8 @@
   "mt.llmApi": "LLM API",
   "mt.localFallback": "Local Fallback",
   "mt.aiDisclaimer": "This is an AI-simulated perspective inspired by public information, not a real statement from the person.",
+  "mt.noteDeliveryFailed": "Couldn't reach {name} — the note wasn't delivered. Try again.",
+  "mt.noteNoResponse": "{name} didn't respond to this note.",
   "mt.youFrontRow": "You · Front row",
   "mt.concernHint": "Place your concern artifact on the table.",
   "mt.tableListening": "The table is listening.",
