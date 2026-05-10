@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronLeft } from '@fortawesome/free-solid-svg-icons';
 import styles from '../pages/MentorTablePage.module.css';
 import type { NoteThreadEntry } from './hooks/useMentorNotes';
+import type { MentorSimulationResult } from '../../features/mentorTable/mentorEngine';
 
 interface ReplyThreadOverlayProps {
   reply: { mentorName: string; likelyResponse: string; oneActionStep: string };
@@ -12,6 +13,8 @@ interface ReplyThreadOverlayProps {
   displayName: string;
   threadKey: string;
   notes: NoteThreadEntry[];
+  /** Maps a reply meta snapshot to a source chip label (null = live, no chip). */
+  sourceLabelFor?: (meta: MentorSimulationResult['meta'] | undefined) => string | null;
   noteDraft: string;
   onNoteDraftChange: (text: string) => void;
   noteOpen: boolean;
@@ -41,6 +44,7 @@ export function ReplyThreadOverlay({
   displayName,
   threadKey,
   notes,
+  sourceLabelFor,
   noteDraft,
   onNoteDraftChange,
   noteOpen,
@@ -114,6 +118,9 @@ export function ReplyThreadOverlay({
               : note.role === 'error'
                 ? note.text
                 : `${displayName}: ${note.text}`}
+            {note.role === 'mentor' && note.source && sourceLabelFor?.(note.source) && (
+              <span className={styles.sourceTagSmall}>{sourceLabelFor(note.source)}</span>
+            )}
           </div>
         ))}
       </article>

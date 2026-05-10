@@ -39,6 +39,8 @@ export interface UseSessionFlowOptions {
 export interface MentorReplyTurn {
   mentorName: string;
   text: string;
+  /** Snapshot of the API response meta this reply came from (badge honesty). */
+  source?: MentorSimulationResult['meta'];
 }
 
 /**
@@ -104,7 +106,8 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
         // got quoted words the model never produced.
         return {
           mentorName: mentor.displayName,
-          text: matched?.likelyResponse || ''
+          text: matched?.likelyResponse || '',
+          source: aiResult.meta
         };
       });
 
