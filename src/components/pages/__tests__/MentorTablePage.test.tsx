@@ -463,6 +463,69 @@ describe('MentorTablePage (unit)', () => {
     expect([...(lastUser?.text || '')].length).toBe(5000);
   });
 
+  it('reply-all turn bubbles carry a source chip when the response was not live LLM', async () => {
+    render(<MentorTablePage standalone />);
+    await runSession();
+
+    const callsBefore = generateMentorAdviceMock.mock.calls.length;
+    const replyAllTextarea = document.querySelector(
+      '[class*="replyAllDockCard"] textarea'
+    ) as HTMLTextAreaElement;
+    fireEvent.change(replyAllTextarea, { target: { value: 'Round two, everyone.' } });
+    const sendAllBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Send to all')
+    )!;
+    await act(async () => {
+      fireEvent.click(sendAllBtn);
+    });
+    expect(generateMentorAdviceMock.mock.calls.length).toBe(callsBefore + 1);
+
+    // No chip for a live LLM response.
+    const turnBubble = Array.from(document.querySelectorAll('[class*="turnGroup"] [class*="conversationLeftBubble"]')).find(
+      (el) => el.textContent?.includes('I would identify the bottleneck')
+    );
+    expect(turnBubble).toBeTruthy();
+    expect(turnBubble!.querySelector('[class*="sourceTagSmall"]')).toBeNull();
+  });
+
+  it('reply-all shows the canned-replies chip when meta.provider is server-fallback', async () => {
+    // Every call (session + reply-all) returns a canned-response meta
+    // snapshot, which must surface on the reply-all turn bubble.
+    generateMentorAdviceMock.mockResolvedValue(
+      buildMockResult({
+        meta: {
+          disclaimer: 'AI-simulated perspective.',
+          generatedAt: '2024-01-01T00:00:00Z',
+          source: 'llm' as const,
+          provider: 'server-fallback',
+        },
+      })
+    );
+    render(<MentorTablePage standalone />);
+    await runSession();
+
+    const callsBefore = generateMentorAdviceMock.mock.calls.length;
+    const replyAllTextarea = document.querySelector(
+      '[class*="replyAllDockCard"] textarea'
+    ) as HTMLTextAreaElement;
+    fireEvent.change(replyAllTextarea, { target: { value: 'Anyone else?' } });
+    const sendAllBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Send to all')
+    )!;
+    await act(async () => {
+      fireEvent.click(sendAllBtn);
+    });
+    expect(generateMentorAdviceMock.mock.calls.length).toBe(callsBefore + 1);
+
+    const turnBubble = Array.from(document.querySelectorAll('[class*="turnGroup"] [class*="conversationLeftBubble"]')).find(
+      (el) => el.textContent?.includes('I would identify the bottleneck')
+    );
+    expect(turnBubble).toBeTruthy();
+    const chip = turnBubble!.querySelector('[class*="sourceTagSmall"]');
+    expect(chip).toBeTruthy();
+    expect(chip!.textContent).toMatch(/Canned replies/);
+  });
+
   it('pass-a-note to a single mentor triggers follow-up generation', async () => {
     // Seed a distinct follow-up reply so we can assert it rendered to the DOM.
     generateMentorAdviceMock.mockReset();

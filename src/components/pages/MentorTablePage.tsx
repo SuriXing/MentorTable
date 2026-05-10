@@ -24,6 +24,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { MentorProfile, createCustomMentorProfile } from '../../features/mentorTable/mentorProfiles';
 import { fetchMentorDebugPrompt, MentorConversationMessage } from '../../features/mentorTable/mentorApi';
+import type { MentorSimulationResult } from '../../features/mentorTable/mentorEngine';
 import {
   PersonOption,
   buildMentorImageChain,
@@ -363,6 +364,16 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     emptyIntroTitle: tI18n('mt.emptyIntroTitle'),
     emptyIntroHint: isZh ? '在上方搜索框输入名字，按回车即可入席。' : 'Type a name above and press Enter to seat them.'
   }), [isZh, tI18n]);
+
+  // Badge honesty for per-exchange sources: live LLM replies need no chip;
+  // anything canned, partial, or locally simulated gets one.
+  const sourceChipLabel = (meta?: MentorSimulationResult['meta']): string | null => {
+    if (!meta) return null;
+    if (meta.source !== 'llm') return t.localFallback;
+    if (meta.provider === 'server-fallback') return t.cannedReplies;
+    if (meta.provider === 'partial-fallback') return t.partialFallback;
+    return null;
+  };
 
   const normalizeNameKey = useCallback(
     (name: string) => name.trim().toLowerCase().replace(/\s+/g, ' '),
@@ -1687,6 +1698,11 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                                   {reply.text
                                     ? <p>{reply.text}</p>
                                     : <p className={styles.noReplyLine}>{localizeName(reply.mentorName)}{t.mentorNoReplySuffix}</p>}
+                                  {reply.source && sourceChipLabel(reply.source) && (
+                                    <span className={styles.sourceTagSmall} title={t.cannedRepliesTitle || t.source}>
+                                      {sourceChipLabel(reply.source)}
+                                    </span>
+                                  )}
                                 </article>
                               </div>
                             ))}
@@ -1955,6 +1971,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                     displayName={localizeName(resolveMentorName(expandedReply.mentorName))}
                     threadKey={mentorThreadKey(expandedReply.mentorName)}
                     notes={noteReplies[mentorThreadKey(expandedReply.mentorName)] || []}
+                    sourceLabelFor={sourceChipLabel}
                     noteDraft={noteDrafts[mentorThreadKey(expandedReply.mentorName)] || ''}
                     onNoteDraftChange={(text) =>
                       setNoteDrafts((prev) => ({ ...prev, [mentorThreadKey(expandedReply.mentorName)]: text }))

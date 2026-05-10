@@ -1215,6 +1215,19 @@
   font-style: italic;
 }
 
+.sourceTagSmall {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(155, 102, 0, 0.45);
+  background: rgba(255, 200, 87, 0.18);
+  color: #9b6600;
+  font-size: 0.66rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
 .conversationBubble header {
   font-size: 0.83rem;
   font-weight: 800;

@@ -1,16 +1,21 @@
 import { useState } from 'react';
 import { MentorProfile } from '../../../features/mentorTable/mentorProfiles';
 import { generateMentorAdvice, MentorConversationMessage } from '../../../features/mentorTable/mentorApi';
+import type { MentorSimulationResult } from '../../../features/mentorTable/mentorEngine';
+
+type AiMeta = MentorSimulationResult['meta'];
 
 export interface NoteThreadEntry {
   role: 'user' | 'mentor' | 'error';
   text: string;
+  /** Meta snapshot of the response this entry came from (badge honesty). */
+  source?: AiMeta;
 }
 
 export interface ConversationTurn {
   id: string;
   user: string;
-  replies: Array<{ mentorName: string; text: string }>;
+  replies: Array<{ mentorName: string; text: string; source?: AiMeta }>;
 }
 
 interface UseMentorNotesOptions {
@@ -87,6 +92,7 @@ export function useMentorNotes(options: UseMentorNotesOptions): {
     let mentorReply: string | null = null;
     let delivered = false;
     let transportFailed = false;
+    let replyMeta: AiMeta | undefined;
     const targetMentor = selectedMentors.find((mentor) => {
       return normalizeKey(mentor.displayName) === targetKey || normalizeKey(mentor.id) === targetKey;
     });
@@ -114,6 +120,7 @@ export function useMentorNotes(options: UseMentorNotesOptions): {
         aiResult.mentorReplies[0];
       if (aiReply?.likelyResponse) {
         mentorReply = aiReply.likelyResponse;
+        replyMeta = aiResult.meta;
         delivered = true;
       }
     } catch (err) {
@@ -151,14 +158,14 @@ export function useMentorNotes(options: UseMentorNotesOptions): {
       [threadKey]: [
         ...(prev[threadKey] || []),
         { role: 'user', text },
-        { role: 'mentor', text: mentorReply! }
+        { role: 'mentor', text: mentorReply!, source: replyMeta }
       ]
     }));
     appendConversationTurn({
       // Bug #22: collision-safe id via uniqueId (crypto.randomUUID fallback).
       id: uniqueId(`turn-${threadKey}`),
       user: text,
-      replies: [{ mentorName, text: mentorReply! }]
+      replies: [{ mentorName, text: mentorReply!, source: replyMeta }]
     });
     setNoteDrafts((prev) => ({ ...prev, [threadKey]: '' }));
     setOpenNoteFor(threadKey);
