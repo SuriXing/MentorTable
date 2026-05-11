@@ -200,8 +200,6 @@
   "emailNotification": "Recibirás notificaciones por correo cuando alguien responda (si está habilitado)",
   "checkWithCode": "Usa tu código de acceso en cualquier momento para revisar respuestas y actualizaciones",
   "dismiss": "Cerrar",
-  "privacyWarningTitle": "Aviso Importante de Privacidad",
-  "privacyWarningText": "Sabemos que puedes estar sintiéndote muy emocional en este momento, pero por favor recuerda: NO incluyas nombres reales, ubicaciones específicas, o detalles identificativos sobre ti o sobre otros. Esto protege la privacidad de todos y podría evitarte problemas aún peores. Mantén tu compartir anónimo y seguro.",
   "mt": {
     "summonGuests": "Invocar invitados",
     "restart": "Reiniciar",
@@ -261,6 +259,7 @@
   "mt.loading": "Cargando...",
   "mt.localFallback": "Reserva local",
   "mt.aiDisclaimer": "Esta es una perspectiva simulada por IA basada en información pública; no es una declaración real de la persona.",
+  "mt.dataFlowNote": "Tu texto se envía a la API de MentorTable y se reenvía a un proveedor de LLM externo para generar respuestas. No almacenamos conversaciones en nuestros servidores; el proveedor procesa cada solicitud según su propia política. Evita compartir datos que permitan identificarte.",
   "mt.noteDeliveryFailed": "No se pudo contactar a {name}: la nota no se entregó. Inténtalo de nuevo.",
   "mt.noteNoResponse": "{name} no respondió a esta nota.",
   "mt.mentorNoReplySuffix": " no respondió en esta ronda.",

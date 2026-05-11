@@ -200,8 +200,6 @@
   "emailNotification": "You'll receive email notifications when someone responds (if enabled)",
   "checkWithCode": "Use your access code anytime to check replies and updates",
   "dismiss": "Dismiss",
-  "privacyWarningTitle": "Important Privacy Notice",
-  "privacyWarningText": "We know you may be feeling very emotional right now, but please remember: DO NOT include real names, specific locations, or identifying details about yourself or others. This protects everyone's privacy and could prevent you from getting into even worse troubles. Keep your sharing anonymous and safe.",
   "mt": {
     "summonGuests": "Summon Guests",
     "restart": "Restart",
@@ -244,6 +242,7 @@
   "mt.llmApi": "LLM API",
   "mt.localFallback": "Local Fallback",
   "mt.aiDisclaimer": "This is an AI-simulated perspective inspired by public information, not a real statement from the person.",
+  "mt.dataFlowNote": "Your text is sent to the MentorTable API and forwarded to a third-party LLM provider to generate replies. Conversations are not stored on our servers; the provider processes each request under its own policy. Avoid sharing identifying details.",
   "mt.noteDeliveryFailed": "Couldn't reach {name} — the note wasn't delivered. Try again.",
   "mt.noteNoResponse": "{name} didn't respond to this note.",
   "mt.mentorNoReplySuffix": " didn't respond this round.",

@@ -194,8 +194,6 @@
   "emailNotification": "当有人回复时，您将收到电子邮件通知（如果已启用）",
   "checkWithCode": "随时使用您的访问代码来查看回复和更新",
   "dismiss": "关闭",
-  "privacyWarningTitle": "重要隐私提醒",
-  "privacyWarningText": "我们知道您现在可能感到非常情绪化，但请记住：请勿包含真实姓名、具体位置或关于您自己或他人的身份识别细节。这样可以保护每个人的隐私，并可能防止您陷入更严重的麻烦。请保持您的分享匿名和安全。",
   "mt": {
     "summonGuests": "召唤人物",
     "restart": "重新开始",
@@ -238,6 +236,7 @@
   "mt.llmApi": "LLM 接口",
   "mt.localFallback": "本地回退",
   "mt.aiDisclaimer": "这是基于公开信息的AI模拟视角，不代表真实人物的观点。",
+  "mt.dataFlowNote": "您输入的文本会发送到 MentorTable 接口，并转发给第三方大模型服务商生成回复。我们的服务器不存储对话内容；服务商按其自身政策处理每次请求。请避免填写可识别身份的信息。",
   "mt.noteDeliveryFailed": "没能联系上{name}，纸条未送达，请重试。",
   "mt.noteNoResponse": "{name}没有回应这张纸条。",
   "mt.mentorNoReplySuffix": "这一轮没有回应。",
