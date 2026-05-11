@@ -25,13 +25,13 @@ import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { MentorProfile, createCustomMentorProfile } from '../../features/mentorTable/mentorProfiles';
 import { fetchMentorDebugPrompt, MentorConversationMessage } from '../../features/mentorTable/mentorApi';
 import type { MentorSimulationResult } from '../../features/mentorTable/mentorEngine';
+import { makeLocalizedName, makeMentorNameResolver, normalizeMentorKey } from '../../features/mentorTable/mentorIdentity';
 import {
   PersonOption,
   buildMentorImageChain,
   fetchPersonImage,
   fetchPersonImageCandidates,
-  findVerifiedPerson,
-  getChineseDisplayName
+  findVerifiedPerson
 } from '../../features/mentorTable/personLookup';
 import { applyMentorSpeakerClass } from './applyMentorSpeakerClass';
 import styles from './MentorTablePage.module.css';
@@ -396,11 +396,10 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPeople]);
 
-  const localizeName = useCallback((name: string) => {
-    const canonical = resolveDisplayName(name);
-    if (!isZh) return canonical;
-    return getChineseDisplayName(canonical);
-  }, [isZh, resolveDisplayName]);
+  const localizeName = useCallback(
+    makeLocalizedName({ isZh, resolveDisplayName }),
+    [isZh, resolveDisplayName]
+  );
 
   const createInitialAvatar = (name: string) => {
     const canonical = resolveDisplayName(name);
@@ -448,19 +447,14 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
 
   const mentorThreadKey = (rawName: string) => normalizeMentorKey(resolveMentorName(rawName));
 
-  const normalizeMentorKey = (value: string) => value.trim().toLowerCase().replace(/\s+/g, '_');
-
-  const resolveMentorName = (rawName: string): string => {
-    const key = normalizeMentorKey(rawName);
-    const fromSelectedPeople = selectedPeople.find((p) => normalizeMentorKey(p.name) === key);
-    if (fromSelectedPeople) return fromSelectedPeople.name;
-    // selectedMentors is built 1:1 from selectedPeople (createCustomMentorProfile
-    // uses person.name as displayName), so if fromSelectedPeople missed, a
-    // mentor-displayName lookup would miss for the same key. Mentor.id is only
-    // ever derived internally — no caller here passes a raw id, so the
-    // fallback lookup on selectedMentors was unreachable and was removed.
-    return rawName;
-  };
+  // selectedMentors is built 1:1 from selectedPeople (createCustomMentorProfile
+  // uses person.name as displayName), so a mentor-displayName lookup after the
+  // roster lookup would miss for the same key. Mentor.id is only ever derived
+  // internally — no caller here passes a raw id, so that fallback never existed.
+  const resolveMentorName = useMemo(
+    () => makeMentorNameResolver(selectedPeople),
+    [selectedPeople]
+  );
 
 
   // R3 C-4: latestUserText is REQUIRED, not optional. All three call sites
