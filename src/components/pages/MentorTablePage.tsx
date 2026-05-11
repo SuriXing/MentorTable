@@ -290,6 +290,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     llmApi: tI18n('mt.llmApi'),
     localFallback: tI18n('mt.localFallback'),
     aiDisclaimer: tI18n('mt.aiDisclaimer'),
+    dataFlowNote: tI18n('mt.dataFlowNote'),
     noteDeliveryFailed: tI18n('mt.noteDeliveryFailed'),
     noteNoResponse: tI18n('mt.noteNoResponse'),
     mentorNoReplySuffix: tI18n('mt.mentorNoReplySuffix'),
@@ -1460,6 +1461,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                 <div className={styles.sessionSidebarStack}>
                   <div className={styles.disclaimer}>
                     <div className={styles.disclaimerLine}><FontAwesomeIcon icon={faCircleInfo} /> {t.aiDisclaimer}</div>
+                    <div className={styles.disclaimerLine}><FontAwesomeIcon icon={faTriangleExclamation} /> {t.dataFlowNote}</div>
                     {/* ERR-3: hover explainer so users understand why the
                         source is labelled "Local Fallback" (offline / API
                         unreachable). ERR-4: visible badge surfacing the
