@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { MentorProfile } from '../../features/mentorTable/mentorProfiles';
-import { generateMentorAdvice, MentorConversationMessage } from '../../features/mentorTable/mentorApi';
-import type { MentorSimulationResult } from '../../features/mentorTable/mentorEngine';
-import type { ConversationTurn } from '../mentorTable/hooks/useMentorNotes';
+import { MentorProfile } from '../../../features/mentorTable/mentorProfiles';
+import { generateMentorAdvice, MentorConversationMessage } from '../../../features/mentorTable/mentorApi';
+import type { MentorSimulationResult } from '../../../features/mentorTable/mentorEngine';
+import type { ConversationTurn } from '../../../features/mentorTable/conversationTypes';
 
 export type RitualPhase = 'invite' | 'wish' | 'session';
 export type SessionMode = 'idle' | 'booting' | 'live';

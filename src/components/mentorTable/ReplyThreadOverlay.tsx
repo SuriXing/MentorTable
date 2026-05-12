@@ -2,7 +2,7 @@ import React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronLeft } from '@fortawesome/free-solid-svg-icons';
 import styles from '../pages/MentorTablePage.module.css';
-import type { NoteThreadEntry } from './hooks/useMentorNotes';
+import type { NoteThreadEntry } from '../../features/mentorTable/conversationTypes';
 import type { MentorSimulationResult } from '../../features/mentorTable/mentorEngine';
 
 interface ReplyThreadOverlayProps {
