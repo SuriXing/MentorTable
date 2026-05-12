@@ -45,8 +45,8 @@ import { usePersonSearch } from '../mentorTable/hooks/usePersonSearch';
 import { useImageChain } from '../mentorTable/hooks/useImageChain';
 import { useMentorNotes } from '../mentorTable/hooks/useMentorNotes';
 import { MemoryCard, clearMemories, loadMemories, saveMemories } from '../../lib/memoryStore';
-import { useSessionFlow, uniqueId } from './useSessionFlow';
-import type { RitualPhase } from './useSessionFlow';
+import { useSessionFlow, uniqueId } from '../mentorTable/hooks/useSessionFlow';
+import type { RitualPhase } from '../mentorTable/hooks/useSessionFlow';
 import mentorsContract from '../../../shared/mentors-contract.json';
 
 // F174: the ceiling is owned by shared/mentors-contract.json, the same file

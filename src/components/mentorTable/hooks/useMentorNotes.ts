@@ -1,22 +1,7 @@
 import { useState } from 'react';
 import { MentorProfile } from '../../../features/mentorTable/mentorProfiles';
 import { generateMentorAdvice, MentorConversationMessage } from '../../../features/mentorTable/mentorApi';
-import type { MentorSimulationResult } from '../../../features/mentorTable/mentorEngine';
-
-type AiMeta = MentorSimulationResult['meta'];
-
-export interface NoteThreadEntry {
-  role: 'user' | 'mentor' | 'error';
-  text: string;
-  /** Meta snapshot of the response this entry came from (badge honesty). */
-  source?: AiMeta;
-}
-
-export interface ConversationTurn {
-  id: string;
-  user: string;
-  replies: Array<{ mentorName: string; text: string; source?: AiMeta }>;
-}
+import type { AiMeta, ConversationTurn, NoteThreadEntry } from '../../../features/mentorTable/conversationTypes';
 
 interface UseMentorNotesOptions {
   selectedMentors: MentorProfile[];
