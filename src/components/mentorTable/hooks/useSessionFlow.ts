@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { MentorProfile } from '../../../features/mentorTable/mentorProfiles';
 import { generateMentorAdvice, MentorConversationMessage } from '../../../features/mentorTable/mentorApi';
 import type { MentorSimulationResult } from '../../../features/mentorTable/mentorEngine';
@@ -6,6 +6,10 @@ import type { ConversationTurn } from '../../../features/mentorTable/conversatio
 
 export type RitualPhase = 'invite' | 'wish' | 'session';
 export type SessionMode = 'idle' | 'booting' | 'live';
+
+// Cap for conversation history forwarded to the mentor API on each round
+// (bug #44). Prevents unbounded token growth across many reply rounds.
+export const MAX_CONVERSATION_TURNS_IN_HISTORY = 12;
 
 // Collision-safe id (Bug #22). Lives here so both the session orchestrators
 // and the page (which forwards it to useMentorNotes) share one counter.
@@ -28,12 +32,22 @@ export interface UseSessionFlowOptions {
   isMountedRef: React.MutableRefObject<boolean>;
   /** Rotation cursor — reset when a new session commits its result. */
   activeIndexRef: React.MutableRefObject<number>;
+  /** Scroll target for conversation auto-scroll (page-owned DOM node). */
+  conversationPanelRef: React.RefObject<HTMLDivElement | null>;
   /** Page-owned identity helpers (locale-aware, shared with note flows). */
   normalizeKey: (value: string) => string;
-  buildConversationHistory: (latestUserText: string) => MentorConversationMessage[];
-  /** F157/F162 follow-up: all session choreography the page owns. */
-  beginSessionChoreography: () => void;
-  scrollConversationToBottom: () => void;
+  localizeName: (raw: string) => string;
+  resolveMentorName: (raw: string) => string;
+  /** Localized "you" speaker label used in conversation history payloads. */
+  youLabel: string;
+  /**
+   * Bridge to page-owned non-machine resets (notes, memories, panels,
+   * rotation cursor). A ref, not a callback option: the choreography reads
+   * useMentorNotes state, which depends on this hook's history builder —
+   * a callback option would re-create the TDZ wrapper knot this options
+   * rework removed. The page assigns the function; the hook calls it.
+   */
+  sessionStartRef: React.MutableRefObject<(() => void) | null>;
 }
 
 export interface MentorReplyTurn {
@@ -58,10 +72,12 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
     scheduleTimeout,
     isMountedRef,
     activeIndexRef,
+    conversationPanelRef,
     normalizeKey,
-    buildConversationHistory,
-    beginSessionChoreography,
-    scrollConversationToBottom,
+    localizeName,
+    resolveMentorName,
+    youLabel,
+    sessionStartRef,
   } = options;
 
   const [phase, setPhase] = useState<RitualPhase>('invite');
@@ -77,6 +93,98 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
   const [visibleReplyCount, setVisibleReplyCount] = useState(0);
   const [showSessionWrap, setShowSessionWrap] = useState(false);
   const [showGroupSolve, setShowGroupSolve] = useState(false);
+
+  /**
+   * Conversation history forwarded to the mentor API on each round. Built
+   * here because every input is machine state (problem, committed result,
+   * visible slice, stored turns) plus naming services — the page used to
+   * rebuild this from hook state and hand it back through an options bag,
+   * which is what forced the TDZ arrow wrappers.
+   *
+   * R3 C-4: latestUserText is REQUIRED. All three call sites
+   * (handleGenerate / handleReplyAll / submitNoteToMentor) guard their
+   * `text` before invoking and never pass undefined or empty. The budget
+   * calc and the trailing append agree (no defensive guard contradiction).
+   */
+  const buildConversationHistory = (latestUserText: string): MentorConversationMessage[] => {
+    const history: MentorConversationMessage[] = [];
+    const baseProblem = problem.trim();
+    if (baseProblem) {
+      history.push({
+        role: 'user',
+        speaker: youLabel,
+        text: baseProblem
+      });
+    }
+
+    const visibleReplies = (result?.mentorReplies || []).slice(0, visibleReplyCount);
+    for (const reply of visibleReplies) {
+      const mentorName = localizeName(resolveMentorName(reply.mentorName));
+      history.push({
+        role: 'mentor',
+        speaker: mentorName,
+        text: `${reply.likelyResponse} ${reply.oneActionStep}`.trim()
+      });
+    }
+
+    // Cap conversation turns client-side to avoid unbounded token growth
+    // (bug #44) AND to stay under the server's HISTORY_MAX_ENTRIES=50 cap
+    // (R2A ARCH-1: a 5-mentor × 12-turn session would send ~80 entries and
+    // 413 on every submit). Each turn contributes (1 user + replies.length
+    // mentor entries), so the cap must shrink as mentor count grows.
+    const SERVER_HISTORY_CAP = 49; // keep 1 entry headroom below server's 50
+    const baseSlots = 1 + visibleReplies.length + 1;
+    // Worst-case per-turn size: 1 user + the largest replies array across all turns.
+    let worstPerTurn = 2;
+    for (const turn of conversationTurns) {
+      const size = 1 + turn.replies.length;
+      if (size > worstPerTurn) worstPerTurn = size;
+    }
+    const budget = Math.max(0, SERVER_HISTORY_CAP - baseSlots);
+    const dynamicTurnCap = Math.max(1, Math.floor(budget / worstPerTurn));
+    const effectiveTurnCap = Math.min(MAX_CONVERSATION_TURNS_IN_HISTORY, dynamicTurnCap);
+    const recentTurns = conversationTurns.slice(-effectiveTurnCap);
+    for (const turn of recentTurns) {
+      if (turn.user?.trim()) {
+        history.push({
+          role: 'user',
+          speaker: youLabel,
+          text: turn.user.trim()
+        });
+      }
+      // deadcode-audit deletion #2 (unsafe): skip whitespace-only mentor
+      // replies — a remote LLM can return `likelyResponse: "   "` which
+      // passes the truthiness check and would otherwise be forwarded to the
+      // API as an empty mentor turn.
+      for (const reply of turn.replies) {
+        if (!reply?.text?.trim()) continue;
+        history.push({
+          role: 'mentor',
+          speaker: localizeName(reply.mentorName),
+          text: reply.text.trim()
+        });
+      }
+    }
+
+    // R3 C-4: append unconditionally — matches the budget calc above.
+    history.push({
+      role: 'user',
+      speaker: youLabel,
+      text: latestUserText.trim()
+    });
+
+    return history;
+  };
+
+  const scrollConversationToBottom = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      // Ref may have been cleared between rAF schedule and callback —
+      // e.g. phase changed back to invite mid-animation. Guard kept.
+      const node = conversationPanelRef.current;
+      if (!node) return;
+      node.scrollTop = node.scrollHeight;
+    });
+  }, [conversationPanelRef]);
 
   const handleReplyAll = async () => {
     const text = replyAllDraft.trim();
@@ -150,7 +258,7 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
     setShowGroupSolve(false);
     setConversationTurns([]);
     setReplyAllDraft('');
-    beginSessionChoreography();
+    sessionStartRef.current?.();
 
     // LEAK-1: tracked boot timer so an unmount mid-boot doesn't flip
     // sessionMode on a dead component.
@@ -240,6 +348,8 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
     setShowGroupSolve,
     handleGenerate,
     handleReplyAll,
+    buildConversationHistory,
+    scrollConversationToBottom,
   };
 }
 
