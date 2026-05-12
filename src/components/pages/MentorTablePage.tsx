@@ -23,7 +23,7 @@ import {
 import { useTheme } from '../../hooks/useTheme';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { MentorProfile, createCustomMentorProfile } from '../../features/mentorTable/mentorProfiles';
-import { fetchMentorDebugPrompt, MentorConversationMessage } from '../../features/mentorTable/mentorApi';
+import { fetchMentorDebugPrompt } from '../../features/mentorTable/mentorApi';
 import type { MentorSimulationResult } from '../../features/mentorTable/mentorEngine';
 import { makeLocalizedName, makeMentorNameResolver, normalizeMentorKey } from '../../features/mentorTable/mentorIdentity';
 import {
@@ -52,9 +52,6 @@ import mentorsContract from '../../../shared/mentors-contract.json';
 // F174: the ceiling is owned by shared/mentors-contract.json, the same file
 // the API requires — parity is structural, not a regex over this file.
 const MAX_PEOPLE = mentorsContract.mentorsMax;
-// Cap for conversation history forwarded to the mentor API on each round
-// (bug #44). Prevents unbounded token growth across many reply rounds.
-const MAX_CONVERSATION_TURNS_IN_HISTORY = 12;
 const COORDINATE_PASS_NOTE_WITH_ALL = (import.meta.env.VITE_MENTOR_NOTE_COORDINATE_ALL ?? '1') !== '0';
 const ONBOARDING_KEY = 'mentorTableOnboardingHiddenV2';
 
@@ -102,6 +99,10 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   );
   const [isConversationHovered, setIsConversationHovered] = useState(false);
   const isMountedRef = useRef(true);
+  // Bridge to beginSessionChoreography — assigned after useMentorNotes
+  // resolves resetNotes (the choreography reads note state; a direct
+  // callback option would re-create the TDZ wrapper knot).
+  const sessionStartRef = useRef<(() => void) | null>(null);
   // LEAK-2/3/4: unified timer bag — every setTimeout gets tracked and
   // cleared on unmount so no fire-and-forget timers leak.
   const pendingTimersRef = useRef<Set<number>>(new Set());
@@ -123,148 +124,9 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     return handle;
   }, []);
 
-  // P15 second half: the session state machine (phase/mode/problem/result/
-  // orchestrators/reveal heartbeat) lives in useSessionFlow now. Identity
-  // helpers, notes, memories, and panel choreography stay page-side and
-  // arrive as options; the destructure keeps every original name so the
-  // JSX and downstream hooks are untouched.
-  const {
-    phase, setPhase, sessionMode, setSessionMode, problem, setProblem, result, setResult,
-    isGenerating, generateError, setGenerateError, isRoundGenerating, setIsRoundGenerating,
-    conversationTurns, setConversationTurns, replyAllDraft, setReplyAllDraft,
-    visibleReplyCount, setVisibleReplyCount, showSessionWrap, setShowSessionWrap,
-    showGroupSolve, setShowGroupSolve, handleGenerate, handleReplyAll,
-  } = useSessionFlow({
-    selectedMentors,
-    uiLanguage,
-    isZh,
-    isConversationHovered,
-    scheduleTimeout,
-    isMountedRef,
-    activeIndexRef,
-    normalizeKey: (value) => normalizeMentorKey(value),
-    buildConversationHistory: (text) => buildConversationHistory(text),
-    beginSessionChoreography: () => beginSessionChoreography(),
-    scrollConversationToBottom: () => scrollConversationToBottom(),
-  });
-  // RERENDER-5: activeResultIndex lives in a ref below — removed from state.
-  // This component only runs client-side (the app has no SSR), so `window`
-  // and `localStorage` are always available.
-  const [showOnboarding, setShowOnboarding] = useState<boolean>(
-    // Bug-bash round 1: Safari Private Browsing throws SecurityError on
-    // localStorage access. Fall back to showing onboarding on failure.
-    () => {
-      try {
-        return localStorage.getItem(ONBOARDING_KEY) !== '1';
-      } catch {
-        return true;
-      }
-    }
-  );
-  const [dontShowOnboardingAgain, setDontShowOnboardingAgain] = useState<boolean>(
-    () => {
-      try {
-        return localStorage.getItem(ONBOARDING_KEY) === '1';
-      } catch {
-        return false;
-      }
-    }
-  );
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [flippedCards, setFlippedCards] = useState<Record<string, boolean>>({});
-  const [lastSummonedName, setLastSummonedName] = useState<string>('');
-  const [candleLevel, setCandleLevel] = useState(1);
-  const [tableRipple, setTableRipple] = useState<{ x: number; y: number; key: string } | null>(null);
-  const [memoryDrawerOpen, setMemoryDrawerOpen] = useState(false);
-  // F163 (P16): memories survive refreshes — loaded once from localStorage
-  // (with schema migration) and persisted best-effort on every change.
-  const [memories, setMemories] = useState<MemoryCard[]>(() => loadMemories());
-  useEffect(() => {
-    saveMemories(memories);
-  }, [memories]);
-  const [expandedReplyId, setExpandedReplyId] = useState('');
-  // R3/F44: inviteTouched was dead — the CTA is `disabled` (F38) so
-  // onClick never fires to set it, and the error hint stayed hidden. Render
-  // the hint unconditionally while selectedPeople.length === 0 so the user
-  // understands *why* the button is disabled.
-  const [expandedSuggestion, setExpandedSuggestion] = useState<ExpandedSuggestionCard | null>(null);
-  const [hoveredDebugMentorId, setHoveredDebugMentorId] = useState('');
-  const [openDebugMentorId, setOpenDebugMentorId] = useState('');
-  const [debugPromptByMentorId, setDebugPromptByMentorId] = useState<Record<string, string>>({});
-  const [debugPromptLoadingByMentorId, setDebugPromptLoadingByMentorId] = useState<Record<string, boolean>>({});
-  const [debugPromptErrorByMentorId, setDebugPromptErrorByMentorId] = useState<Record<string, string>>({});
-  const [saveNotice, setSaveNotice] = useState('');
-  // ERR-2: surface a retry-able error banner when handleGenerate throws
-  // (e.g. network failure) instead of silently dropping to an empty panel.
+  // Scroll target for the conversation panel (the hook auto-scrolls it).
   const conversationPanelRef = useRef<HTMLDivElement | null>(null);
-  // SR-4: focus the safety risk banner when it first appears.
-  const riskBannerRef = useRef<HTMLDivElement | null>(null);
-  const lastRiskSignatureRef = useRef<string>('');
-  // LEAK-1: guard against setState after unmount. handleGenerate and
-  // other async paths check this before state transitions.
-  const mentorNodeRefs = useRef<Array<HTMLDivElement | null>>([]);
-  // ARCH-3: coalesce rapid-fire addPerson calls for the same key so a
-  // double-click on the add button doesn't cancel the prior hydration.
-  const addPersonTimestampRef = useRef<Map<string, number>>(new Map());
 
-  useEffect(() => {
-    isMountedRef.current = true;
-    // Capture the ref's Set into effect scope so the cleanup closes over the
-    // same Set we're tracking into. The Set's identity never changes at
-    // runtime — we only ever mutate its contents — so this is safe and
-    // satisfies the ref-in-cleanup lint rule.
-    const timers = pendingTimersRef.current;
-    return () => {
-      isMountedRef.current = false;
-      // LEAK-2/3/4: fire-and-forget timers get swept here.
-      for (const handle of timers) {
-        window.clearTimeout(handle);
-      }
-      timers.clear();
-    };
-  }, []);
-
-  // R3 I-4: proper focus-trap + focus-return for the 3 modal dialogs.
-  // Each hook is called unconditionally (React rules-of-hooks) and the
-  // `active` flag tells it when the dialog is currently mounted. When
-  // `active` is false, the hook is a no-op: no focus stolen, no listeners.
-  //
-  // The ref returned by each hook is attached to the corresponding dialog
-  // element in the JSX below. See src/hooks/useFocusTrap.ts for the
-  // full contract.
-  const onboardingTrapRef = useFocusTrap<HTMLDivElement>({
-    active: showOnboarding,
-    onClose: () => finishOnboarding(),
-  });
-  const expandedSuggestionTrapRef = useFocusTrap<HTMLDivElement>({
-    active: Boolean(expandedSuggestion),
-    onClose: () => setExpandedSuggestion(null),
-  });
-  // Note: use expandedReplyId (plain state) rather than the derived
-  // `expandedReply` const, because that const is declared further down
-  // in the function body — reading it here would hit a TDZ error.
-  const expandedReplyTrapRef = useFocusTrap<HTMLDivElement>({
-    active: expandedReplyId !== '',
-    onClose: () => {
-      setExpandedReplyId('');
-      setExpandedSuggestion(null);
-    },
-  });
-
-  // Bug #20: per-person hydration sequence — an addPerson call records its
-  // sequence number; when the async image fetch resolves, we only apply the
-  // result if that sequence is still the latest for the normalized key.
-  // This prevents a stale hydration from an earlier add/remove cycle from
-  // overwriting fresh data when the user quickly removes and re-adds a
-  // person.
-  const personHydrationSeqRef = useRef<Map<string, number>>(new Map());
-
-  const ritualStep = phase === 'invite' ? 0 : phase === 'wish' ? 1 : 2;
-  const localizedVibeTags = isZh ? vibeTagsZh : vibeTags;
-
-  // RERENDER-3: stabilize the string bundle so it doesn't get rebuilt
-  // on every render. Callers that capture `t` in closures / deps will
-  // also stay stable across renders when language doesn't change.
   const t = useMemo(() => ({
     heroTitle: tI18n('mt.heroTitle'),
     heroSub: tI18n('mt.heroSub'),
@@ -366,21 +228,6 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     emptyIntroHint: isZh ? '在上方搜索框输入名字，按回车即可入席。' : 'Type a name above and press Enter to seat them.'
   }), [isZh, tI18n]);
 
-  // Badge honesty for per-exchange sources: live LLM replies need no chip;
-  // anything canned, partial, or locally simulated gets one.
-  const sourceChipLabel = (meta?: MentorSimulationResult['meta']): string | null => {
-    if (!meta) return null;
-    if (meta.source !== 'llm') return t.localFallback;
-    if (meta.provider === 'server-fallback') return t.cannedReplies;
-    if (meta.provider === 'partial-fallback') return t.partialFallback;
-    return null;
-  };
-
-  const normalizeNameKey = useCallback(
-    (name: string) => name.trim().toLowerCase().replace(/\s+/g, ' '),
-    []
-  );
-
   // RERENDER-1 / ALGO-1: memoize caller-side wrappers on top of the
   // (still O(n)) findVerifiedPerson lookup. Keyed on selectedPeople so
   // they're stable inside other useMemo/useCallback deps.
@@ -397,9 +244,176 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   }, [selectedPeople]);
 
   const localizeName = useCallback(
-    makeLocalizedName({ isZh, resolveDisplayName }),
+    (name: string) => makeLocalizedName({ isZh, resolveDisplayName })(name),
     [isZh, resolveDisplayName]
   );
+
+  const resolveMentorName = useMemo(
+    () => makeMentorNameResolver(selectedPeople),
+    [selectedPeople]
+  );
+
+  // P15 second half: the session state machine (phase/mode/problem/result/
+  // orchestrators/reveal heartbeat) lives in useSessionFlow now. Identity
+  // helpers, notes, memories, and panel choreography stay page-side. The
+  // history builder and auto-scroll live inside the hook (their inputs are
+  // machine state), so every option below is a direct value — the six
+  // TDZ-evasion arrow wrappers are gone. beginSessionChoreography arrives
+  // through sessionStartRef; see its assignment below useMentorNotes.
+  const {
+    phase, setPhase, sessionMode, setSessionMode, problem, setProblem, result, setResult,
+    isGenerating, generateError, setGenerateError, isRoundGenerating, setIsRoundGenerating,
+    conversationTurns, setConversationTurns, replyAllDraft, setReplyAllDraft,
+    visibleReplyCount, setVisibleReplyCount, showSessionWrap, setShowSessionWrap,
+    showGroupSolve, setShowGroupSolve, handleGenerate, handleReplyAll, buildConversationHistory, scrollConversationToBottom,
+  } = useSessionFlow({
+    selectedMentors,
+    uiLanguage,
+    isZh,
+    isConversationHovered,
+    scheduleTimeout,
+    isMountedRef,
+    activeIndexRef,
+    conversationPanelRef,
+    normalizeKey: normalizeMentorKey,
+    localizeName,
+    resolveMentorName,
+    youLabel: t.you,
+    sessionStartRef,
+  });
+  // RERENDER-5: activeResultIndex lives in a ref below — removed from state.
+  // This component only runs client-side (the app has no SSR), so `window`
+  // and `localStorage` are always available.
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(
+    // Bug-bash round 1: Safari Private Browsing throws SecurityError on
+    // localStorage access. Fall back to showing onboarding on failure.
+    () => {
+      try {
+        return localStorage.getItem(ONBOARDING_KEY) !== '1';
+      } catch {
+        return true;
+      }
+    }
+  );
+  const [dontShowOnboardingAgain, setDontShowOnboardingAgain] = useState<boolean>(
+    () => {
+      try {
+        return localStorage.getItem(ONBOARDING_KEY) === '1';
+      } catch {
+        return false;
+      }
+    }
+  );
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [flippedCards, setFlippedCards] = useState<Record<string, boolean>>({});
+  const [lastSummonedName, setLastSummonedName] = useState<string>('');
+  const [candleLevel, setCandleLevel] = useState(1);
+  const [tableRipple, setTableRipple] = useState<{ x: number; y: number; key: string } | null>(null);
+  const [memoryDrawerOpen, setMemoryDrawerOpen] = useState(false);
+  // F163 (P16): memories survive refreshes — loaded once from localStorage
+  // (with schema migration) and persisted best-effort on every change.
+  const [memories, setMemories] = useState<MemoryCard[]>(() => loadMemories());
+  useEffect(() => {
+    saveMemories(memories);
+  }, [memories]);
+  const [expandedReplyId, setExpandedReplyId] = useState('');
+  // R3/F44: inviteTouched was dead — the CTA is `disabled` (F38) so
+  // onClick never fires to set it, and the error hint stayed hidden. Render
+  // the hint unconditionally while selectedPeople.length === 0 so the user
+  // understands *why* the button is disabled.
+  const [expandedSuggestion, setExpandedSuggestion] = useState<ExpandedSuggestionCard | null>(null);
+  const [hoveredDebugMentorId, setHoveredDebugMentorId] = useState('');
+  const [openDebugMentorId, setOpenDebugMentorId] = useState('');
+  const [debugPromptByMentorId, setDebugPromptByMentorId] = useState<Record<string, string>>({});
+  const [debugPromptLoadingByMentorId, setDebugPromptLoadingByMentorId] = useState<Record<string, boolean>>({});
+  const [debugPromptErrorByMentorId, setDebugPromptErrorByMentorId] = useState<Record<string, string>>({});
+  const [saveNotice, setSaveNotice] = useState('');
+  // ERR-2: surface a retry-able error banner when handleGenerate throws
+  // (e.g. network failure) instead of silently dropping to an empty panel.
+  // SR-4: focus the safety risk banner when it first appears.
+  const riskBannerRef = useRef<HTMLDivElement | null>(null);
+  const lastRiskSignatureRef = useRef<string>('');
+  // LEAK-1: guard against setState after unmount. handleGenerate and
+  // other async paths check this before state transitions.
+  const mentorNodeRefs = useRef<Array<HTMLDivElement | null>>([]);
+  // ARCH-3: coalesce rapid-fire addPerson calls for the same key so a
+  // double-click on the add button doesn't cancel the prior hydration.
+  const addPersonTimestampRef = useRef<Map<string, number>>(new Map());
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    // Capture the ref's Set into effect scope so the cleanup closes over the
+    // same Set we're tracking into. The Set's identity never changes at
+    // runtime — we only ever mutate its contents — so this is safe and
+    // satisfies the ref-in-cleanup lint rule.
+    const timers = pendingTimersRef.current;
+    return () => {
+      isMountedRef.current = false;
+      // LEAK-2/3/4: fire-and-forget timers get swept here.
+      for (const handle of timers) {
+        window.clearTimeout(handle);
+      }
+      timers.clear();
+    };
+  }, []);
+
+  // R3 I-4: proper focus-trap + focus-return for the 3 modal dialogs.
+  // Each hook is called unconditionally (React rules-of-hooks) and the
+  // `active` flag tells it when the dialog is currently mounted. When
+  // `active` is false, the hook is a no-op: no focus stolen, no listeners.
+  //
+  // The ref returned by each hook is attached to the corresponding dialog
+  // element in the JSX below. See src/hooks/useFocusTrap.ts for the
+  // full contract.
+  const onboardingTrapRef = useFocusTrap<HTMLDivElement>({
+    active: showOnboarding,
+    onClose: () => finishOnboarding(),
+  });
+  const expandedSuggestionTrapRef = useFocusTrap<HTMLDivElement>({
+    active: Boolean(expandedSuggestion),
+    onClose: () => setExpandedSuggestion(null),
+  });
+  // Note: use expandedReplyId (plain state) rather than the derived
+  // `expandedReply` const, because that const is declared further down
+  // in the function body — reading it here would hit a TDZ error.
+  const expandedReplyTrapRef = useFocusTrap<HTMLDivElement>({
+    active: expandedReplyId !== '',
+    onClose: () => {
+      setExpandedReplyId('');
+      setExpandedSuggestion(null);
+    },
+  });
+
+  // Bug #20: per-person hydration sequence — an addPerson call records its
+  // sequence number; when the async image fetch resolves, we only apply the
+  // result if that sequence is still the latest for the normalized key.
+  // This prevents a stale hydration from an earlier add/remove cycle from
+  // overwriting fresh data when the user quickly removes and re-adds a
+  // person.
+  const personHydrationSeqRef = useRef<Map<string, number>>(new Map());
+
+  const ritualStep = phase === 'invite' ? 0 : phase === 'wish' ? 1 : 2;
+  const localizedVibeTags = isZh ? vibeTagsZh : vibeTags;
+
+  // RERENDER-3: stabilize the string bundle so it doesn't get rebuilt
+  // on every render. Callers that capture `t` in closures / deps will
+  // also stay stable across renders when language doesn't change.
+
+  // Badge honesty for per-exchange sources: live LLM replies need no chip;
+  // anything canned, partial, or locally simulated gets one.
+  const sourceChipLabel = (meta?: MentorSimulationResult['meta']): string | null => {
+    if (!meta) return null;
+    if (meta.source !== 'llm') return t.localFallback;
+    if (meta.provider === 'server-fallback') return t.cannedReplies;
+    if (meta.provider === 'partial-fallback') return t.partialFallback;
+    return null;
+  };
+
+  const normalizeNameKey = useCallback(
+    (name: string) => name.trim().toLowerCase().replace(/\s+/g, ' '),
+    []
+  );
+
 
   const createInitialAvatar = (name: string) => {
     const canonical = resolveDisplayName(name);
@@ -451,101 +465,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   // uses person.name as displayName), so a mentor-displayName lookup after the
   // roster lookup would miss for the same key. Mentor.id is only ever derived
   // internally — no caller here passes a raw id, so that fallback never existed.
-  const resolveMentorName = useMemo(
-    () => makeMentorNameResolver(selectedPeople),
-    [selectedPeople]
-  );
 
 
-  // R3 C-4: latestUserText is REQUIRED, not optional. All three call sites
-  // (handleGenerate / handleReplyAll / submitNoteToMentor) guard their
-  // `text` before invoking and never pass undefined or empty. Making it
-  // required at the type level means the budget calc and the trailing
-  // append agree (no defensive guard contradiction). If a future caller
-  // wants to skip latestUserText, they should call a new variant — don't
-  // re-introduce the optional + if-guard pattern that R3 flagged.
-  const buildConversationHistory = (latestUserText: string): MentorConversationMessage[] => {
-    const history: MentorConversationMessage[] = [];
-    const baseProblem = problem.trim();
-    if (baseProblem) {
-      history.push({
-        role: 'user',
-        speaker: t.you,
-        text: baseProblem
-      });
-    }
-
-    for (const reply of visibleReplies) {
-      const mentorName = localizeName(resolveMentorName(reply.mentorName));
-      history.push({
-        role: 'mentor',
-        speaker: mentorName,
-        text: `${reply.likelyResponse} ${reply.oneActionStep}`.trim()
-      });
-    }
-
-    // Cap conversation turns client-side to avoid unbounded token growth
-    // (bug #44) AND to stay under the server's HISTORY_MAX_ENTRIES=50 cap
-    // (R2A ARCH-1: a 5-mentor × 12-turn session would send ~80 entries and
-    // 413 on every submit). Each turn contributes (1 user + replies.length
-    // mentor entries), so the cap must shrink as mentor count grows.
-    //
-    // Formula: remaining budget after baseProblem (1) + visibleReplies.length
-    // + latestUserText (1, if present). Divide by worst-case per-turn
-    // entry count to get max turns we can fit.
-    const SERVER_HISTORY_CAP = 49; // keep 1 entry headroom below server's 50
-    // R3 C-4: latestUserText is always present (the parameter is required;
-    // see the comment on the function signature). The budget includes its
-    // slot unconditionally — this matches the unconditional append at
-    // line ~520. Both halves agree.
-    const baseSlots = 1 + visibleReplies.length + 1;
-    // Worst-case per-turn size: 1 user + the largest replies array across all turns.
-    // `turn.replies` is always an array per ConversationTurn type.
-    let worstPerTurn = 2;
-    for (const turn of conversationTurns) {
-      const size = 1 + turn.replies.length;
-      if (size > worstPerTurn) worstPerTurn = size;
-    }
-    const budget = Math.max(0, SERVER_HISTORY_CAP - baseSlots);
-    const dynamicTurnCap = Math.max(1, Math.floor(budget / worstPerTurn));
-    const effectiveTurnCap = Math.min(MAX_CONVERSATION_TURNS_IN_HISTORY, dynamicTurnCap);
-    const recentTurns = conversationTurns.slice(-effectiveTurnCap);
-    for (const turn of recentTurns) {
-      if (turn.user?.trim()) {
-        history.push({
-          role: 'user',
-          speaker: t.you,
-          text: turn.user.trim()
-        });
-      }
-      // deadcode-audit deletion #2 (unsafe): restored skip guard for
-      // whitespace-only mentor replies. The original justification claimed
-      // writers always set trimmed strings, but a remote LLM can return
-      // `likelyResponse: "   "` which passes the truthiness check and would
-      // otherwise be forwarded to the API as an empty mentor turn.
-      for (const reply of turn.replies) {
-        if (!reply?.text?.trim()) continue;
-        history.push({
-          role: 'mentor',
-          speaker: localizeName(reply.mentorName),
-          text: reply.text.trim()
-        });
-      }
-    }
-
-    // R3 C-4: latestUserText is required and non-empty (see signature).
-    // Append unconditionally — matches the budget calc above. The
-    // previous `if (latestUserText?.trim())` guard contradicted the
-    // unconditional budget addend and was flagged by Round 3 as the
-    // "two halves disagree" maintenance hazard.
-    history.push({
-      role: 'user',
-      speaker: t.you,
-      text: latestUserText.trim()
-    });
-
-    return history;
-  };
 
   // F162 (P14): note threads + submit flow live in useMentorNotes; the page
   // keeps the shared isRoundGenerating flag (reply-all also drives it) and
@@ -597,16 +518,11 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     setDebugPromptErrorByMentorId({});
     activeIndexRef.current = 0;
   };
-
-  const scrollConversationToBottom = () => {
-    window.requestAnimationFrame(() => {
-      // Ref may have been cleared between rAF schedule and callback —
-      // e.g. phase changed back to invite mid-animation. Guard kept.
-      const node = conversationPanelRef.current;
-      if (!node) return;
-      node.scrollTop = node.scrollHeight;
-    });
-  };
+  // Bridge assignment: the hook reads this ref when a session starts. An
+  // effect (not a render-time write) so React concurrent mode semantics hold.
+  useEffect(() => {
+    sessionStartRef.current = beginSessionChoreography;
+  });
 
   // RERENDER-5: imperative rotation — walks mentorNodeRefs and flips
   // the speaker class directly, so the tick costs 0 React re-renders.
@@ -633,7 +549,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   useEffect(() => {
     if (phase !== 'session' || sessionMode !== 'live') return;
     scrollConversationToBottom();
-  }, [phase, sessionMode, visibleReplyCount, noteReplies, conversationTurns, showGroupSolve, showSessionWrap]);
+  }, [phase, sessionMode, visibleReplyCount, noteReplies, conversationTurns, showGroupSolve, showSessionWrap, scrollConversationToBottom]);
 
   // SR-4: focus the risk banner on first appearance so screen-reader
   // users land on the safety message immediately. Uses a stable string
