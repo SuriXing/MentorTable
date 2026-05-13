@@ -21,6 +21,7 @@ import {
 // BUNDLE-1: Layout + Aurora + OGL were deleted (dead code under the
 // `standalone` render path). Theme controls are mounted directly in main.tsx.
 import { useTheme } from '../../hooks/useTheme';
+import { useMountedGuard } from '../../hooks/useMountedGuard';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { MentorProfile, createCustomMentorProfile } from '../../features/mentorTable/mentorProfiles';
 import { fetchMentorDebugPrompt } from '../../features/mentorTable/mentorApi';
@@ -98,7 +99,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     [selectedPeople]
   );
   const [isConversationHovered, setIsConversationHovered] = useState(false);
-  const isMountedRef = useRef(true);
+  const isMountedRef = useMountedGuard();
   // Bridge to beginSessionChoreography — assigned after useMentorNotes
   // resolves resetNotes (the choreography reads note state; a direct
   // callback option would re-create the TDZ wrapper knot).
@@ -341,14 +342,13 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const addPersonTimestampRef = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
-    isMountedRef.current = true;
-    // Capture the ref's Set into effect scope so the cleanup closes over the
-    // same Set we're tracking into. The Set's identity never changes at
-    // runtime — we only ever mutate its contents — so this is safe and
-    // satisfies the ref-in-cleanup lint rule.
+    // Mount/unmount bookkeeping lives in useMountedGuard. This effect only
+    // owns the timer sweep. Capture the ref's Set into effect scope so the
+    // cleanup closes over the same Set we're tracking into. The Set's
+    // identity never changes at runtime — we only ever mutate its contents —
+    // so this is safe and satisfies the ref-in-cleanup lint rule.
     const timers = pendingTimersRef.current;
     return () => {
-      isMountedRef.current = false;
       // LEAK-2/3/4: fire-and-forget timers get swept here.
       for (const handle of timers) {
         window.clearTimeout(handle);
