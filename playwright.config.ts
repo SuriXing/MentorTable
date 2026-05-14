@@ -10,6 +10,9 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:3001',
     headless: true,
+    // Local sandbox has no Playwright-managed chromium cache; CI installs
+    // chromium and uses it, while local runs fall back to system Chrome.
+    channel: process.env.PLAYWRIGHT_CHANNEL || undefined,
   },
   webServer: [
     {
@@ -21,8 +24,8 @@ export default defineConfig({
       // When COLLECT_UI_COVERAGE=1, start Vite with istanbul instrumentation
       command:
         process.env.COLLECT_UI_COVERAGE === '1'
-          ? 'VITE_COVERAGE=1 npx vite --port 3001 --force'
-          : 'npx vite --port 3001',
+          ? 'VITE_COVERAGE=1 npx vite --port 3001 --host 127.0.0.1 --force'
+          : 'npx vite --port 3001 --host 127.0.0.1',
       port: 3001,
       reuseExistingServer: !process.env.COLLECT_UI_COVERAGE,
     },
