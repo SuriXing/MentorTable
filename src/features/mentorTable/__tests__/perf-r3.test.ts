@@ -7,6 +7,14 @@
  *   stay flat under 10K calls
  * - searchVerifiedPeopleLocal doesn't allocate / re-normalize per call
  *
+ * Budget policy (T5 close-out): each budget is measured-local × 3.5.
+ * Measured 2026-05-14 on an M-series MacBook (vitest, 10K iterations):
+ * exact-match 2.7-5.7ms, miss-path 44.4ms, 1K broad search 32.5ms. The old
+ * budgets (130/1300/520) were 16-29x local — wide enough to miss a 10x
+ * regression entirely. ×3.5 absorbs the 2-3x CI-runner slowdown plus timing
+ * noise while still failing on a genuinely degraded algorithm. If you raise
+ * a budget, record the new measurement and the reason here.
+ *
  * What this CANNOT verify:
  * - Real-device frame times under React's reconciler
  * - Bundle size at runtime in a real browser (do that with `npm run build`)
@@ -28,7 +36,7 @@ describe('R3 perf verification', () => {
       // O(n) over ~200 entries with regex normalization × 10K calls would
       // be in the hundreds of ms. O(1) Map.get is well under budget even with the
       // normalization pre-step.
-      expect(elapsed).toBeLessThan(130);
+      expect(elapsed).toBeLessThan(20); // measured 5.7 local, ×3.5 CI headroom
     });
 
     it('10,000 alias exact-match lookups also complete in < 130ms', async () => {
@@ -41,7 +49,7 @@ describe('R3 perf verification', () => {
         if (!r) throw new Error('Unexpected miss');
       }
       const elapsed = performance.now() - start;
-      expect(elapsed).toBeLessThan(130);
+      expect(elapsed).toBeLessThan(20); // measured 2.7 local
     });
 
     it('Chinese alias exact-match lookups are also O(1)', async () => {
@@ -53,7 +61,7 @@ describe('R3 perf verification', () => {
         if (!r) throw new Error('Unexpected miss');
       }
       const elapsed = performance.now() - start;
-      expect(elapsed).toBeLessThan(130);
+      expect(elapsed).toBeLessThan(20); // measured 3.8 local
     });
 
     it('lookups for non-existent names are also fast (negative cache path)', async () => {
@@ -68,7 +76,7 @@ describe('R3 perf verification', () => {
       // pre-normalized haystack — still bounded but more expensive than
       // exact-match. Budget calibrated for shared CI runners (ubuntu-latest
       // is ~2-3x slower than M-series for tight JS loops).
-      expect(elapsed).toBeLessThan(1300);
+      expect(elapsed).toBeLessThan(150); // measured 44.4 local, ×3.5
     });
   });
 
@@ -86,7 +94,7 @@ describe('R3 perf verification', () => {
       // Pre-normalized: each call is a tight scan + scoring loop, no
       // string allocation. Budget calibrated for shared CI runners
       // (ubuntu-latest is ~2-3x slower than M-series for tight JS loops).
-      expect(elapsed).toBeLessThan(520);
+      expect(elapsed).toBeLessThan(120); // measured 32.5 local, ×3.7
     });
 
     it('repeated identical searches are deterministic and idempotent', async () => {
