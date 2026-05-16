@@ -27,6 +27,8 @@ import { MentorProfile, createCustomMentorProfile } from '../../features/mentorT
 import { fetchMentorDebugPrompt } from '../../features/mentorTable/mentorApi';
 import type { MentorSimulationResult } from '../../features/mentorTable/mentorEngine';
 import { makeLocalizedName, makeMentorNameResolver, normalizeMentorKey } from '../../features/mentorTable/mentorIdentity';
+import { floatingCardPlacement, seatStyle } from '../../features/mentorTable/seatLayout';
+import { useMentorRotation } from '../mentorTable/hooks/useMentorRotation';
 import {
   PersonOption,
   buildMentorImageChain,
@@ -34,7 +36,6 @@ import {
   fetchPersonImageCandidates,
   findVerifiedPerson
 } from '../../features/mentorTable/personLookup';
-import { applyMentorSpeakerClass } from './applyMentorSpeakerClass';
 import styles from './MentorTablePage.module.css';
 import { OnboardingModal } from '../mentorTable/OnboardingModal';
 import { MemoryDrawer } from '../mentorTable/MemoryDrawer';
@@ -524,27 +525,14 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     sessionStartRef.current = beginSessionChoreography;
   });
 
-  // RERENDER-5: imperative rotation — walks mentorNodeRefs and flips
-  // the speaker class directly, so the tick costs 0 React re-renders.
-  // MC-2: onFocus/onBlur mirror the hover pause so keyboard users can
-  // pause auto-rotation the same way mouse users do.
-  useEffect(() => {
-    const total = result?.mentorReplies?.length ?? 0;
-    if (sessionMode !== 'live' || total === 0 || isConversationHovered) return;
-    const applyActiveClass = (idx: number) => {
-      // R3 C-3: applyMentorSpeakerClass (module-level) handles the null
-      // guard for the inline-ref-callback null-write window. Extracted
-      // out of the closure so it's directly unit-testable with a nulled
-      // slot — see src/components/pages/__tests__ rotation tests.
-      applyMentorSpeakerClass(mentorNodeRefs.current, idx, styles.mentorNodeSpeaker);
-    };
-    applyActiveClass(activeIndexRef.current);
-    const timer = window.setInterval(() => {
-      activeIndexRef.current = (activeIndexRef.current + 1) % total;
-      applyActiveClass(activeIndexRef.current);
-    }, 4200);
-    return () => window.clearInterval(timer);
-  }, [result?.mentorReplies.length, sessionMode, isConversationHovered]);
+  useMentorRotation({
+    result,
+    sessionMode,
+    isConversationHovered,
+    mentorNodeRefs,
+    activeIndexRef,
+    speakerClass: styles.mentorNodeSpeaker,
+  });
 
   useEffect(() => {
     if (phase !== 'session' || sessionMode !== 'live') return;
@@ -572,6 +560,25 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   // `result` or `visibleReplyCount` also explicitly clears `expandedReplyId`
   // in the same batch (handleGenerate, restart, newTable, phase pills, edit,
   // chatBackBtn), so the cleanup branch was unreachable and was removed.
+
+  // ALGO-2: precompute a normalized-name → reply map so per-mentor
+  // lookups during render go from O(n) scan to O(1). Rebuilt only when
+  // the replies array identity changes.
+  const replyByNormalizedName = useMemo(() => {
+    const map = new Map<string, NonNullable<typeof result>['mentorReplies'][number]>();
+    if (!result?.mentorReplies) return map;
+    for (const reply of result.mentorReplies) {
+      map.set(reply.mentorName.trim().toLowerCase().replace(/\s+/g, '_'), reply);
+    }
+    return map;
+    // normalizeMentorKey is a pure inline function so we inline its body
+    // here to avoid making the dep array depend on its identity.
+  }, [result?.mentorReplies]);
+
+  const getReplyByMentorName = useCallback(
+    (name: string) => replyByNormalizedName.get(name.trim().toLowerCase().replace(/\s+/g, '_')),
+    [replyByNormalizedName]
+  );
 
   const findImage = (rawName: string): string => {
     const resolvedName = resolveMentorName(rawName);
@@ -728,73 +735,6 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     } catch { /* Safari Private — state only persists for this session */ }
   };
 
-  const seatPoint = (index: number, total: number) => {
-    if (total <= 1) return { x: 50, y: 34 };
-    const angleStart = 200;
-    const angleEnd = 340;
-    const angle = angleStart + ((angleEnd - angleStart) * index) / Math.max(total - 1, 1);
-    const rad = (angle * Math.PI) / 180;
-    const rX = total > 6 ? 42 : 38;
-    const rY = total > 6 ? 13 : 11;
-    const x = 50 + rX * Math.cos(rad);
-    const y = 48 + rY * Math.sin(rad);
-    return { x, y };
-  };
-
-  const seatStyle = (index: number, total: number) => {
-    const { x, y } = seatPoint(index, total);
-    return { left: `${x}%`, top: `${y}%` };
-  };
-
-  const clampNumber = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
-
-  // ALGO-2: precompute a normalized-name → reply map so per-mentor
-  // lookups during render go from O(n) scan to O(1). Rebuilt only when
-  // the replies array identity changes.
-  const replyByNormalizedName = useMemo(() => {
-    const map = new Map<string, NonNullable<typeof result>['mentorReplies'][number]>();
-    if (!result?.mentorReplies) return map;
-    for (const reply of result.mentorReplies) {
-      map.set(reply.mentorName.trim().toLowerCase().replace(/\s+/g, '_'), reply);
-    }
-    return map;
-    // normalizeMentorKey is a pure inline function so we inline its body
-    // here to avoid making the dep array depend on its identity.
-  }, [result?.mentorReplies]);
-
-  const getReplyByMentorName = useCallback(
-    (name: string) => replyByNormalizedName.get(name.trim().toLowerCase().replace(/\s+/g, '_')),
-    [replyByNormalizedName]
-  );
-
-  const floatingCardPlacement = (mentorIndex: number, totalMentors: number): React.CSSProperties => {
-    const safeTotal = Math.max(totalMentors, 1);
-    const safeIndex = Math.min(Math.max(mentorIndex, 0), safeTotal - 1);
-    const lanePoints = Array.from({ length: safeTotal }, (_, idx) => seatPoint(idx, safeTotal));
-    // lanePoints has exactly safeTotal entries and safeIndex is clamped to
-    // [0, safeTotal-1], so lanePoints[safeIndex] is always defined. The
-    // previous `|| { x: 50, y: 34 }` fallback was dead and was removed.
-    const lane = lanePoints[safeIndex];
-    const prevLane = safeIndex > 0 ? lanePoints[safeIndex - 1] : null;
-    const nextLane = safeIndex < safeTotal - 1 ? lanePoints[safeIndex + 1] : null;
-    const leftGap = prevLane ? Math.abs(lane.x - prevLane.x) : Number.POSITIVE_INFINITY;
-    const rightGap = nextLane ? Math.abs(nextLane.x - lane.x) : Number.POSITIVE_INFINITY;
-    const nearestGap = Math.min(leftGap, rightGap);
-    const widthPercent = Number.isFinite(nearestGap) ? clampNumber(nearestGap * 0.82, 8.5, 22) : 22;
-    const widthCapPx = safeTotal <= 2 ? 250 : safeTotal <= 4 ? 210 : safeTotal <= 6 ? 170 : safeTotal <= 8 ? 150 : 130;
-    const safeInset = widthPercent / 2 + 1.25;
-    const left = clampNumber(lane.x, safeInset, 100 - safeInset);
-    // Keep notes above the mentor name plate zone.
-    const top = clampNumber(lane.y - 26.5, 10, 16.5);
-
-    return {
-      ['--mentor-card-left' as string]: `${left}%`,
-      ['--mentor-card-top' as string]: `${top}%`,
-      ['--mentor-card-rotate' as string]: '0deg',
-      ['--mentor-card-width' as string]: `${widthPercent}%`,
-      ['--mentor-card-max' as string]: `${widthCapPx}px`
-    };
-  };
 
   // RERENDER-5: activeReply/activeReplyName removed — the speaker class
   // is now toggled imperatively inside the rotation effect and does not
