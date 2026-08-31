@@ -3798,7 +3798,7 @@ describe('provider registry selection', () => {
     expect(fetchCalls[0]).toBe('https://api.deepseek.com/v1/chat/completions');
     // meta.provider is derived from the resolved baseUrl host.
     expect(res._json.meta.provider).toBe('api.deepseek.com');
-    expect(res._json.meta.model).toBe('deepseek-chat');
+    expect(res._json.meta.model).toBe('deepseek-v4-flash');
   }, 15000);
 
   it('the body provider wins over the LLM_PROVIDER env default', async () => {
@@ -4014,9 +4014,9 @@ describe('provider failover chain', () => {
       body: { problem: 'p', language: 'en', mentors: [sampleMentor], providers: ['deepseek', 'claude'] },
     }), res);
     expect(res._status).toBe(200);
-    expect(fetchCalls).toHaveLength(2);
+    expect(fetchCalls).toHaveLength(3); // deepseek expands to v4-flash + v4-pro
     expect(fetchCalls[0].url).toBe('https://api.deepseek.com/v1/chat/completions');
-    expect(fetchCalls[1].url).toBe('https://api.anthropic.com/v1/messages');
+    expect(fetchCalls[2].url).toBe('https://api.anthropic.com/v1/messages');
     // meta is labeled from the provider that actually served the reply.
     expect(res._json.meta.provider).toBe('api.anthropic.com');
     expect(res._json.mentorReplies[0].mentorId).toBe('elon_musk');
@@ -4144,7 +4144,7 @@ describe('per-provider model fallback lists', () => {
       body: { problem: 'p', language: 'en', mentors: [sampleMentor], providers: ['dashscope', 'claude'] },
     }), res);
     expect(res._status).toBe(200);
-    expect(fetchCalls.map((c) => c.model)).toEqual(['qwen3-max', 'qwen-max', 'claude-sonnet-4-5']);
+    expect(fetchCalls.map((c) => c.model)).toEqual(['qwen3-max', 'glm-5', 'kimi-k3', 'claude-sonnet-4-5']);
     expect(res._json.meta.model).toBe('claude-sonnet-4-5');
   }, 20000);
 
