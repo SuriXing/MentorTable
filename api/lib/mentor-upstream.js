@@ -36,13 +36,47 @@ function retryDelayMs(attempt, retryAfterHeader) {
 
 const _retrySleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Wire-protocol adapter. OpenAI-compatible chat/completions is the default;
+// Anthropic-native /v1/messages differs in three ways the rest of the module
+// should not care about: system prompt is top-level, max_tokens is required,
+// and there is no response_format (the prompts already demand JSON-only
+// output, and the strict parser + repair path clean up the rest).
+const ANTHROPIC_MAX_TOKENS_SINGLE = 8192;
+const ANTHROPIC_MAX_TOKENS_BATCH = 16384;
+
+function anthropicMaxTokens(isBatch) {
+  return isBatch ? ANTHROPIC_MAX_TOKENS_BATCH : ANTHROPIC_MAX_TOKENS_SINGLE;
+}
+
+function buildChatRequestPayload({ protocol, model, temperature, system, user, responseFormat, isBatch }) {
+  if (protocol === 'anthropic') {
+    return {
+      model,
+      max_tokens: anthropicMaxTokens(isBatch),
+      temperature,
+      system,
+      messages: [{ role: 'user', content: user }]
+    };
+  }
+  const payload = {
+    model,
+    temperature,
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: user }
+    ]
+  };
+  if (responseFormat) payload.response_format = responseFormat;
+  return payload;
+}
+
 /**
  * Fetch wrapper with bounded retries. Respects the caller's AbortSignal as
  * the total budget: before each retry we check signal.aborted and the
  * caller passes `deadlineAt` (epoch ms) — retries stop once it passes.
  * Returns the final Response or throws the last network error.
  */
-async function callChatCompletionsWithRetry({ url, apiKey, payload, signal, deadlineAt }) {
+async function callChatCompletionsWithRetry({ url, apiKey, payload, signal, deadlineAt, protocol }) {
   const maxAttempts = llmMaxAttempts();
   let lastError = null;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
@@ -50,7 +84,7 @@ async function callChatCompletionsWithRetry({ url, apiKey, payload, signal, dead
     if (deadlineAt && Date.now() >= deadlineAt) break;
     let response = null;
     try {
-      response = await callChatCompletions({ url, apiKey, payload, signal });
+      response = await callChatCompletions({ url, apiKey, payload, signal, protocol });
     } catch (err) {
       // Network-level failure (ECONNRESET, abort, DNS). Retry unless the
       // abort came from our own budget timeout.
@@ -162,7 +196,8 @@ async function requestMentorReplyFromLLM({
   apiKey,
   chatCompletionsUrl,
   isDashscope,
-  upstreamTimeoutMs
+  upstreamTimeoutMs,
+  protocol = 'openai'
 }) {
   const cacheKey = llmReplyCacheKey({ model, mentor, language, problem, compactedConversation, chatCompletionsUrl });
   const cached = llmCacheGet(cacheKey);
@@ -176,10 +211,16 @@ async function requestMentorReplyFromLLM({
     return cached;
   }
 
-  const payload = {
+  const system = buildSystemPrompt([mentor]);
+  const user = buildUserPrompt(problem, language, [mentor], compactedConversation);
+  const payload = buildChatRequestPayload({
+    protocol,
     model,
     temperature: 0.55,
-    response_format: isDashscope
+    system,
+    user,
+    isBatch: false,
+    responseFormat: isDashscope
       ? { type: 'json_object' }
       : {
           type: 'json_schema',
@@ -187,12 +228,8 @@ async function requestMentorReplyFromLLM({
             name: 'mentor_table_output',
             schema: RESPONSE_SCHEMA
           }
-        },
-    messages: [
-      { role: 'system', content: buildSystemPrompt([mentor]) },
-      { role: 'user', content: buildUserPrompt(problem, language, [mentor], compactedConversation) }
-    ]
-  };
+        }
+  });
 
   const startedAt = Date.now();
   const controller = new AbortController();
@@ -213,7 +250,8 @@ async function requestMentorReplyFromLLM({
       apiKey,
       payload,
       signal: controller.signal,
-      deadlineAt
+      deadlineAt,
+      protocol
     });
 
     if (!response.ok && response.status >= 400 && response.status < 500 && payload.response_format?.type === 'json_schema') {
@@ -226,7 +264,8 @@ async function requestMentorReplyFromLLM({
         apiKey,
         payload: fallbackPayload,
         signal: controller.signal,
-        deadlineAt
+        deadlineAt,
+        protocol
       });
     }
   } finally {
@@ -274,25 +313,18 @@ async function requestMentorReplyFromLLM({
   let parsed = tryParseJson(content);
 
   if (!parsed) {
-    const repairPayload = {
+    const repairPayload = buildChatRequestPayload({
+      protocol,
       model,
       temperature: 0.2,
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content:
-            'Convert the given text into valid JSON only. No markdown. Use keys: schemaVersion, language, safety, mentorReplies, meta.'
-        },
-        {
-          role: 'user',
-          content:
-            `Target mentor id: ${mentor.id}\n` +
-            'Target schema keys: schemaVersion, language, safety, mentorReplies, meta\n' +
-            `Raw output to repair:\n${String(content || '').slice(0, 6000)}`
-        }
-      ]
-    };
+      system:
+        'Convert the given text into valid JSON only. No markdown. Use keys: schemaVersion, language, safety, mentorReplies, meta.',
+      user:
+        `Target mentor id: ${mentor.id}\n` +
+        'Target schema keys: schemaVersion, language, safety, mentorReplies, meta\n' +
+        `Raw output to repair:\n${String(content || '').slice(0, 6000)}`,
+      isBatch: false
+    });
 
     const repairController = new AbortController();
     const repairTimeout = setTimeout(() => repairController.abort(), Math.min(12000, upstreamTimeoutMs));
@@ -301,7 +333,8 @@ async function requestMentorReplyFromLLM({
         url: chatCompletionsUrl,
         apiKey,
         payload: repairPayload,
-        signal: repairController.signal
+        signal: repairController.signal,
+        protocol
       });
 
       if (repairResponse.ok) {
@@ -336,6 +369,17 @@ async function requestMentorReplyFromLLM({
 }
 
 function extractAssistantContent(data) {
+  // Anthropic-native responses: { content: [{ type: 'text', text }, ...] }.
+  if (Array.isArray(data?.content)) {
+    const texts = data.content
+      .map((part) => {
+        if (typeof part === 'string') return part;
+        if (part && typeof part.text === 'string') return part.text;
+        return '';
+      })
+      .filter(Boolean);
+    if (texts.length) return texts.join('\n').trim();
+  }
   const content = data?.choices?.[0]?.message?.content;
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) {
@@ -370,7 +414,8 @@ async function requestMentorBatchReplyFromLLM({
   apiKey,
   chatCompletionsUrl,
   isDashscope,
-  upstreamTimeoutMs
+  upstreamTimeoutMs,
+  protocol = 'openai'
 }) {
   // One completion writing N replies takes longer than one reply. Scale the
   // per-mentor timeout linearly (each mentor contributes up to ~1 reply's
@@ -381,10 +426,14 @@ async function requestMentorBatchReplyFromLLM({
     upstreamTimeoutMs + (mentors.length - 1) * Math.min(upstreamTimeoutMs, 12000)
   );
 
-  const payload = {
+  const payload = buildChatRequestPayload({
+    protocol,
     model,
     temperature: 0.55,
-    response_format: isDashscope
+    system: buildSystemPrompt(mentors),
+    user: buildUserPrompt(problem, language, mentors, compactedConversation),
+    isBatch: true,
+    responseFormat: isDashscope
       ? { type: 'json_object' }
       : {
           type: 'json_schema',
@@ -392,12 +441,8 @@ async function requestMentorBatchReplyFromLLM({
             name: 'mentor_table_output',
             schema: RESPONSE_SCHEMA
           }
-        },
-    messages: [
-      { role: 'system', content: buildSystemPrompt(mentors) },
-      { role: 'user', content: buildUserPrompt(problem, language, mentors, compactedConversation) }
-    ]
-  };
+        }
+  });
 
   const startedAt = Date.now();
   const controller = new AbortController();
@@ -421,7 +466,8 @@ async function requestMentorBatchReplyFromLLM({
       apiKey,
       payload,
       signal: controller.signal,
-      deadlineAt
+      deadlineAt,
+      protocol
     });
 
     if (!response.ok && response.status >= 400 && response.status < 500 && payload.response_format?.type === 'json_schema') {
@@ -434,7 +480,8 @@ async function requestMentorBatchReplyFromLLM({
         apiKey,
         payload: fallbackPayload,
         signal: controller.signal,
-        deadlineAt
+        deadlineAt,
+        protocol
       });
     }
   } finally {
@@ -479,26 +526,19 @@ async function requestMentorBatchReplyFromLLM({
   if (!parsed) {
     // F158: repair counts as its own upstream call against the hourly budget.
     recordLlmCall(1);
-    const repairPayload = {
+    const repairPayload = buildChatRequestPayload({
+      protocol,
       model,
       temperature: 0.2,
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content:
-            'Convert the given text into valid JSON only. No markdown. Use keys: schemaVersion, language, safety, mentorReplies, meta.'
-        },
-        {
-          role: 'user',
-          content:
-            `Target mentor ids: ${mentors.map((m) => m.id).join(', ')}\n` +
-            'Target schema keys: schemaVersion, language, safety, mentorReplies, meta. ' +
-            'mentorReplies must contain one entry per target mentor.\n' +
-            `Raw output to repair:\n${String(content || '').slice(0, 6000)}`
-        }
-      ]
-    };
+      system:
+        'Convert the given text into valid JSON only. No markdown. Use keys: schemaVersion, language, safety, mentorReplies, meta.',
+      user:
+        `Target mentor ids: ${mentors.map((m) => m.id).join(', ')}\n` +
+        'Target schema keys: schemaVersion, language, safety, mentorReplies, meta. ' +
+        'mentorReplies must contain one entry per target mentor.\n' +
+        `Raw output to repair:\n${String(content || '').slice(0, 6000)}`,
+      isBatch: true
+    });
 
     const repairController = new AbortController();
     const repairTimeout = setTimeout(() => repairController.abort(), Math.min(12000, batchTimeoutMs));
@@ -507,7 +547,8 @@ async function requestMentorBatchReplyFromLLM({
         url: chatCompletionsUrl,
         apiKey,
         payload: repairPayload,
-        signal: repairController.signal
+        signal: repairController.signal,
+        protocol
       });
 
       if (repairResponse.ok) {
@@ -552,13 +593,17 @@ async function requestMentorBatchReplyFromLLM({
   });
 }
 
-async function callChatCompletions({ url, apiKey, payload, signal }) {
+async function callChatCompletions({ url, apiKey, payload, signal, protocol }) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (protocol === 'anthropic') {
+    headers['x-api-key'] = apiKey;
+    headers['anthropic-version'] = '2023-06-01';
+  } else {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
   return fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`
-    },
+    headers,
     body: JSON.stringify(payload),
     signal
   });

@@ -43,7 +43,7 @@ const {
   compactConversationHistoryDeterministic,
   compactConversationHistory,
 } = require('./lib/mentor-history.js');
-const { PROVIDERS, isKnownProvider, providerErrorHint } = require('./lib/llm-providers.js');
+const { getProvider, isKnownProvider, providerErrorHint } = require('./lib/llm-providers.js');
 const {
   extractAssistantContent,
   firstNonEmptyEnvValue,
@@ -71,28 +71,43 @@ const DEFAULT_UPSTREAM_TIMEOUT_MS = 25000;
 // LLM_PROVIDER env default; both must name an entry in the provider
 // registry. With no provider named, the legacy single-provider env config
 // applies unchanged (LLM_API_BASE_URL/LLM_MODEL + key aliases).
+// Anthropic-native endpoints hang off the base root, not /v1: accept a bare
+// host, a host with /v1, or a full /v1/messages URL from the relay config.
+const anthropicMessagesUrl = (baseUrl) => {
+  const trimmed = baseUrl.replace(/\/+$/, '');
+  if (trimmed.endsWith('/v1/messages')) return trimmed;
+  if (trimmed.endsWith('/v1')) return `${trimmed}/messages`;
+  return `${trimmed}/v1/messages`;
+};
+
 const resolveUpstreamConfig = (providerName) => {
   if (providerName && isKnownProvider(providerName)) {
-    const entry = PROVIDERS[providerName];
-    // Strict per-provider key: entry.apiKeyEnv only — a missing key for the
-    // chosen provider must fail loudly (500 diagnostics name the var), not
+    const entry = getProvider(providerName);
+    // Strict per-provider key: only the env vars this entry names — a
+    // missing key must fail loudly (500 diagnostics name the var), not
     // silently bill some other provider's key against this endpoint.
-    const apiKey = process.env[entry.apiKeyEnv] || null;
+    const apiKey = (entry.apiKeyEnvs || []).map((n) => process.env[n]).find(Boolean) || null;
     const baseUrl = entry.baseUrl;
+    const protocol = entry.protocol || 'openai';
     return {
       provider: providerName,
       apiKey,
-      apiKeyEnv: entry.apiKeyEnv,
+      apiKeyEnv: (entry.apiKeyEnvs || [])[0] || null,
+      protocol,
       model: entry.model,
       baseUrl,
       upstreamTimeoutMs: Number(process.env.MENTOR_UPSTREAM_TIMEOUT_MS || DEFAULT_UPSTREAM_TIMEOUT_MS),
-      chatCompletionsUrl: `${baseUrl.replace(/\/+$/, '')}/chat/completions`,
+      chatCompletionsUrl:
+        protocol === 'anthropic'
+          ? anthropicMessagesUrl(baseUrl)
+          : `${baseUrl.replace(/\/+$/, '')}/chat/completions`,
       isDashscope: /dashscope\.aliyuncs\.com/i.test(baseUrl)
     };
   }
   const baseUrl = process.env.LLM_API_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
   return {
     provider: null,
+    protocol: 'openai',
     apiKey: firstNonEmptyEnvValue([
       process.env.LLM_API_KEY,
       process.env.OPENAI_API_KEY,
@@ -224,6 +239,7 @@ const dispatchMentorGeneration = async ({ mentors, problem, effectiveLanguage, c
         apiKey: cfg.apiKey,
         chatCompletionsUrl: cfg.chatCompletionsUrl,
         isDashscope: cfg.isDashscope,
+        protocol: cfg.protocol,
         upstreamTimeoutMs: cfg.upstreamTimeoutMs
       });
       return perMentor;
@@ -254,6 +270,7 @@ const dispatchMentorGeneration = async ({ mentors, problem, effectiveLanguage, c
           apiKey: cfg.apiKey,
           chatCompletionsUrl: cfg.chatCompletionsUrl,
           isDashscope: cfg.isDashscope,
+        protocol: cfg.protocol,
           upstreamTimeoutMs: cfg.upstreamTimeoutMs
         });
         return { mentor, ok: true, output };
