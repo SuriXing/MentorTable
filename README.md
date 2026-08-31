@@ -39,8 +39,9 @@ field in the API body, as a failover chain with
 re-dispatch on the next link; the chain shares the existing upstream
 budget), or globally with `LLM_PROVIDER_CHAIN` / `LLM_PROVIDER`. Model
 IDs are per-endpoint namespaces — DashScope serves qwen/deepseek/kimi/glm
-under its own IDs, so each registry entry carries its own model name
-(env-overridable per provider). Requests without a
+under its own IDs, so each registry entry carries an ordered model list
+(tried left to right before the chain moves on; override per provider with
+a comma-separated env value). Requests without a
 provider use the legacy env config above. Unknown names are rejected
 with 400 (body) or fall back with a warning (env). See
 [.env.example](./.env.example) for the full variable list.

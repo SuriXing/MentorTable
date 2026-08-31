@@ -32,11 +32,14 @@ const PROVIDERS = {
     // deployments already have configured.
     apiKeyEnvs: ['DASHSCOPE_API_KEY', 'LLM_API_KEY'],
     protocol: 'openai',
-    // DashScope hosts many vendors' models (qwen-max, deepseek-v3,
-    // kimi-k2, glm-4.6...) under DashScope's own model IDs — which differ
-    // from the vendors' direct-API IDs. The model override is per-provider
-    // env, never a cross-provider shared name.
-    envOverrides: { model: ['DASHSCOPE_MODEL'] }
+    // Ordered model fallback list: tried left to right before the chain
+    // moves to the next provider. DashScope hosts many vendors' models
+    // (qwen, deepseek-v3, kimi-k2, glm...) under DashScope's own model IDs
+    // — which differ from the vendors' direct-API IDs. The override is
+    // per-provider env, comma-separated for multiple entries, never a
+    // cross-provider shared name.
+    models: ['qwen3-max', 'qwen-max'],
+    envOverrides: { models: ['DASHSCOPE_MODEL'] }
   },
   deepseek: {
     label: 'DeepSeek',
@@ -44,26 +47,34 @@ const PROVIDERS = {
     model: 'deepseek-chat',
     apiKeyEnvs: ['DEEPSEEK_API_KEY'],
     protocol: 'openai',
-    envOverrides: { model: ['DEEPSEEK_MODEL'] }
+    // deepseek-chat is DeepSeek's stable alias — it tracks their latest
+    // V3.x release, so it does not go stale.
+    models: ['deepseek-chat'],
+    envOverrides: { models: ['DEEPSEEK_MODEL'] }
   },
   openai: {
     label: 'OpenAI',
     baseUrl: 'https://api.openai.com/v1',
     model: 'gpt-4o-mini',
     apiKeyEnvs: ['OPENAI_API_KEY'],
-    protocol: 'openai'
+    protocol: 'openai',
+    models: ['gpt-4o-mini'],
+    envOverrides: { models: ['OPENAI_MODEL'] }
   },
   claude: {
     label: 'Anthropic Claude',
     baseUrl: 'https://api.anthropic.com',
-    model: 'claude-sonnet-4-5',
+    // Ordered list. ANTHROPIC_MODEL_1 and _2 are concatenated in order
+    // (comma-separated values inside each are honored too), so both of the
+    // user's configured models participate in fallback.
+    models: ['claude-sonnet-4-5', 'claude-opus-4-6'],
     apiKeyEnvs: ['ANTHROPIC_API_KEY_1', 'ANTHROPIC_API_KEY_2'],
     protocol: 'anthropic',
     // Relay-friendly: the endpoint and model can be pointed at any
     // Anthropic-protocol relay via env, without touching code.
     envOverrides: {
       baseUrl: ['ANTHROPIC_API_BASE', 'ANTHROPIC_BASE_URL'],
-      model: ['ANTHROPIC_MODEL_1', 'ANTHROPIC_MODEL_2']
+      models: ['ANTHROPIC_MODEL_1', 'ANTHROPIC_MODEL_2']
     }
   }
 };
@@ -93,10 +104,27 @@ function getProvider(name) {
     }
     return null;
   };
+  // Model override: every listed env var that is set contributes its
+  // comma-separated values, in order. ANTHROPIC_MODEL_1=a,ANTHROPIC_MODEL_2=b
+  // therefore resolves to the fallback list [a, b].
+  let models = entry.models;
+  const modelEnvs = entry.envOverrides && entry.envOverrides.models;
+  if (modelEnvs && modelEnvs.length) {
+    const values = [];
+    for (const name of modelEnvs) {
+      const v = process.env[name];
+      if (typeof v !== 'string') continue;
+      for (const part of v.split(',')) {
+        const trimmed = part.trim();
+        if (trimmed && !values.includes(trimmed)) values.push(trimmed);
+      }
+    }
+    if (values.length) models = values;
+  }
   return {
     ...entry,
     baseUrl: (entry.envOverrides && firstEnv(entry.envOverrides.baseUrl)) || entry.baseUrl,
-    model: (entry.envOverrides && firstEnv(entry.envOverrides.model)) || entry.model
+    models
   };
 }
 

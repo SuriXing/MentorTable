@@ -3816,7 +3816,7 @@ describe('provider registry selection', () => {
     const { res, fetchCalls } = await postWithProvider(null);
     expect(res._status).toBe(200);
     expect(fetchCalls[0]).toBe('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions');
-    expect(res._json.meta.model).toBe('qwen-max');
+    expect(res._json.meta.model).toBe('qwen3-max');
   }, 15000);
 
   it('rejects an unknown provider with 400 and a valid-names hint', async () => {
@@ -4090,4 +4090,112 @@ describe('provider failover chain', () => {
     expect(res._status).toBe(400);
     expect(res._json.error).toMatch(/unknown provider 'nope'/);
   });
+});
+
+// ---------------------------------------------------------------------------
+// Per-provider model fallback lists
+// ---------------------------------------------------------------------------
+describe('per-provider model fallback lists', () => {
+  const savedEnv = {};
+  const envKeys = [
+    'DASHSCOPE_API_KEY', 'DASHSCOPE_MODEL', 'ANTHROPIC_API_KEY_1',
+    'ANTHROPIC_MODEL_1', 'ANTHROPIC_MODEL_2', 'LLM_PROVIDER_CHAIN', 'MENTOR_LLM_CACHE',
+  ];
+  const originalFetch = globalThis.fetch;
+
+  beforeEach(() => {
+    for (const key of envKeys) {
+      savedEnv[key] = process.env[key];
+      delete process.env[key];
+    }
+    process.env.MENTOR_UPSTREAM_TIMEOUT_MS = '20000';
+    process.env.MENTOR_LLM_CACHE = '0';
+    if (handler.__test__._resetLlmReplyCache) handler.__test__._resetLlmReplyCache();
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    for (const [key, val] of Object.entries(savedEnv)) {
+      if (val === undefined) delete process.env[key];
+      else process.env[key] = val;
+    }
+  });
+
+  it('tries the provider models in order before falling to the next provider', async () => {
+    process.env.DASHSCOPE_API_KEY = 'ali-key';
+    process.env.ANTHROPIC_API_KEY_1 = 'ant-key';
+    const fetchCalls = [];
+    globalThis.fetch = vi.fn().mockImplementation(async (url, init) => {
+      const body = JSON.parse(String(init.body));
+      fetchCalls.push({ url: String(url), model: body.model });
+      if (String(url).includes('dashscope')) {
+        // Both dashscope models fail -> the chain falls through to claude.
+        return { ok: false, status: 404, json: async () => ({}), text: async () => 'model not found' };
+      }
+      const content = JSON.stringify(makeLLMResponse('elon_musk', 'Elon Musk', 'en'));
+      const isAnthropic = String(url).includes('/v1/messages');
+      return isAnthropic
+        ? { ok: true, status: 200, json: async () => ({ content: [{ type: 'text', text: content }] }), text: async () => '' }
+        : { ok: true, status: 200, json: async () => ({ choices: [{ message: { content } }] }), text: async () => '' };
+    });
+    const res = mockRes();
+    await handler(mockReq({
+      method: 'POST',
+      body: { problem: 'p', language: 'en', mentors: [sampleMentor], providers: ['dashscope', 'claude'] },
+    }), res);
+    expect(res._status).toBe(200);
+    expect(fetchCalls.map((c) => c.model)).toEqual(['qwen3-max', 'qwen-max', 'claude-sonnet-4-5']);
+    expect(res._json.meta.model).toBe('claude-sonnet-4-5');
+  }, 20000);
+
+  it('DASHSCOPE_MODEL accepts a comma-separated ordered list', async () => {
+    process.env.DASHSCOPE_API_KEY = 'ali-key';
+    process.env.DASHSCOPE_MODEL = 'deepseek-v3,qwen-max';
+    const fetchCalls = [];
+    globalThis.fetch = vi.fn().mockImplementation(async (url, init) => {
+      const model = JSON.parse(String(init.body)).model;
+      fetchCalls.push(model);
+      const content = JSON.stringify(makeLLMResponse('elon_musk', 'Elon Musk', 'en'));
+      if (model === 'deepseek-v3') {
+        return { ok: false, status: 404, json: async () => ({}), text: async () => 'model not found' };
+      }
+      return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content } }] }), text: async () => '' };
+    });
+    const res = mockRes();
+    await handler(mockReq({
+      method: 'POST',
+      body: { problem: 'p', language: 'en', mentors: [sampleMentor], provider: 'dashscope' },
+    }), res);
+    expect(res._status).toBe(200);
+    expect(fetchCalls).toEqual(['deepseek-v3', 'qwen-max']);
+    expect(res._json.meta.model).toBe('qwen-max');
+  }, 20000);
+
+  it('ANTHROPIC_MODEL_1 and _2 concatenate into the ordered fallback list', async () => {
+    process.env.ANTHROPIC_API_KEY_1 = 'ant-key';
+    process.env.ANTHROPIC_MODEL_1 = 'claude-opus-4-6';
+    process.env.ANTHROPIC_MODEL_2 = 'claude-sonnet-4-5';
+    const fetchCalls = [];
+    globalThis.fetch = vi.fn().mockImplementation(async (url, init) => {
+      const body = JSON.parse(String(init.body));
+      fetchCalls.push(body.model);
+      if (body.model === 'claude-opus-4-6') {
+        return { ok: false, status: 529, json: async () => ({}), text: async () => 'overloaded' };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ content: [{ type: 'text', text: JSON.stringify(makeLLMResponse('elon_musk', 'Elon Musk', 'en')) }] }),
+        text: async () => '',
+      };
+    });
+    const res = mockRes();
+    await handler(mockReq({
+      method: 'POST',
+      body: { problem: 'p', language: 'en', mentors: [sampleMentor], provider: 'claude' },
+    }), res);
+    expect(res._status).toBe(200);
+    expect(fetchCalls).toEqual(['claude-opus-4-6', 'claude-sonnet-4-5']);
+    expect(res._json.meta.model).toBe('claude-sonnet-4-5');
+  }, 20000);
 });
