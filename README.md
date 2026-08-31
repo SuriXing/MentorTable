@@ -34,8 +34,13 @@ Endpoints and default models live in the provider registry
 (`api/lib/llm-providers.js`; keys stay in env vars, one per provider; the
 claude entry speaks Anthropic-native /v1/messages, all others speak
 OpenAI-compatible chat/completions). Select per request with a `provider`
-field in the API body, or globally with
-`LLM_PROVIDER=dashscope|deepseek|openai|claude`. Requests without a
+field in the API body, as a failover chain with
+`providers: ["dashscope", "claude", "deepseek"]` (failed mentors
+re-dispatch on the next link; the chain shares the existing upstream
+budget), or globally with `LLM_PROVIDER_CHAIN` / `LLM_PROVIDER`. Model
+IDs are per-endpoint namespaces — DashScope serves qwen/deepseek/kimi/glm
+under its own IDs, so each registry entry carries its own model name
+(env-overridable per provider). Requests without a
 provider use the legacy env config above. Unknown names are rejected
 with 400 (body) or fall back with a warning (env). See
 [.env.example](./.env.example) for the full variable list.

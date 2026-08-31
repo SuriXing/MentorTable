@@ -43,7 +43,7 @@ const {
   compactConversationHistoryDeterministic,
   compactConversationHistory,
 } = require('./lib/mentor-history.js');
-const { getProvider, isKnownProvider, providerErrorHint } = require('./lib/llm-providers.js');
+const { getProvider, isKnownProvider, listProviderNames, providerErrorHint } = require('./lib/llm-providers.js');
 const {
   extractAssistantContent,
   firstNonEmptyEnvValue,
@@ -123,6 +123,104 @@ const resolveUpstreamConfig = (providerName) => {
   };
 };
 
+// Priority chain: body `providers` > body `provider` > LLM_PROVIDER_CHAIN
+// env (comma list) > LLM_PROVIDER env > legacy env config. Links whose key
+// env vars are all unset are dropped with a warning — a link that cannot
+// authenticate should not consume the shared request budget; if every link
+// is keyless the caller gets the structured 500 config error.
+const resolveProviderChain = (input) => {
+  const names = [];
+  if (Array.isArray(input.providers) && input.providers.length > 0) {
+    names.push(...input.providers);
+  } else if (input.provider) {
+    names.push(input.provider);
+  } else {
+    const envChain = process.env.LLM_PROVIDER_CHAIN;
+    if (envChain) {
+      for (const part of envChain.split(',')) {
+        const trimmed = part.trim();
+        if (trimmed) names.push(trimmed);
+      }
+      const unknownEnv = names.find((n) => !isKnownProvider(n));
+      if (unknownEnv) {
+        console.warn(`[mentor-table] ignoring unknown LLM_PROVIDER_CHAIN entry '${unknownEnv}' (${providerErrorHint()})`);
+      }
+    } else {
+      if (process.env.LLM_PROVIDER && !isKnownProvider(process.env.LLM_PROVIDER)) {
+        console.warn(`[mentor-table] ignoring unknown LLM_PROVIDER '${process.env.LLM_PROVIDER}' (${providerErrorHint()}); using legacy env config`);
+      }
+      if (isKnownProvider(process.env.LLM_PROVIDER)) {
+        names.push(process.env.LLM_PROVIDER);
+      }
+    }
+  }
+  const explicit = names.length > 0;
+  const seen = new Set();
+  const chain = [];
+  const keyless = [];
+  for (const name of names) {
+    if (!isKnownProvider(name) || seen.has(name)) continue;
+    seen.add(name);
+    if (chain.length >= listProviderNames().length) break;
+    const cfg = resolveUpstreamConfig(name);
+    if (cfg.apiKey) chain.push(cfg);
+    else keyless.push(cfg);
+  }
+  if (chain.length === 0) {
+    // Explicitly requested providers but none can authenticate: fail loudly
+    // naming the missing key env — silently serving on some other provider's
+    // key would misattribute both cost and provenance. Legacy fallback is
+    // only for the no-provider-named case.
+    if (explicit) return { chain: [], keyless };
+    chain.push(resolveUpstreamConfig(null));
+  }
+  return { chain, keyless };
+};
+
+// Runs the provider chain. Each link serves whatever mentors the previous
+// links failed, so a partial first provider does not re-pay for mentors it
+// already answered. The chain shares ONE upstream budget (the first link's
+// upstreamTimeoutMs) — a link that hangs eats the budget exactly like
+// today's single-provider timeout would; only fast failures gain a second
+// chance. primaryCfg is the first link that contributed at least one real
+// reply; meta is labeled from it.
+const dispatchProviderChain = async ({ chain, mentors, problem, effectiveLanguage, compactedConversation }) => {
+  const startedAt = Date.now();
+  const totalBudgetMs = chain[0].upstreamTimeoutMs;
+  const byMentorId = new Map();
+  const attempts = [];
+  let remaining = mentors;
+  let primaryCfg = null;
+
+  for (const cfg of chain) {
+    if (remaining.length === 0) break;
+    const remainingMs = totalBudgetMs - (Date.now() - startedAt);
+    if (remainingMs <= 500) break;
+    const linkCfg = { ...cfg, upstreamTimeoutMs: Math.min(cfg.upstreamTimeoutMs, remainingMs) };
+    const perMentor = await dispatchMentorGeneration({
+      mentors: remaining,
+      problem,
+      effectiveLanguage,
+      compactedConversation,
+      cfg: linkCfg
+    });
+    const okItems = perMentor.filter((item) => item.ok);
+    const failedItems = perMentor.filter((item) => !item.ok);
+    for (const item of perMentor) byMentorId.set(item.mentor.id, item);
+    attempts.push({
+      provider: linkCfg.provider || 'legacy',
+      ok: okItems.length,
+      failed: failedItems.length
+    });
+    if (okItems.length > 0 && !primaryCfg) primaryCfg = linkCfg;
+    remaining = failedItems.map((item) => item.mentor);
+  }
+
+  // Preserve the request's mentor order for the reply array.
+  const perMentor = mentors.map((m) => byMentorId.get(m.id)).filter(Boolean);
+  return { perMentor, attempts, primaryCfg };
+};
+
 const logMissingKeyDiagnostics = (cfg) => {
   console.error('[mentor-table] API key missing. Diagnostics:', {
     vercelEnv: process.env.VERCEL_ENV || null,
@@ -151,11 +249,30 @@ const parseAndValidateRequest = (req, res) => {
     res.status(400).json({ error: 'request body must be a JSON object' });
     return null;
   }
-  const { problem, language, mentors, conversationHistory, provider } = req.body;
+  const { problem, language, mentors, conversationHistory, provider, providers } = req.body;
 
   if (provider != null && !isKnownProvider(provider)) {
     res.status(400).json({ error: `unknown provider '${String(provider)}' (${providerErrorHint()})` });
     return null;
+  }
+
+  // Optional failover chain: try providers in order, re-dispatching failed
+  // mentors on the next link. Single `provider` and `providers` are mutually
+  // exclusive inputs; `providers` wins.
+  if (providers != null) {
+    if (!Array.isArray(providers) || providers.length === 0) {
+      res.status(400).json({ error: 'providers must be a non-empty array of provider names' });
+      return null;
+    }
+    if (providers.length > listProviderNames().length) {
+      res.status(400).json({ error: `too many providers (max ${listProviderNames().length})` });
+      return null;
+    }
+    const unknown = providers.find((n) => !isKnownProvider(n));
+    if (unknown) {
+      res.status(400).json({ error: `unknown provider '${String(unknown)}' (${providerErrorHint()})` });
+      return null;
+    }
   }
 
   if (typeof problem !== 'string' || !problem.trim()) {
@@ -189,7 +306,14 @@ const parseAndValidateRequest = (req, res) => {
     return null;
   }
 
-  return { problem, language, mentors, conversationHistory, provider: provider || null };
+  return {
+    problem,
+    language,
+    mentors,
+    conversationHistory,
+    provider: provider || null,
+    providers: Array.isArray(providers) ? providers : null
+  };
 };
 
 const compactRequestHistory = async (conversationHistory, effectiveLanguage, cfg) => {
@@ -383,41 +507,42 @@ const mentorTableHandler = async (req, res) => {
     const input = parseAndValidateRequest(req, res);
     if (!input) return;
 
-    // Provider precedence: request body > LLM_PROVIDER env default > legacy
-    // env config. An unknown LLM_PROVIDER env value is an operator typo —
-    // warn loudly but keep serving on the legacy config rather than going
-    // down; a body-level unknown provider is a client error (400 in the
-    // parse step above).
-    const envProvider = process.env.LLM_PROVIDER;
-    if (envProvider && !isKnownProvider(envProvider)) {
-      console.warn(`[mentor-table] ignoring unknown LLM_PROVIDER '${envProvider}' (${providerErrorHint()}); using legacy env config`);
-    }
-    const cfg = resolveUpstreamConfig(input.provider || (isKnownProvider(envProvider) ? envProvider : null));
+    // Provider precedence: body `providers` chain > body `provider` >
+    // LLM_PROVIDER_CHAIN env > LLM_PROVIDER env > legacy env config. An
+    // unknown env value is an operator typo — warn loudly but keep serving
+    // on the legacy config rather than going down; body-level unknown names
+    // are client errors (400 in the parse step above).
+    const { chain, keyless } = resolveProviderChain(input);
 
     // Misuse of the API always returns 4xx (validation above); only
-    // LLM-requiring paths require server config.
-    if (!cfg.apiKey) {
-      logMissingKeyDiagnostics(cfg);
+    // LLM-requiring paths require server config. Every chain link had a
+    // keyless env situation -> nothing can authenticate.
+    if (chain.length === 0 || !chain.some((c) => c.apiKey)) {
+      logMissingKeyDiagnostics(keyless[0] || chain[0]);
       res.status(500).json({ error: 'Server configuration error' });
       return;
     }
 
     const { problem, language, mentors, conversationHistory } = input;
     const effectiveLanguage = resolveEffectiveLanguage(language, problem, conversationHistory);
-    const compactedConversation = await compactRequestHistory(conversationHistory, effectiveLanguage, cfg);
-    const perMentor = await dispatchMentorGeneration({
+    const compactedConversation = await compactRequestHistory(conversationHistory, effectiveLanguage, chain[0]);
+    const { perMentor, attempts, primaryCfg } = await dispatchProviderChain({
+      chain,
       mentors,
       problem,
       effectiveLanguage,
-      compactedConversation,
-      cfg
+      compactedConversation
     });
+    if (attempts.length > 1) {
+      log('info', 'provider_chain', { handler: 'mentor-table', attempts });
+    }
     const { normalized, failedMentors } = aggregatePerMentorResults(perMentor, effectiveLanguage);
 
+    const labeledCfg = primaryCfg || chain[0];
     const finalized = finalizeContractShape(normalized, {
       language: effectiveLanguage,
-      baseUrl: cfg.baseUrl,
-      model: cfg.model
+      baseUrl: labeledCfg.baseUrl,
+      model: labeledCfg.model
     });
 
     if (failedMentors.length === mentors.length) {

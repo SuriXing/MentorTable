@@ -31,14 +31,20 @@ const PROVIDERS = {
     // provider-native name; LLM_API_KEY is the legacy name this repo's
     // deployments already have configured.
     apiKeyEnvs: ['DASHSCOPE_API_KEY', 'LLM_API_KEY'],
-    protocol: 'openai'
+    protocol: 'openai',
+    // DashScope hosts many vendors' models (qwen-max, deepseek-v3,
+    // kimi-k2, glm-4.6...) under DashScope's own model IDs — which differ
+    // from the vendors' direct-API IDs. The model override is per-provider
+    // env, never a cross-provider shared name.
+    envOverrides: { model: ['DASHSCOPE_MODEL'] }
   },
   deepseek: {
     label: 'DeepSeek',
     baseUrl: 'https://api.deepseek.com/v1',
     model: 'deepseek-chat',
     apiKeyEnvs: ['DEEPSEEK_API_KEY'],
-    protocol: 'openai'
+    protocol: 'openai',
+    envOverrides: { model: ['DEEPSEEK_MODEL'] }
   },
   openai: {
     label: 'OpenAI',

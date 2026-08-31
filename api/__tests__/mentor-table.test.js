@@ -3954,3 +3954,140 @@ describe('claude provider (anthropic protocol)', () => {
     expect(res._json.error).toMatch(/configuration/i);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Provider failover chain
+// ---------------------------------------------------------------------------
+describe('provider failover chain', () => {
+  const savedEnv = {};
+  const envKeys = [
+    'LLM_API_KEY', 'DEEPSEEK_API_KEY', 'ANTHROPIC_API_KEY_1', 'ANTHROPIC_API_BASE',
+    'LLM_PROVIDER', 'LLM_PROVIDER_CHAIN', 'LLM_MODEL', 'LLM_API_BASE_URL',
+    'MENTOR_UPSTREAM_TIMEOUT_MS', 'MENTOR_LLM_CACHE',
+  ];
+  const originalFetch = globalThis.fetch;
+
+  beforeEach(() => {
+    for (const key of envKeys) {
+      savedEnv[key] = process.env[key];
+      delete process.env[key];
+    }
+    process.env.MENTOR_UPSTREAM_TIMEOUT_MS = '20000';
+    process.env.MENTOR_LLM_CACHE = '0';
+    if (handler.__test__._resetLlmReplyCache) handler.__test__._resetLlmReplyCache();
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    for (const [key, val] of Object.entries(savedEnv)) {
+      if (val === undefined) delete process.env[key];
+      else process.env[key] = val;
+    }
+  });
+
+  const post = async (body) => {
+    const fetchCalls = [];
+    globalThis.fetch = vi.fn().mockImplementation(async (url, init) => {
+      fetchCalls.push({ url: String(url), init, body: JSON.parse(String(init.body)) });
+      return { ok: false, status: 500, json: async () => ({}), text: async () => 'upstream down' };
+    });
+    const res = mockRes();
+    await handler(mockReq({ method: 'POST', body }), res);
+    return { res, fetchCalls };
+  };
+
+  it('advances to the next provider when the first fails totally', async () => {
+    process.env.DEEPSEEK_API_KEY = 'ds-key';
+    process.env.ANTHROPIC_API_KEY_1 = 'ant-key';
+    const fetchCalls = [];
+    globalThis.fetch = vi.fn().mockImplementation(async (url, init) => {
+      fetchCalls.push({ url: String(url), init });
+      const isAnthropic = String(url).includes('/v1/messages');
+      const content = JSON.stringify(makeLLMResponse('elon_musk', 'Elon Musk', 'en'));
+      return isAnthropic
+        ? { ok: true, status: 200, json: async () => ({ content: [{ type: 'text', text: content }] }), text: async () => '' }
+        : { ok: false, status: 500, json: async () => ({}), text: async () => 'down' };
+    });
+    const res = mockRes();
+    await handler(mockReq({
+      method: 'POST',
+      body: { problem: 'p', language: 'en', mentors: [sampleMentor], providers: ['deepseek', 'claude'] },
+    }), res);
+    expect(res._status).toBe(200);
+    expect(fetchCalls).toHaveLength(2);
+    expect(fetchCalls[0].url).toBe('https://api.deepseek.com/v1/chat/completions');
+    expect(fetchCalls[1].url).toBe('https://api.anthropic.com/v1/messages');
+    // meta is labeled from the provider that actually served the reply.
+    expect(res._json.meta.provider).toBe('api.anthropic.com');
+    expect(res._json.mentorReplies[0].mentorId).toBe('elon_musk');
+  }, 20000);
+
+  it('re-dispatches only the failed mentors on the next provider', async () => {
+    process.env.DEEPSEEK_API_KEY = 'ds-key';
+    process.env.ANTHROPIC_API_KEY_1 = 'ant-key';
+    const mentor2 = { ...sampleMentor, id: 'bill_gates', displayName: 'Bill Gates' };
+    let deepseekCalls = 0;
+    globalThis.fetch = vi.fn().mockImplementation(async (url, _init) => {
+      const isDeepseek = String(url).includes('api.deepseek.com');
+      const content = JSON.stringify(makeLLMResponse('elon_musk', 'Elon Musk', 'en'));
+      if (isDeepseek) {
+        deepseekCalls += 1;
+        // First deepseek call succeeds, second fails -> mentor 2 falls through.
+        if (deepseekCalls === 1) {
+          return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content } }] }), text: async () => '' };
+        }
+        return { ok: false, status: 500, json: async () => ({}), text: async () => 'down' };
+      }
+      return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content } }] }), text: async () => '' };
+    });
+    const res = mockRes();
+    await handler(mockReq({
+      method: 'POST',
+      body: { problem: 'p', language: 'en', mentors: [sampleMentor, mentor2], providers: ['deepseek', 'claude'] },
+    }), res);
+    expect(res._status).toBe(200);
+    expect(res._json.mentorReplies).toHaveLength(2);
+    // Request order preserved even though mentor 2 was served by link 2.
+    expect(res._json.mentorReplies[0].mentorId).toBe('elon_musk');
+    expect(res._json.mentorReplies[1].mentorId).toBe('bill_gates');
+  }, 20000);
+
+  it('exhausting the chain still returns 200 with fallback replies', async () => {
+    process.env.DEEPSEEK_API_KEY = 'ds-key';
+    process.env.ANTHROPIC_API_KEY_1 = 'ant-key';
+    const { res } = await post({
+      problem: 'p', language: 'en', mentors: [sampleMentor], providers: ['deepseek', 'claude'],
+    });
+    expect(res._status).toBe(200);
+    expect(res._json.meta.provider).toBe('server-fallback');
+    expect(res._json.mentorReplies).toHaveLength(1);
+  }, 20000);
+
+  it('LLM_PROVIDER_CHAIN env builds the default chain', async () => {
+    process.env.LLM_PROVIDER_CHAIN = 'deepseek,claude';
+    process.env.DEEPSEEK_API_KEY = 'ds-key';
+    process.env.ANTHROPIC_API_KEY_1 = 'ant-key';
+    const { res, fetchCalls } = await post({ problem: 'p', language: 'en', mentors: [sampleMentor] });
+    expect(res._status).toBe(200);
+    expect(fetchCalls[0].url).toBe('https://api.deepseek.com/v1/chat/completions');
+  }, 20000);
+
+  it('keyless chain links are skipped with a warning, not called', async () => {
+    process.env.LLM_PROVIDER_CHAIN = 'openai,deepseek';
+    process.env.DEEPSEEK_API_KEY = 'ds-key';
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { res, fetchCalls } = await post({ problem: 'p', language: 'en', mentors: [sampleMentor] });
+    warnSpy.mockRestore();
+    expect(res._status).toBe(200);
+    expect(fetchCalls.filter((c) => c.url.includes('api.openai.com'))).toHaveLength(0);
+    expect(fetchCalls[0].url).toBe('https://api.deepseek.com/v1/chat/completions');
+  }, 20000);
+
+  it('rejects an unknown name inside the providers array with 400', async () => {
+    const { res } = await post({
+      problem: 'p', language: 'en', mentors: [sampleMentor], providers: ['deepseek', 'nope'],
+    });
+    expect(res._status).toBe(400);
+    expect(res._json.error).toMatch(/unknown provider 'nope'/);
+  });
+});
