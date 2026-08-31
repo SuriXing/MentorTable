@@ -3729,3 +3729,124 @@ describe('mentor-table batch fan-out (F158)', () => {
     expect(res._json.mentorReplies.map((r) => r.mentorId)).toEqual(['elon_musk', 'marie_curie']);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Provider registry selection (multi-provider upstream)
+// ---------------------------------------------------------------------------
+describe('provider registry selection', () => {
+  const providerEnvKeys = [
+    'LLM_API_KEY', 'OPENAI_API_KEY', 'LLM_API_TOKEN', 'OPENAI_KEY',
+    'DEEPSEEK_API_KEY', 'LLM_MODEL', 'OPENAI_MODEL',
+    'LLM_API_BASE_URL', 'OPENAI_BASE_URL', 'LLM_PROVIDER',
+    'MENTOR_UPSTREAM_TIMEOUT_MS', 'MENTOR_LLM_CACHE',
+  ];
+  const savedEnv = {};
+  const originalFetch = globalThis.fetch;
+
+  beforeEach(() => {
+    for (const key of providerEnvKeys) {
+      savedEnv[key] = process.env[key];
+      delete process.env[key];
+    }
+    process.env.MENTOR_UPSTREAM_TIMEOUT_MS = '5000';
+    process.env.MENTOR_LLM_CACHE = '0';
+    if (handler.__test__._resetLlmReplyCache) handler.__test__._resetLlmReplyCache();
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    for (const [key, val] of Object.entries(savedEnv)) {
+      if (val === undefined) delete process.env[key];
+      else process.env[key] = val;
+    }
+  });
+
+  const postWithProvider = async (provider) => {
+    const llmResponse = makeLLMResponse('elon_musk', 'Elon Musk', 'en');
+    const fetchCalls = [];
+    globalThis.fetch = vi.fn().mockImplementation(async (url) => {
+      fetchCalls.push(String(url));
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          choices: [{ message: { content: JSON.stringify(llmResponse) } }],
+        }),
+        text: async () => '',
+      };
+    });
+    const res = mockRes();
+    await handler(mockReq({
+      method: 'POST',
+      body: {
+        problem: 'How do I start a company?',
+        language: 'en',
+        mentors: [sampleMentor],
+        ...(provider ? { provider } : {}),
+      },
+    }), res);
+    return { res, fetchCalls };
+  };
+
+  it('routes to the registry endpoint and model for a requested provider', async () => {
+    process.env.DEEPSEEK_API_KEY = 'ds-key-1';
+    const { res, fetchCalls } = await postWithProvider('deepseek');
+    expect(res._status).toBe(200);
+    expect(fetchCalls).toHaveLength(1);
+    expect(fetchCalls[0]).toBe('https://api.deepseek.com/v1/chat/completions');
+    // meta.provider is derived from the resolved baseUrl host.
+    expect(res._json.meta.provider).toBe('api.deepseek.com');
+    expect(res._json.meta.model).toBe('deepseek-chat');
+  }, 15000);
+
+  it('the body provider wins over the LLM_PROVIDER env default', async () => {
+    process.env.LLM_PROVIDER = 'dashscope';
+    process.env.LLM_API_KEY = 'ali-key-1';
+    process.env.DEEPSEEK_API_KEY = 'ds-key-1';
+    const { res, fetchCalls } = await postWithProvider('deepseek');
+    expect(res._status).toBe(200);
+    expect(fetchCalls[0]).toBe('https://api.deepseek.com/v1/chat/completions');
+  }, 15000);
+
+  it('LLM_PROVIDER env selects the default provider without a body param', async () => {
+    process.env.LLM_PROVIDER = 'dashscope';
+    process.env.LLM_API_KEY = 'ali-key-1';
+    const { res, fetchCalls } = await postWithProvider(null);
+    expect(res._status).toBe(200);
+    expect(fetchCalls[0]).toBe('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions');
+    expect(res._json.meta.model).toBe('qwen-max');
+  }, 15000);
+
+  it('rejects an unknown provider with 400 and a valid-names hint', async () => {
+    process.env.LLM_API_KEY = 'ali-key-1';
+    const { res } = await postWithProvider('not-a-provider');
+    expect(res._status).toBe(400);
+    expect(res._json.error).toMatch(/unknown provider 'not-a-provider'/);
+    expect(res._json.error).toMatch(/valid providers: dashscope, deepseek, openai/);
+  });
+
+  it('uses only the chosen provider key env — missing key is a 500 naming the var', async () => {
+    // LLM_API_KEY is set (would satisfy the legacy aliases) but deepseek
+    // mode reads DEEPSEEK_API_KEY strictly: silent cross-billing is worse
+    // than a loud config error.
+    process.env.LLM_API_KEY = 'ali-key-1';
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { res } = await postWithProvider('deepseek');
+    errSpy.mockRestore();
+    expect(res._status).toBe(500);
+    expect(res._json.error).toMatch(/configuration/i);
+  });
+
+  it('an unknown LLM_PROVIDER env value warns and falls back to legacy config', async () => {
+    process.env.LLM_PROVIDER = 'typo-name';
+    process.env.LLM_API_KEY = 'ali-key-1';
+    process.env.LLM_MODEL = 'legacy-model';
+    process.env.LLM_API_BASE_URL = 'https://api.test.com/v1';
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { res, fetchCalls } = await postWithProvider(null);
+    warnSpy.mockRestore();
+    expect(res._status).toBe(200);
+    expect(fetchCalls[0]).toBe('https://api.test.com/v1/chat/completions');
+    expect(res._json.meta.model).toBe('legacy-model');
+  }, 15000);
+});

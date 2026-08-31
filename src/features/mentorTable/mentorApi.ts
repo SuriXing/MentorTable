@@ -12,6 +12,10 @@ interface MentorApiRequest {
   language: 'zh-CN' | 'en';
   mentors: MentorProfile[];
   conversationHistory?: MentorConversationMessage[];
+  // Optional upstream provider name, validated server-side against the
+  // registry (api/lib/llm-providers.js). Omitted = server default. The
+  // local simulator ignores it.
+  provider?: string;
 }
 
 interface MentorDebugPromptRequest {

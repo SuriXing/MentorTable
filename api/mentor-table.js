@@ -43,6 +43,7 @@ const {
   compactConversationHistoryDeterministic,
   compactConversationHistory,
 } = require('./lib/mentor-history.js');
+const { PROVIDERS, isKnownProvider, providerErrorHint } = require('./lib/llm-providers.js');
 const {
   extractAssistantContent,
   firstNonEmptyEnvValue,
@@ -66,15 +67,39 @@ const DEFAULT_UPSTREAM_TIMEOUT_MS = 25000;
 // only. All steps run inside the handler's try/catch — a throw anywhere
 // still surfaces through the same structured 500 path.
 
-const resolveUpstreamConfig = () => {
+// providerName comes from the request body (client/agent choice) or the
+// LLM_PROVIDER env default; both must name an entry in the provider
+// registry. With no provider named, the legacy single-provider env config
+// applies unchanged (LLM_API_BASE_URL/LLM_MODEL + key aliases).
+const resolveUpstreamConfig = (providerName) => {
+  if (providerName && isKnownProvider(providerName)) {
+    const entry = PROVIDERS[providerName];
+    // Strict per-provider key: entry.apiKeyEnv only — a missing key for the
+    // chosen provider must fail loudly (500 diagnostics name the var), not
+    // silently bill some other provider's key against this endpoint.
+    const apiKey = process.env[entry.apiKeyEnv] || null;
+    const baseUrl = entry.baseUrl;
+    return {
+      provider: providerName,
+      apiKey,
+      apiKeyEnv: entry.apiKeyEnv,
+      model: entry.model,
+      baseUrl,
+      upstreamTimeoutMs: Number(process.env.MENTOR_UPSTREAM_TIMEOUT_MS || DEFAULT_UPSTREAM_TIMEOUT_MS),
+      chatCompletionsUrl: `${baseUrl.replace(/\/+$/, '')}/chat/completions`,
+      isDashscope: /dashscope\.aliyuncs\.com/i.test(baseUrl)
+    };
+  }
   const baseUrl = process.env.LLM_API_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
   return {
+    provider: null,
     apiKey: firstNonEmptyEnvValue([
       process.env.LLM_API_KEY,
       process.env.OPENAI_API_KEY,
       process.env.LLM_API_TOKEN,
       process.env.OPENAI_KEY
     ]),
+    apiKeyEnv: null,
     model: process.env.LLM_MODEL || process.env.OPENAI_MODEL || 'qwen-max',
     baseUrl,
     upstreamTimeoutMs: Number(process.env.MENTOR_UPSTREAM_TIMEOUT_MS || DEFAULT_UPSTREAM_TIMEOUT_MS),
@@ -83,9 +108,11 @@ const resolveUpstreamConfig = () => {
   };
 };
 
-const logMissingKeyDiagnostics = () => {
+const logMissingKeyDiagnostics = (cfg) => {
   console.error('[mentor-table] API key missing. Diagnostics:', {
     vercelEnv: process.env.VERCEL_ENV || null,
+    provider: cfg && cfg.provider ? cfg.provider : null,
+    expectedKeyEnv: cfg && cfg.apiKeyEnv ? cfg.apiKeyEnv : 'LLM_API_KEY (or legacy aliases)',
     hasLLMApiKey: Boolean(firstNonEmptyEnvValue([process.env.LLM_API_KEY])),
     hasOpenAiApiKey: Boolean(firstNonEmptyEnvValue([process.env.OPENAI_API_KEY])),
     hasLlmApiToken: Boolean(firstNonEmptyEnvValue([process.env.LLM_API_TOKEN])),
@@ -109,7 +136,12 @@ const parseAndValidateRequest = (req, res) => {
     res.status(400).json({ error: 'request body must be a JSON object' });
     return null;
   }
-  const { problem, language, mentors, conversationHistory } = req.body;
+  const { problem, language, mentors, conversationHistory, provider } = req.body;
+
+  if (provider != null && !isKnownProvider(provider)) {
+    res.status(400).json({ error: `unknown provider '${String(provider)}' (${providerErrorHint()})` });
+    return null;
+  }
 
   if (typeof problem !== 'string' || !problem.trim()) {
     res.status(400).json({ error: 'problem is required' });
@@ -142,7 +174,7 @@ const parseAndValidateRequest = (req, res) => {
     return null;
   }
 
-  return { problem, language, mentors, conversationHistory };
+  return { problem, language, mentors, conversationHistory, provider: provider || null };
 };
 
 const compactRequestHistory = async (conversationHistory, effectiveLanguage, cfg) => {
@@ -330,16 +362,25 @@ const mentorTableHandler = async (req, res) => {
     return;
   }
 
-  const cfg = resolveUpstreamConfig();
-
   try {
     const input = parseAndValidateRequest(req, res);
     if (!input) return;
 
+    // Provider precedence: request body > LLM_PROVIDER env default > legacy
+    // env config. An unknown LLM_PROVIDER env value is an operator typo —
+    // warn loudly but keep serving on the legacy config rather than going
+    // down; a body-level unknown provider is a client error (400 in the
+    // parse step above).
+    const envProvider = process.env.LLM_PROVIDER;
+    if (envProvider && !isKnownProvider(envProvider)) {
+      console.warn(`[mentor-table] ignoring unknown LLM_PROVIDER '${envProvider}' (${providerErrorHint()}); using legacy env config`);
+    }
+    const cfg = resolveUpstreamConfig(input.provider || (isKnownProvider(envProvider) ? envProvider : null));
+
     // Misuse of the API always returns 4xx (validation above); only
     // LLM-requiring paths require server config.
     if (!cfg.apiKey) {
-      logMissingKeyDiagnostics();
+      logMissingKeyDiagnostics(cfg);
       res.status(500).json({ error: 'Server configuration error' });
       return;
     }
