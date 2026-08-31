@@ -38,7 +38,9 @@ const PROVIDERS = {
     // — which differ from the vendors' direct-API IDs. The override is
     // per-provider env, comma-separated for multiple entries, never a
     // cross-provider shared name.
-    models: ['qwen3-max', 'qwen-max'],
+    // IDs verified live against GET /compatible-mode/v1/models (2026-08-31):
+    // glm-5 and kimi-k3 both complete chat requests on this account.
+    models: ['qwen3-max', 'glm-5', 'kimi-k3'],
     envOverrides: { models: ['DASHSCOPE_MODEL'] }
   },
   deepseek: {
@@ -47,9 +49,11 @@ const PROVIDERS = {
     model: 'deepseek-chat',
     apiKeyEnvs: ['DEEPSEEK_API_KEY'],
     protocol: 'openai',
-    // deepseek-chat is DeepSeek's stable alias — it tracks their latest
-    // V3.x release, so it does not go stale.
-    models: ['deepseek-chat'],
+    // IDs verified live against GET /models (2026-08-31): the v3-era
+    // deepseek-chat alias no longer appears; v4 is current. Both are
+    // hybrid reasoning models — they emit reasoning_content plus content,
+    // so leave headroom for thinking tokens in any max_tokens decision.
+    models: ['deepseek-v4-flash', 'deepseek-v4-pro'],
     envOverrides: { models: ['DEEPSEEK_MODEL'] }
   },
   openai: {
