@@ -4199,3 +4199,124 @@ describe('per-provider model fallback lists', () => {
     expect(res._json.meta.model).toBe('claude-sonnet-4-5');
   }, 20000);
 });
+
+// ---------------------------------------------------------------------------
+// Reasoning model support (reasoning_content / thinking blocks)
+// ---------------------------------------------------------------------------
+describe('reasoning model support', () => {
+  const savedEnv = {};
+  const envKeys = ['DEEPSEEK_API_KEY', 'ANTHROPIC_API_KEY_1', 'LLM_PROVIDER', 'MENTOR_LLM_CACHE'];
+  const originalFetch = globalThis.fetch;
+
+  beforeEach(() => {
+    for (const key of envKeys) {
+      savedEnv[key] = process.env[key];
+      delete process.env[key];
+    }
+    process.env.MENTOR_UPSTREAM_TIMEOUT_MS = '20000';
+    process.env.MENTOR_LLM_CACHE = '0';
+    if (handler.__test__._resetLlmReplyCache) handler.__test__._resetLlmReplyCache();
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    for (const [key, val] of Object.entries(savedEnv)) {
+      if (val === undefined) delete process.env[key];
+      else process.env[key] = val;
+    }
+  });
+
+  const deepseekJsonReply = () => JSON.stringify(makeLLMResponse('elon_musk', 'Elon Musk', 'en'));
+
+  it('parses content normally when reasoning_content is present and logs stats', async () => {
+    process.env.DEEPSEEK_API_KEY = 'ds-key';
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const fetchCalls = [];
+    globalThis.fetch = vi.fn().mockImplementation(async (url) => {
+      fetchCalls.push(String(url));
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          choices: [{ message: { role: 'assistant', content: deepseekJsonReply(), reasoning_content: 'The user struggles with focus. Structure advice around subtraction.' } }],
+          usage: { completion_tokens: 40, completion_tokens_details: { reasoning_tokens: 27 } },
+        }),
+        text: async () => '',
+      };
+    });
+    const res = mockRes();
+    await handler(mockReq({
+      method: 'POST',
+      body: { problem: 'p', language: 'en', mentors: [sampleMentor], provider: 'deepseek' },
+    }), res);
+    logSpy.mockRestore();
+    expect(res._status).toBe(200);
+    expect(fetchCalls).toHaveLength(1); // no repair call
+    expect(res._json.mentorReplies[0].mentorId).toBe('elon_musk');
+  }, 20000);
+
+  it('reasoning-only responses skip the repair call and fail into the chain', async () => {
+    process.env.DEEPSEEK_API_KEY = 'ds-key';
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const fetchCalls = [];
+    globalThis.fetch = vi.fn().mockImplementation(async (url) => {
+      fetchCalls.push(String(url));
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          choices: [{ message: { role: 'assistant', content: '', reasoning_content: 'Let me think about focus at length...' } }],
+          usage: { completion_tokens: 4096, completion_tokens_details: { reasoning_tokens: 4096 } },
+        }),
+        text: async () => '',
+      };
+    });
+    const res = mockRes();
+    await handler(mockReq({
+      method: 'POST',
+      body: { problem: 'p', language: 'en', mentors: [sampleMentor], provider: 'deepseek' },
+    }), res);
+    logSpy.mockRestore();
+    // Two upstream calls — v4-flash then v4-pro — and zero repair calls:
+    // the reasoning-only response fails fast into the next chain link.
+    expect(fetchCalls).toHaveLength(2);
+    // The mentor degrades to the local fallback reply.
+    expect(res._status).toBe(200);
+    expect(res._json.meta.provider).toBe('server-fallback');
+  }, 20000);
+
+  it('anthropic thinking blocks are skipped, text blocks still parse', async () => {
+    process.env.ANTHROPIC_API_KEY_1 = 'ant-key';
+    const fetchCalls = [];
+    globalThis.fetch = vi.fn().mockImplementation(async (url) => {
+      fetchCalls.push(String(url));
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          content: [
+            { type: 'thinking', thinking: 'Weigh the mentor persona against the problem first.' },
+            { type: 'text', text: deepseekJsonReply() },
+          ],
+        }),
+        text: async () => '',
+      };
+    });
+    const res = mockRes();
+    await handler(mockReq({
+      method: 'POST',
+      body: { problem: 'p', language: 'en', mentors: [sampleMentor], provider: 'claude' },
+    }), res);
+    expect(res._status).toBe(200);
+    expect(fetchCalls).toHaveLength(1);
+    expect(res._json.mentorReplies[0].mentorId).toBe('elon_musk');
+  }, 20000);
+
+  it('extractReasoningContent handles openai, anthropic, and absent shapes', () => {
+    const { extractReasoningContent } = require('../lib/mentor-upstream.js');
+    expect(extractReasoningContent({ choices: [{ message: { content: 'x', reasoning_content: 'thoughts' } }] })).toBe('thoughts');
+    expect(extractReasoningContent({ content: [{ type: 'thinking', thinking: 'hmm' }, { type: 'text', text: 'x' }] })).toBe('hmm');
+    expect(extractReasoningContent({ choices: [{ message: { content: 'x' } }] })).toBe('');
+    expect(extractReasoningContent({})).toBe('');
+  });
+});
