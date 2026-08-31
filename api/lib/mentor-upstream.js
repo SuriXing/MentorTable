@@ -310,6 +310,21 @@ async function requestMentorReplyFromLLM({
 
   const data = await response.json();
   let content = extractAssistantContent(data);
+  const reasoning = extractReasoningContent(data);
+  if (reasoning) {
+    logReasoningStats({ mentorId: mentor.id, reasoning, reasoningTokens: reasoningUsage(data) });
+  }
+
+  // Reasoning models can exhaust the output budget mid-thinking: content
+  // empty, reasoning present. Repairing an empty string cannot succeed, so
+  // skip the repair call and fail fast — the provider chain picks this up
+  // and tries the next model with the saved budget.
+  if (!content) {
+    throw new Error(
+      `Model returned empty content for ${mentor.id}` +
+        (reasoning ? ' (reasoning-only response; thinking consumed the output budget)' : '')
+    );
+  }
   let parsed = tryParseJson(content);
 
   if (!parsed) {
@@ -366,6 +381,38 @@ async function requestMentorReplyFromLLM({
   const result = { reply, safety: normalized.safety };
   llmCachePut(cacheKey, result);
   return result;
+}
+
+// Reasoning models (deepseek v4, qwen3 thinking, kimi thinking, anthropic
+// extended thinking) put their thinking in reasoning_content (OpenAI
+// protocol) or { type: 'thinking' } blocks (Anthropic). Observability
+// only — the answer always lives in content; thinking never fills in for
+// a missing answer.
+function extractReasoningContent(data) {
+  const reasoning = data?.choices?.[0]?.message?.reasoning_content;
+  if (typeof reasoning === 'string' && reasoning.trim()) return reasoning;
+  if (Array.isArray(data?.content)) {
+    const thoughts = data.content
+      .map((part) => (part && part.type === 'thinking' && typeof part.thinking === 'string' ? part.thinking : ''))
+      .filter(Boolean);
+    if (thoughts.length) return thoughts.join('\n');
+  }
+  return '';
+}
+
+function reasoningUsage(data) {
+  const details = data?.usage?.completion_tokens_details;
+  return details && typeof details.reasoning_tokens === 'number' ? details.reasoning_tokens : null;
+}
+
+function logReasoningStats({ mentorId, reasoning, reasoningTokens }) {
+  log('info', 'upstream_reasoning', {
+    handler: 'mentor-table',
+    mentorId,
+    reasoningChars: reasoning.length,
+    reasoningTokens,
+    preview: reasoning.slice(0, 120).replace(/\s+/g, ' ')
+  });
 }
 
 function extractAssistantContent(data) {
@@ -521,6 +568,16 @@ async function requestMentorBatchReplyFromLLM({
 
   const data = await response.json();
   let content = extractAssistantContent(data);
+  const reasoning = extractReasoningContent(data);
+  if (reasoning) {
+    logReasoningStats({ mentorId: 'batch', reasoning, reasoningTokens: reasoningUsage(data) });
+  }
+  if (!content) {
+    throw new Error(
+      'Model returned empty content in batch mode' +
+        (reasoning ? ' (reasoning-only response; thinking consumed the output budget)' : '')
+    );
+  }
   let parsed = tryParseJson(content);
 
   if (!parsed) {
@@ -624,6 +681,7 @@ module.exports = {
   _retrySleep,
 
   extractAssistantContent,
+  extractReasoningContent,
   firstNonEmptyEnvValue,
   requestMentorReplyFromLLM,
   _resetLlmReplyCache,
