@@ -79,7 +79,7 @@ jobs:
       # the github-script body (not template-string interpolation).
       - name: Comment Lighthouse scores on PR
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           LHCI_LINKS: ${{ steps.lhci.outputs.links }}
           PREVIEW_URL: ${{ steps.url.outputs.preview_url }}
