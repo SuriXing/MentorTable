@@ -3738,6 +3738,8 @@ describe('provider registry selection', () => {
     'LLM_API_KEY', 'OPENAI_API_KEY', 'LLM_API_TOKEN', 'OPENAI_KEY',
     'DEEPSEEK_API_KEY', 'LLM_MODEL', 'OPENAI_MODEL',
     'LLM_API_BASE_URL', 'OPENAI_BASE_URL', 'LLM_PROVIDER',
+    'ANTHROPIC_API_KEY_1', 'ANTHROPIC_API_KEY_2', 'ANTHROPIC_API_BASE',
+    'ANTHROPIC_BASE_URL', 'ANTHROPIC_MODEL_1', 'ANTHROPIC_MODEL_2',
     'MENTOR_UPSTREAM_TIMEOUT_MS', 'MENTOR_LLM_CACHE',
   ];
   const savedEnv = {};
@@ -3822,7 +3824,7 @@ describe('provider registry selection', () => {
     const { res } = await postWithProvider('not-a-provider');
     expect(res._status).toBe(400);
     expect(res._json.error).toMatch(/unknown provider 'not-a-provider'/);
-    expect(res._json.error).toMatch(/valid providers: dashscope, deepseek, openai/);
+    expect(res._json.error).toMatch(/valid providers: dashscope, deepseek, openai, claude/);
   });
 
   it('uses only the chosen provider key env — missing key is a 500 naming the var', async () => {
@@ -3849,4 +3851,106 @@ describe('provider registry selection', () => {
     expect(fetchCalls[0]).toBe('https://api.test.com/v1/chat/completions');
     expect(res._json.meta.model).toBe('legacy-model');
   }, 15000);
+});
+
+// ---------------------------------------------------------------------------
+// Claude provider — Anthropic-native protocol adapter
+// ---------------------------------------------------------------------------
+describe('claude provider (anthropic protocol)', () => {
+  const savedEnv = {};
+  const envKeys = ['ANTHROPIC_API_KEY_1', 'ANTHROPIC_API_KEY_2', 'ANTHROPIC_API_BASE', 'ANTHROPIC_MODEL_1', 'MENTOR_LLM_CACHE'];
+  const originalFetch = globalThis.fetch;
+
+  beforeEach(() => {
+    for (const key of envKeys) {
+      savedEnv[key] = process.env[key];
+      delete process.env[key];
+    }
+    process.env.MENTOR_UPSTREAM_TIMEOUT_MS = '5000';
+    process.env.MENTOR_LLM_CACHE = '0';
+    if (handler.__test__._resetLlmReplyCache) handler.__test__._resetLlmReplyCache();
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    for (const [key, val] of Object.entries(savedEnv)) {
+      if (val === undefined) delete process.env[key];
+      else process.env[key] = val;
+    }
+  });
+
+  const postClaude = async () => {
+    const fetchCalls = [];
+    globalThis.fetch = vi.fn().mockImplementation(async (url, init) => {
+      fetchCalls.push({ url: String(url), init });
+      return {
+        ok: true,
+        status: 200,
+        // Anthropic-native shape: top-level content blocks, no `choices`.
+        json: async () => ({
+          id: 'msg_test',
+          content: [
+            { type: 'text', text: JSON.stringify(makeLLMResponse('elon_musk', 'Elon Musk', 'en')) },
+          ],
+        }),
+        text: async () => '',
+      };
+    });
+    const res = mockRes();
+    await handler(mockReq({
+      method: 'POST',
+      body: { problem: 'How do I start a company?', language: 'en', mentors: [sampleMentor], provider: 'claude' },
+    }), res);
+    return { res, fetchCalls };
+  };
+
+  it('sends an anthropic-native request and parses content-block replies', async () => {
+    process.env.ANTHROPIC_API_KEY_1 = 'sk-ant-test';
+    const { res, fetchCalls } = await postClaude();
+    expect(res._status).toBe(200);
+    expect(res._json.mentorReplies).toHaveLength(1);
+    expect(res._json.mentorReplies[0].mentorId).toBe('elon_musk');
+
+    expect(fetchCalls).toHaveLength(1);
+    expect(fetchCalls[0].url).toBe('https://api.anthropic.com/v1/messages');
+    const headers = fetchCalls[0].init.headers;
+    expect(headers['x-api-key']).toBe('sk-ant-test');
+    expect(headers['anthropic-version']).toBe('2023-06-01');
+    expect(headers.Authorization).toBeUndefined();
+
+    const body = JSON.parse(fetchCalls[0].init.body);
+    expect(body.model).toBe('claude-sonnet-4-5');
+    expect(body.max_tokens).toBeGreaterThan(0);
+    expect(typeof body.system).toBe('string');
+    expect(body.messages).toHaveLength(1);
+    expect(body.messages[0].role).toBe('user');
+    expect(body.response_format).toBeUndefined();
+  }, 15000);
+
+  it('honors ANTHROPIC_API_BASE relay override including /v1 handling', async () => {
+    process.env.ANTHROPIC_API_KEY_1 = 'sk-ant-relay';
+    process.env.ANTHROPIC_API_BASE = 'https://claude-relay.example';
+    const { res, fetchCalls } = await postClaude();
+    expect(res._status).toBe(200);
+    expect(fetchCalls[0].url).toBe('https://claude-relay.example/v1/messages');
+  }, 15000);
+
+  it('honors ANTHROPIC_MODEL_1 over the registry default', async () => {
+    process.env.ANTHROPIC_API_KEY_1 = 'sk-ant-test';
+    process.env.ANTHROPIC_MODEL_1 = 'claude-opus-4-1';
+    const { res, fetchCalls } = await postClaude();
+    expect(res._status).toBe(200);
+    expect(JSON.parse(fetchCalls[0].init.body).model).toBe('claude-opus-4-1');
+    expect(res._json.meta.model).toBe('claude-opus-4-1');
+  }, 15000);
+
+  it('missing claude key is a 500 naming ANTHROPIC_API_KEY_1', async () => {
+    // LLM_API_KEY alone must NOT satisfy the claude entry.
+    process.env.LLM_API_KEY = 'ali-key-1';
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { res } = await postClaude();
+    errSpy.mockRestore();
+    expect(res._status).toBe(500);
+    expect(res._json.error).toMatch(/configuration/i);
+  });
 });
