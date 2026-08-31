@@ -28,6 +28,16 @@ OpenAI-compatible upstream:
 LLM_API_KEY=... LLM_API_BASE_URL=https://.../v1 LLM_MODEL=... npm run server
 ```
 
+### Switching LLM providers
+
+Endpoints and default models live in the provider registry
+(`api/lib/llm-providers.js`; keys stay in env vars, one per provider).
+Select per request with a `provider` field in the API body, or globally
+with `LLM_PROVIDER=dashscope|deepseek|openai`. Requests without a
+provider use the legacy env config above. Unknown names are rejected
+with 400 (body) or fall back with a warning (env). See
+[.env.example](./.env.example) for the full variable list.
+
 ## Operations
 
 - [RUNBOOK.md](./RUNBOOK.md) — deployment, env vars, rate limiting, the

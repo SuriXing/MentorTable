@@ -102,10 +102,14 @@ function llmCacheEnabled() {
   return process.env.MENTOR_LLM_CACHE !== '0';
 }
 
-function llmReplyCacheKey({ model, mentor, language, problem, compactedConversation }) {
+function llmReplyCacheKey({ model, mentor, language, problem, compactedConversation, chatCompletionsUrl }) {
   const crypto = require('crypto');
   const hash = crypto.createHash('sha256');
   hash.update(String(model || ''));
+  hash.update('|');
+  // Two providers can expose the same model name; isolate cache entries per
+  // endpoint so switching providers never serves a reply from the other one.
+  hash.update(String(chatCompletionsUrl || ''));
   hash.update('|');
   hash.update(String(mentor && mentor.id || ''));
   hash.update('|');
@@ -160,7 +164,7 @@ async function requestMentorReplyFromLLM({
   isDashscope,
   upstreamTimeoutMs
 }) {
-  const cacheKey = llmReplyCacheKey({ model, mentor, language, problem, compactedConversation });
+  const cacheKey = llmReplyCacheKey({ model, mentor, language, problem, compactedConversation, chatCompletionsUrl });
   const cached = llmCacheGet(cacheKey);
   if (cached) {
     log('info', 'api_cache_hit', {
