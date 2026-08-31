@@ -89,12 +89,14 @@ const resolveUpstreamConfig = (providerName) => {
     const apiKey = (entry.apiKeyEnvs || []).map((n) => process.env[n]).find(Boolean) || null;
     const baseUrl = entry.baseUrl;
     const protocol = entry.protocol || 'openai';
+    const models = Array.isArray(entry.models) && entry.models.length ? entry.models : [entry.model].filter(Boolean);
     return {
       provider: providerName,
       apiKey,
       apiKeyEnv: (entry.apiKeyEnvs || [])[0] || null,
       protocol,
-      model: entry.model,
+      models,
+      model: models[0],
       baseUrl,
       upstreamTimeoutMs: Number(process.env.MENTOR_UPSTREAM_TIMEOUT_MS || DEFAULT_UPSTREAM_TIMEOUT_MS),
       chatCompletionsUrl:
@@ -105,9 +107,11 @@ const resolveUpstreamConfig = (providerName) => {
     };
   }
   const baseUrl = process.env.LLM_API_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+  const legacyModel = process.env.LLM_MODEL || process.env.OPENAI_MODEL || 'qwen-max';
   return {
     provider: null,
     protocol: 'openai',
+    models: [legacyModel],
     apiKey: firstNonEmptyEnvValue([
       process.env.LLM_API_KEY,
       process.env.OPENAI_API_KEY,
@@ -115,7 +119,7 @@ const resolveUpstreamConfig = (providerName) => {
       process.env.OPENAI_KEY
     ]),
     apiKeyEnv: null,
-    model: process.env.LLM_MODEL || process.env.OPENAI_MODEL || 'qwen-max',
+    model: legacyModel,
     baseUrl,
     upstreamTimeoutMs: Number(process.env.MENTOR_UPSTREAM_TIMEOUT_MS || DEFAULT_UPSTREAM_TIMEOUT_MS),
     chatCompletionsUrl: `${baseUrl.replace(/\/+$/, '')}/chat/completions`,
@@ -158,13 +162,22 @@ const resolveProviderChain = (input) => {
   const seen = new Set();
   const chain = [];
   const keyless = [];
+  const MAX_CHAIN_LINKS = 8;
   for (const name of names) {
     if (!isKnownProvider(name) || seen.has(name)) continue;
     seen.add(name);
-    if (chain.length >= listProviderNames().length) break;
     const cfg = resolveUpstreamConfig(name);
-    if (cfg.apiKey) chain.push(cfg);
-    else keyless.push(cfg);
+    if (!cfg.apiKey) {
+      keyless.push(cfg);
+      continue;
+    }
+    // Expand one provider into one link per model (ordered): provider
+    // priority dominates, so every model of provider N is tried before
+    // provider N+1 gets its turn.
+    for (const model of cfg.models || [cfg.model]) {
+      if (chain.length >= MAX_CHAIN_LINKS) break;
+      chain.push({ ...cfg, model, models: [model] });
+    }
   }
   if (chain.length === 0) {
     // Explicitly requested providers but none can authenticate: fail loudly
@@ -209,6 +222,7 @@ const dispatchProviderChain = async ({ chain, mentors, problem, effectiveLanguag
     for (const item of perMentor) byMentorId.set(item.mentor.id, item);
     attempts.push({
       provider: linkCfg.provider || 'legacy',
+      model: linkCfg.model,
       ok: okItems.length,
       failed: failedItems.length
     });
