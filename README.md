@@ -50,8 +50,6 @@ with 400 (body) or fall back with a warning (env). See
 
 - [RUNBOOK.md](./RUNBOOK.md) — deployment, env vars, rate limiting, the
   LLM cost breaker, load-smoke and shed-curve sweeps, incident triage.
-- [docs/audit-2026-05-08.md](./docs/audit-2026-05-08.md) — external
-  review ledger and its fix disposition.
 
 ## Gates
 
