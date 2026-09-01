@@ -4320,3 +4320,56 @@ describe('reasoning model support', () => {
     expect(extractReasoningContent({})).toBe('');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Shared response pipeline: repair payload carries the real raw content
+// ---------------------------------------------------------------------------
+describe('shared parse pipeline repair payload', () => {
+  const savedEnv = {};
+  const envKeys = ['DEEPSEEK_API_KEY', 'MENTOR_LLM_CACHE'];
+  const originalFetch = globalThis.fetch;
+
+  beforeEach(() => {
+    for (const key of envKeys) {
+      savedEnv[key] = process.env[key];
+      delete process.env[key];
+    }
+    process.env.MENTOR_UPSTREAM_TIMEOUT_MS = '20000';
+    process.env.MENTOR_LLM_CACHE = '0';
+    if (handler.__test__._resetLlmReplyCache) handler.__test__._resetLlmReplyCache();
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    for (const [key, val] of Object.entries(savedEnv)) {
+      if (val === undefined) delete process.env[key];
+      else process.env[key] = val;
+    }
+  });
+
+  it('repair call receives the mentor id and the invalid raw output', async () => {
+    process.env.DEEPSEEK_API_KEY = 'ds-key';
+    const invalidButNonEmpty = 'not json at all {{{';
+    const bodies = [];
+    globalThis.fetch = vi.fn().mockImplementation(async (url, init) => {
+      const body = JSON.parse(String(init.body));
+      bodies.push(body);
+      if (bodies.length === 1) {
+        return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: invalidButNonEmpty } }] }), text: async () => '' };
+      }
+      return { ok: false, status: 500, json: async () => ({}), text: async () => 'repair also fails' };
+    });
+    const res = mockRes();
+    await handler(mockReq({
+      method: 'POST',
+      body: { problem: 'p', language: 'en', mentors: [sampleMentor], provider: 'deepseek' },
+    }), res);
+    expect(res._status).toBe(200); // degrades to fallback reply
+    // At least: v4-flash main + its repair call (v4-pro may take a further
+    // turn depending on the hourly breaker's residual budget).
+    expect(bodies.length).toBeGreaterThanOrEqual(2);
+    expect(bodies[1].messages[1].content).toContain('Target mentor id: elon_musk');
+    expect(bodies[1].messages[1].content).toContain('Raw output to repair:');
+    expect(bodies[1].messages[1].content).toContain(invalidButNonEmpty);
+  }, 20000);
+});

@@ -283,84 +283,25 @@ async function requestMentorReplyFromLLM({
   console.log(
     `[mentor-api] upstream response mentor=${mentor.id} status=${response.status} elapsed=${Date.now() - startedAt}ms`
   );
-  if (!response.ok) {
-    // Log the full upstream body server-side for debugging, but do NOT embed
-    // it in the thrown Error — upstream LLM error bodies can contain API key
-    // prefixes, request IDs, and other sensitive infrastructure metadata.
-    let errorText = '';
-    try {
-      errorText = await response.text();
-    } catch {
-      errorText = '<unreadable>';
-    }
-    // F58 (U8.1 R2): the parallel console.error duplicate that emitted the
-    // upstream body at 500 chars unredacted has been removed. The single
-    // structured log below pipes the 200-char preview through
-    // `redactSensitive` so DashScope/OpenAI error bodies cannot leak
-    // Authorization/sk-/LTAI prefixes echoed back from upstream.
-    log('error', 'api_error', {
-      handler: 'mentor-table',
-      stage: 'upstream_non_ok',
-      mentorId: mentor.id,
-      status: response.status,
-      bodyTruncated: redactSensitive(String(errorText).slice(0, 200)),
-    });
-    throw new Error(`Mentor API failed for ${mentor.id} with status ${response.status}`);
-  }
-
-  const data = await response.json();
-  let content = extractAssistantContent(data);
-  const reasoning = extractReasoningContent(data);
-  if (reasoning) {
-    logReasoningStats({ mentorId: mentor.id, reasoning, reasoningTokens: reasoningUsage(data) });
-  }
-
-  // Reasoning models can exhaust the output budget mid-thinking: content
-  // empty, reasoning present. Repairing an empty string cannot succeed, so
-  // skip the repair call and fail fast — the provider chain picks this up
-  // and tries the next model with the saved budget.
-  if (!content) {
-    throw new Error(
-      `Model returned empty content for ${mentor.id}` +
-        (reasoning ? ' (reasoning-only response; thinking consumed the output budget)' : '')
-    );
-  }
-  let parsed = tryParseJson(content);
-
-  if (!parsed) {
-    const repairPayload = buildChatRequestPayload({
-      protocol,
-      model,
-      temperature: 0.2,
-      system:
-        'Convert the given text into valid JSON only. No markdown. Use keys: schemaVersion, language, safety, mentorReplies, meta.',
-      user:
-        `Target mentor id: ${mentor.id}\n` +
-        'Target schema keys: schemaVersion, language, safety, mentorReplies, meta\n' +
-        `Raw output to repair:\n${String(content || '').slice(0, 6000)}`,
-      isBatch: false
-    });
-
-    const repairController = new AbortController();
-    const repairTimeout = setTimeout(() => repairController.abort(), Math.min(12000, upstreamTimeoutMs));
-    try {
-      const repairResponse = await callChatCompletions({
-        url: chatCompletionsUrl,
-        apiKey,
-        payload: repairPayload,
-        signal: repairController.signal,
-        protocol
-      });
-
-      if (repairResponse.ok) {
-        const repairedData = await repairResponse.json();
-        content = extractAssistantContent(repairedData);
-        parsed = tryParseJson(content);
-      }
-    } finally {
-      clearTimeout(repairTimeout);
-    }
-  }
+  // F58 (U8.1 R2): upstream error bodies are redacted inside the shared
+  // pipeline — Authorization/sk-/LTAI prefixes echoed back from upstream
+  // never reach the logs or the thrown Error.
+  const { parsed, content } = await parseChatJsonReply({
+    response,
+    mentorId: mentor.id,
+    protocol,
+    model,
+    apiKey,
+    chatCompletionsUrl,
+    timeoutMs: upstreamTimeoutMs,
+    repairSystem:
+      'Convert the given text into valid JSON only. No markdown. Use keys: schemaVersion, language, safety, mentorReplies, meta.',
+    buildRepairUser: (raw) =>
+      `Target mentor id: ${mentor.id}\n` +
+      'Target schema keys: schemaVersion, language, safety, mentorReplies, meta\n' +
+      `Raw output to repair:\n${String(raw || '').slice(0, 6000)}`,
+    isBatch: false
+  });
 
   // F159: strict parse only. The old regex salvage path (normalizeProviderPayloadLoose)
   // fabricated replies from arbitrary upstream text — including wrong-person
@@ -413,6 +354,99 @@ function logReasoningStats({ mentorId, reasoning, reasoningTokens }) {
     reasoningTokens,
     preview: reasoning.slice(0, 120).replace(/\s+/g, ' ')
   });
+}
+
+// Shared post-response pipeline for the single-mentor and batch request
+// paths: non-ok -> cause-named throw (error body redacted, never embedded);
+// extract content (reasoning skipped but logged); empty content -> fail
+// fast with the cause named, skipping the repair call (repairing an empty
+// string cannot succeed — the provider chain spends that budget on the
+// next model instead); non-empty invalid JSON -> exactly one repair call,
+// re-extract, re-parse. Returns { parsed, content }; callers normalize and
+// own their final error messages.
+async function parseChatJsonReply({
+  response,
+  mentorId,
+  protocol,
+  model,
+  apiKey,
+  chatCompletionsUrl,
+  timeoutMs,
+  recordRepairCall,
+  repairSystem,
+  buildRepairUser,
+  isBatch
+}) {
+  if (!response.ok) {
+    let errorText = '';
+    try {
+      errorText = await response.text();
+    } catch {
+      errorText = '<unreadable>';
+    }
+    log('error', 'api_error', {
+      handler: 'mentor-table',
+      stage: 'upstream_non_ok',
+      mentorId,
+      status: response.status,
+      bodyTruncated: redactSensitive(String(errorText).slice(0, 200)),
+    });
+    throw new Error(
+      mentorId === 'batch'
+        ? `Mentor API failed in batch mode with status ${response.status}`
+        : `Mentor API failed for ${mentorId} with status ${response.status}`
+    );
+  }
+
+  const data = await response.json();
+  let content = extractAssistantContent(data);
+  const reasoning = extractReasoningContent(data);
+  if (reasoning) {
+    logReasoningStats({ mentorId, reasoning, reasoningTokens: reasoningUsage(data) });
+  }
+  if (!content) {
+    throw new Error(
+      (mentorId === 'batch'
+        ? 'Model returned empty content in batch mode'
+        : `Model returned empty content for ${mentorId}`) +
+        (reasoning ? ' (reasoning-only response; thinking consumed the output budget)' : '')
+    );
+  }
+  let parsed = tryParseJson(content);
+  if (!parsed) {
+    if (recordRepairCall) recordRepairCall();
+    const repairPayload = buildChatRequestPayload({
+      protocol,
+      model,
+      temperature: 0.2,
+      system: repairSystem,
+      user: buildRepairUser(content),
+      isBatch
+    });
+    const repairController = new AbortController();
+    const repairTimeout = setTimeout(() => repairController.abort(), Math.min(12000, timeoutMs));
+    try {
+      const repairResponse = await callChatCompletions({
+        url: chatCompletionsUrl,
+        apiKey,
+        payload: repairPayload,
+        signal: repairController.signal,
+        protocol
+      });
+      if (repairResponse.ok) {
+        const repairedData = await repairResponse.json();
+        content = extractAssistantContent(repairedData);
+        const repairedReasoning = extractReasoningContent(repairedData);
+        if (repairedReasoning) {
+          logReasoningStats({ mentorId, reasoning: repairedReasoning, reasoningTokens: reasoningUsage(repairedData) });
+        }
+        parsed = tryParseJson(content);
+      }
+    } finally {
+      clearTimeout(repairTimeout);
+    }
+  }
+  return { parsed, content };
 }
 
 function extractAssistantContent(data) {
@@ -547,76 +581,25 @@ async function requestMentorBatchReplyFromLLM({
   console.log(
     `[mentor-api] upstream response mode=batch mentors=${mentors.length} status=${response.status} elapsed=${Date.now() - startedAt}ms`
   );
-  if (!response.ok) {
-    // Same rule as the per-mentor path: log the body server-side through
-    // redactSensitive, never embed it in the thrown Error.
-    let errorText = '';
-    try {
-      errorText = await response.text();
-    } catch {
-      errorText = '<unreadable>';
-    }
-    log('error', 'api_error', {
-      handler: 'mentor-table',
-      stage: 'upstream_non_ok',
-      mentorId: 'batch',
-      status: response.status,
-      bodyTruncated: redactSensitive(String(errorText).slice(0, 200)),
-    });
-    throw new Error(`Mentor API failed in batch mode with status ${response.status}`);
-  }
-
-  const data = await response.json();
-  let content = extractAssistantContent(data);
-  const reasoning = extractReasoningContent(data);
-  if (reasoning) {
-    logReasoningStats({ mentorId: 'batch', reasoning, reasoningTokens: reasoningUsage(data) });
-  }
-  if (!content) {
-    throw new Error(
-      'Model returned empty content in batch mode' +
-        (reasoning ? ' (reasoning-only response; thinking consumed the output budget)' : '')
-    );
-  }
-  let parsed = tryParseJson(content);
-
-  if (!parsed) {
-    // F158: repair counts as its own upstream call against the hourly budget.
-    recordLlmCall(1);
-    const repairPayload = buildChatRequestPayload({
-      protocol,
-      model,
-      temperature: 0.2,
-      system:
-        'Convert the given text into valid JSON only. No markdown. Use keys: schemaVersion, language, safety, mentorReplies, meta.',
-      user:
-        `Target mentor ids: ${mentors.map((m) => m.id).join(', ')}\n` +
-        'Target schema keys: schemaVersion, language, safety, mentorReplies, meta. ' +
-        'mentorReplies must contain one entry per target mentor.\n' +
-        `Raw output to repair:\n${String(content || '').slice(0, 6000)}`,
-      isBatch: true
-    });
-
-    const repairController = new AbortController();
-    const repairTimeout = setTimeout(() => repairController.abort(), Math.min(12000, batchTimeoutMs));
-    try {
-      const repairResponse = await callChatCompletions({
-        url: chatCompletionsUrl,
-        apiKey,
-        payload: repairPayload,
-        signal: repairController.signal,
-        protocol
-      });
-
-      if (repairResponse.ok) {
-        const repairedData = await repairResponse.json();
-        content = extractAssistantContent(repairedData);
-        parsed = tryParseJson(content);
-      }
-    } finally {
-      clearTimeout(repairTimeout);
-    }
-  }
+  const { parsed, content } = await parseChatJsonReply({
+    response,
+    mentorId: 'batch',
+    protocol,
+    model,
+    apiKey,
+    chatCompletionsUrl,
+    timeoutMs: batchTimeoutMs,
+    // F158: a repair counts as its own upstream call against the hourly budget.
+    recordRepairCall: () => recordLlmCall(1),
+    repairSystem:
+      'Convert the given text into valid JSON only. No markdown. Use keys: schemaVersion, language, safety, mentorReplies, meta.',
+    buildRepairUser: (raw) =>
+      `Target mentor ids: ${mentors.map((m) => m.id).join(', ')}\n` +
+      'Target schema keys: schemaVersion, language, safety, mentorReplies, meta. ' +
+      'mentorReplies must contain one entry per target mentor.\n' +
+      `Raw output to repair:\n${String(raw || '').slice(0, 6000)}`,
+    isBatch: true
+  });
 
   // F159: strict normalization only — same contract as the per-mentor path.
   // A batch that cannot be strictly normalized (after one repair call)
