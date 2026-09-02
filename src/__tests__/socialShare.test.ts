@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 
 /**
- * F156 regression guard: the social share card must be a real PNG that
+ * regression guard: the social share card must be a real PNG that
  * crawlers (WeChat/X/Facebook) accept, referenced with absolute URLs, and
  * index.html must keep its canonical + og:url pair. The old state shipped an
  * SVG og:image, which every major crawler silently ignores — blank share
@@ -12,7 +12,7 @@ import { describe, it, expect } from 'vitest';
  * These checks live next to the source files so drift fails CI, not a
  * quarterly "why is our share card blank" hunt.
  */
-describe('social share card (F156)', () => {
+describe('social share card ()', () => {
   const root = resolve(__dirname, '../..');
   const indexHtml = readFileSync(resolve(root, 'index.html'), 'utf8');
 

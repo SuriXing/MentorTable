@@ -49,7 +49,7 @@ function toTimeoutMs(raw: unknown, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
-// F175: client timeout must sit BETWEEN the server's upstream budget (25s)
+// client timeout must sit BETWEEN the server's upstream budget (25s)
 // and the platform function ceiling (30s on Vercel). Below 25s the client
 // would abort before the server's structured upstream-timeout response can
 // arrive; at 35s it outlived the function itself, so the last 5s of patience

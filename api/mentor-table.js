@@ -52,13 +52,13 @@ const {
   _resetLlmReplyCache,
 } = require('./lib/mentor-upstream.js');
 
-// F174: single source for the mentor-count ceiling. The number itself lives
+// single source for the mentor-count ceiling. The number itself lives
 // in shared/mentors-contract.json, imported by the client (MAX_PEOPLE) and
 // required here — the contract-parity test pins it against the schema's
 // maxItems.
 const MENTORS_MAX = require('../shared/mentors-contract.json').mentorsMax;
 
-// F175: upstream budget default. The timeout-chain test pins the order
+// upstream budget default. The timeout-chain test pins the order
 // upstream (25s) < client (28s) < platform function ceiling (30s).
 const DEFAULT_UPSTREAM_TIMEOUT_MS = 25000;
 
@@ -353,7 +353,7 @@ const compactRequestHistory = async (conversationHistory, effectiveLanguage, cfg
   return compactedConversation;
 };
 
-// F158: two dispatch modes produce the same perMentor item shape
+// two dispatch modes produce the same perMentor item shape
 // ({ mentor, ok, output?, error? }), so aggregation stays shared. Batch
 // (MENTOR_BATCH_FANOUT=1) spends ONE upstream call for the whole table
 // instead of one per mentor — 5x cost and latency-shape reduction — and
@@ -364,7 +364,7 @@ const dispatchMentorGeneration = async ({ mentors, problem, effectiveLanguage, c
   const batchMode = process.env.MENTOR_BATCH_FANOUT === '1';
   if (batchMode) {
     try {
-      // F19: the batch call counts as ONE upstream LLM call against the
+      // the batch call counts as ONE upstream LLM call against the
       // hourly budget (the repair call inside the batch helper counts
       // separately when it fires).
       recordLlmCall(1);
@@ -395,7 +395,7 @@ const dispatchMentorGeneration = async ({ mentors, problem, effectiveLanguage, c
   return Promise.all(
     mentors.map(async (mentor) => {
       try {
-        // F19: count this fan-out against the per-instance hourly LLM
+        // count this fan-out against the per-instance hourly LLM
         // budget. Recorded just before dispatch so even if upstream
         // errors out the call counts (it still consumed quota / time).
         recordLlmCall(1);
@@ -493,7 +493,7 @@ const aggregatePerMentorResults = (perMentor, effectiveLanguage) => {
 };
 
 const mentorTableHandler = async (req, res) => {
-  const requestStartedAt = Date.now(); // F170: request_complete latency
+  const requestStartedAt = Date.now(); // request_complete latency
   // Apply shared security middleware (CORS + OPTIONS + body cap + rate limit).
   // The body cap is 256kb here — conversation history can legitimately be
   // large on multi-round sessions. Rate limit is stricter than mentor-image
@@ -507,7 +507,7 @@ const mentorTableHandler = async (req, res) => {
     },
   }))) return;
 
-  // F19: global LLM cost ceiling. Per-IP rate limit above is best-effort and
+  // global LLM cost ceiling. Per-IP rate limit above is best-effort and
   // does not bound autoscale cost. The breaker + LLM_DISABLED kill switch
   // give the operator a real ceiling and a sub-minute mitigation path.
   if (!enforceLlmBreaker(req, res)) return;
@@ -565,7 +565,7 @@ const mentorTableHandler = async (req, res) => {
       finalized.meta.provider = 'partial-fallback';
     }
 
-    // F170 (P26): one grep-able summary per successful request — outcome,
+    // : one grep-able summary per successful request — outcome,
     // fan-out mode, cost proxies (mentor count, failures), latency.
     log('info', 'request_complete', {
       handler: 'mentor-table',
@@ -585,7 +585,7 @@ const mentorTableHandler = async (req, res) => {
       errorName: error instanceof Error ? error.name : typeof error,
       errorMessageTruncated: truncateErrorMessage(error, 200),
     });
-    // F57 (U8.1 R2): the parallel `console.error('[mentor-api] error:', error)`
+    // : the parallel `console.error('[mentor-api] error:', error)`
     // duplicate that emitted the raw Error (with multi-line stack trace and
     // /var/task/ paths) has been removed. The structured log above is the
     // sole record — message is truncated to 200 chars and runs through

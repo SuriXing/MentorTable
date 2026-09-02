@@ -1,5 +1,5 @@
 /**
- * F153 — production-header parity suite.
+ * — production-header parity suite.
  *
  * Until this spec existed, every e2e test ran against a bare `vite dev`
  * server, so the security headers configured in vercel.ts had ZERO CI
@@ -32,7 +32,7 @@ test.use({ channel: (process.env.PLAYWRIGHT_CHANNEL || undefined) as 'chrome' | 
 
 test.use({ baseURL: 'http://127.0.0.1:5001' });
 
-test.describe('Production security headers (F153)', () => {
+test.describe('Production security headers ()', () => {
   test('document response carries every production security header verbatim', async ({ request }) => {
     const res = await request.get('/');
     expect(res.status()).toBe(200);

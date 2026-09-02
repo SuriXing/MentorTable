@@ -27,7 +27,7 @@ interface UseMentorNotesOptions {
 }
 
 /**
- * F162 (P14): note-to-mentor threads extracted from MentorTablePage —
+ * : note-to-mentor threads extracted from MentorTablePage —
  * per-thread drafts, note history, the inline-note open state, and
  * submitNoteToMentor (which talks to the LLM with the whole table's
  * conversation history and appends the exchange as a conversation turn).
@@ -110,7 +110,7 @@ export function useMentorNotes(options: UseMentorNotesOptions): {
       }
     } catch (err) {
       transportFailed = true;
-      // F157: full detail goes to console; the banner shows stable copy only.
+      // full detail goes to console; the banner shows stable copy only.
       reportGenerateError(err);
     } finally {
       setIsRoundGenerating(false);

@@ -1715,7 +1715,7 @@ export interface MentorImageChainOptions {
 /**
  * Ordered image fallback ladder for a mentor avatar.
  *
- * F154: production CSP is `img-src 'self' data: blob:` — every external
+ * production CSP is `img-src 'self' data: blob:` — every external
  * image host (wikimedia, dicebear, ui-avatars, 16personalities) is blocked,
  * and CN networks block the same hosts regardless. The production chain is
  * therefore exactly two entries:
@@ -1773,7 +1773,7 @@ export async function fetchPersonImage(name: string): Promise<string | undefined
     return mbti;
   }
 
-  // F154: the client-side Wikipedia lookups below cannot work in production —
+  // the client-side Wikipedia lookups below cannot work in production —
   // CSP `connect-src 'self'` blocks en.wikipedia.org outright, and it is
   // network-unreachable for the primary CN audience regardless. Production
   // hydrates from the bundled local asset when one exists and otherwise
@@ -1813,7 +1813,7 @@ export async function fetchPersonImageCandidates(name: string): Promise<string[]
     // buildMbtiOption always populates candidateImageUrls.
     return buildMbtiOption(name).candidateImageUrls!;
   }
-  // F154: candidate URLs feed only the dev image chain; the production chain
+  // candidate URLs feed only the dev image chain; the production chain
   // is proxy → initials and ignores them, so client-side Wikipedia candidate
   // hydration is dead weight there. See fetchPersonImage for the full rationale.
   if (!import.meta.env.DEV) return undefined;
@@ -1860,7 +1860,7 @@ export async function searchPeopleWithPhotos(query: string, limit = 6): Promise<
     .filter((code) => normalizeName(code).includes(normalized))
     .map((code) => buildMbtiOption(code));
 
-  // F154: production search is local-data only (CSP connect-src 'self' blocks
+  // production search is local-data only (CSP connect-src 'self' blocks
   // the client-side Wikipedia query, and CN networks block it anyway). The
   // typed-query fallback below still gives users a usable "add custom mentor"
   // option for people outside the bundled data.

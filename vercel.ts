@@ -6,7 +6,7 @@
  *
  *   npx @vercel/config compile
  *
- * Migrated from vercel.json on 2026/04/21 (U9.1 — deployment pipeline).
+ * Migrated from vercel.json on 2026/04/21 (— deployment pipeline).
  *
  * Security headers live in ./security-headers.ts (single source of truth,
  * also consumed by vite preview + the prod-header e2e suite).

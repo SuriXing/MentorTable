@@ -93,7 +93,7 @@ const options: InitOptions = {
 
 i18nInstance.init(options);
 
-// U6.1: sync <html lang> on initial mount. languageChanged fires only on
+// sync <html lang> on initial mount. languageChanged fires only on
 // switch, so without this the document keeps the static `lang="en"` from
 // index.html even when the user has zh-CN/ja/ko/es persisted — which
 // breaks screen-reader pronunciation and axe's html-has-lang check.

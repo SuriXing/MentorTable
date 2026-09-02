@@ -1,7 +1,7 @@
 /**
  * GET /api/health — liveness probe.
  *
- * U8.1: must be cheap (no DB, no upstream LLM, no filesystem I/O in the hot
+ * must be cheap (no DB, no upstream LLM, no filesystem I/O in the hot
  * path) so deploy-health monitors and load balancers can hit it freely.
  *
  * Contract:
@@ -25,7 +25,7 @@ try {
 } catch {
   VERSION = 'unknown';
 }
-// F66 (U8.1 R2): on Vercel runtime `npm_package_version` is NOT set — it's
+// : on Vercel runtime `npm_package_version` is NOT set — it's
 // only populated by `npm run <script>`. The override branch was dead code in
 // prod and added a misleading code path. Removed; the bundled package.json
 // read above is authoritative.

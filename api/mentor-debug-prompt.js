@@ -104,7 +104,7 @@ module.exports = async (req, res) => {
       errorName: error instanceof Error ? error.name : typeof error,
       errorMessageTruncated: truncateErrorMessage(error, 200),
     });
-    // F57 (U8.1 R2): removed the parallel `console.error('[mentor-debug-prompt] error:', error)`
+    // : removed the parallel `console.error('[mentor-debug-prompt] error:', error)`
     // duplicate that emitted the raw Error (full stack trace incl. file
     // paths). The structured log above is the sole record; message is
     // truncated to 200 chars via `truncateErrorMessage`.

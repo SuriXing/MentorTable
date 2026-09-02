@@ -10,10 +10,10 @@ const {
 } = require('./mentor-contract.js');
 const { buildSystemPrompt, buildUserPrompt } = require('./mentor-prompts.js');
 
-// Upstream LLM dispatch: per-mentor fan-out and batch (F158) modes, JSON
+// Upstream LLM dispatch: per-mentor fan-out and batch () modes, JSON
 // repair, and the shared chat-completions client.
 
-// F168 (P24): transient-failure retry with exponential backoff. 429 and
+// : transient-failure retry with exponential backoff. 429 and
 // 5xx from the upstream LLM, plus network-level fetch throws, are retried
 // inside the REMAINING request budget — the endpoint's latency contract
 // (MENTOR_UPSTREAM_TIMEOUT_MS) does not change, so a retry only happens
@@ -115,7 +115,7 @@ async function callChatCompletionsWithRetry({ url, apiKey, payload, signal, dead
 }
 
 
-// F167 (P23): per-instance LLM response cache. Key =
+// : per-instance LLM response cache. Key =
 // sha256(model | mentor.id | language | problem | conversation history).
 // Only successful, strictly-normalized replies are cached — a repair-path
 // success is cacheable, a throw is not. Semantics: identical inputs replay
@@ -234,7 +234,7 @@ async function requestMentorReplyFromLLM({
   const startedAt = Date.now();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), upstreamTimeoutMs);
-  const deadlineAt = startedAt + upstreamTimeoutMs; // F168: retries fit inside the same budget
+  const deadlineAt = startedAt + upstreamTimeoutMs; // retries fit inside the same budget
   let response;
   try {
     log('info', 'api_request', {
@@ -283,7 +283,7 @@ async function requestMentorReplyFromLLM({
   console.log(
     `[mentor-api] upstream response mentor=${mentor.id} status=${response.status} elapsed=${Date.now() - startedAt}ms`
   );
-  // F58 (U8.1 R2): upstream error bodies are redacted inside the shared
+  // : upstream error bodies are redacted inside the shared
   // pipeline — Authorization/sk-/LTAI prefixes echoed back from upstream
   // never reach the logs or the thrown Error.
   const { parsed, content } = await parseChatJsonReply({
@@ -303,7 +303,7 @@ async function requestMentorReplyFromLLM({
     isBatch: false
   });
 
-  // F159: strict parse only. The old regex salvage path (normalizeProviderPayloadLoose)
+  // strict parse only. The old regex salvage path (normalizeProviderPayloadLoose)
   // fabricated replies from arbitrary upstream text — including wrong-person
   // attribution when key names drifted. A batch that survives the repair call
   // but still cannot be strictly normalized degrades to the mentor's fallback
@@ -479,7 +479,7 @@ function extractAssistantContent(data) {
   return '';
 }
 
-// F158: batch generation — one upstream completion covers the whole table.
+// batch generation — one upstream completion covers the whole table.
 // MENTOR_BATCH_FANOUT=1 opts in; default remains the proven per-mentor
 // fan-out. The RESPONSE_SCHEMA is already batch-shaped (mentorReplies
 // array), so strict normalization is shared; only the request fan-out and
@@ -528,7 +528,7 @@ async function requestMentorBatchReplyFromLLM({
   const startedAt = Date.now();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), batchTimeoutMs);
-  const deadlineAt = startedAt + batchTimeoutMs; // F168: retries fit inside the same budget
+  const deadlineAt = startedAt + batchTimeoutMs; // retries fit inside the same budget
   let response;
   try {
     log('info', 'api_request', {
@@ -589,7 +589,7 @@ async function requestMentorBatchReplyFromLLM({
     apiKey,
     chatCompletionsUrl,
     timeoutMs: batchTimeoutMs,
-    // F158: a repair counts as its own upstream call against the hourly budget.
+    // a repair counts as its own upstream call against the hourly budget.
     recordRepairCall: () => recordLlmCall(1),
     repairSystem:
       'Convert the given text into valid JSON only. No markdown. Use keys: schemaVersion, language, safety, mentorReplies, meta.',
@@ -601,7 +601,7 @@ async function requestMentorBatchReplyFromLLM({
     isBatch: true
   });
 
-  // F159: strict normalization only — same contract as the per-mentor path.
+  // strict normalization only — same contract as the per-mentor path.
   // A batch that cannot be strictly normalized (after one repair call)
   // degrades to per-mentor fallbacks; no regex salvage, no fabricated
   // attribution.

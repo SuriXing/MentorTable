@@ -8,7 +8,7 @@ import {
 import { getSuggestedPeople } from '../../../features/mentorTable/mentorProfiles';
 
 /**
- * F162 (P13): person-search behavior extracted from MentorTablePage.
+ * : person-search behavior extracted from MentorTablePage.
  *
  * Instant local results (VERIFIED_PEOPLE + MENTOR_PROFILES) render on the
  * same keystroke; the remote search (verified + Wikipedia in DEV) merges in

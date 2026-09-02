@@ -49,7 +49,7 @@ const {
   DEFAULT_UPSTREAM_TIMEOUT_MS,
 } = handler.__test__;
 
-// F167 (P23): the reply cache is module-level and would otherwise leak a
+// : the reply cache is module-level and would otherwise leak a
 // successful upstream response from one test into a later error-path test
 // that reuses the same (mentor, problem) key. Reset after every test.
 afterEach(() => {
@@ -181,7 +181,7 @@ describe('mentor-table handler', () => {
     expect(res._json.error).toMatch(/too many mentors.*10/);
   });
 
-  it('F174: mentor-count ceiling agrees across schema, server, and client', () => {
+  it('mentor-count ceiling agrees across schema, server, and client', () => {
     // The three ceilings drifted once (schema 8 vs server/client 10) and no
     // lint or type rule can catch a JSON schema disagreeing with a server
     // constant. Pin them to each other so the next drift fails CI here.
@@ -203,7 +203,7 @@ describe('mentor-table handler', () => {
     expect(contract.mentorsMax).toBe(MENTORS_MAX);
   });
 
-  it('F175: timeout chain is upstream < client < platform function ceiling', () => {
+  it('timeout chain is upstream < client < platform function ceiling', () => {
     // The client must out-wait the server's upstream budget (so the
     // structured upstream-timeout response arrives before the client aborts)
     // but die before the 30s Vercel function ceiling (so a hung server
@@ -255,7 +255,7 @@ describe('mentor-table handler', () => {
     // Exercises `errorText = '<unreadable>'` fallback at lines 1113-1115.
     // Upstream returns non-ok; response.text() itself rejects (broken stream).
     // Handler must still throw a redacted per-mentor error and fall back.
-    // F57 (U8.1 R2): handler no longer emits a parallel console.error — the
+    // : handler no longer emits a parallel console.error — the
     // sole sink is the structured logger. Spy console.log (level=error routes
     // to console.error in the logger) AND console.error to capture both
     // routing paths.
@@ -651,7 +651,7 @@ describe('mentor-table LLM integration', () => {
     expect(res._json.meta.provider).toBe('api.test.com');
     expect(res._json.meta.model).toBe('test-model');
 
-    // F170 (P26): every successful request emits one summary event.
+    // : every successful request emits one summary event.
     const logSpy2 = vi.spyOn(console, 'log').mockImplementation(() => {});
     const res3 = mockRes();
     await handler(mockReq({ method: 'POST', body: { problem: 'another problem entirely', language: 'en', mentors: [sampleMentor] } }), res3);
@@ -1680,7 +1680,7 @@ describe('mentor-table edge cases', () => {
     expect(res._json.mentorReplies).toHaveLength(1);
   });
 
-  it('non-JSON upstream text degrades to fallback after failed repair — no regex salvage (F159)', async () => {
+  it('non-JSON upstream text degrades to fallback after failed repair — no regex salvage ()', async () => {
     // Strict mode: main parse and repair both fail on non-JSON text, the
     // mentor takes its language-correct fallback reply; the old loose
     // regex-salvage path is gone.
@@ -1993,9 +1993,9 @@ describe('handler no-reply-for-mentor fallback', () => {
 // ---------------------------------------------------------------------------
 // Small helper function edge cases
 // ---------------------------------------------------------------------------
-// ---------- P29 / F171: safety surface invariants ----------
+// ---------- / safety surface invariants ----------
 
-describe('safety surface invariants (P29)', () => {
+describe('safety surface invariants ', () => {
   it('mergeSafetyState is monotone: a later low-risk payload cannot lower an earlier high', () => {
     const high = { riskLevel: 'high', needsProfessionalHelp: true, emergencyMessage: 'call a line now' };
     const low = { riskLevel: 'low', needsProfessionalHelp: false, emergencyMessage: '' };
@@ -3439,10 +3439,10 @@ describe('mentor-table handler per-mentor reply field fallbacks', () => {
 });
 
 // ---------------------------------------------------------------------------
-// F158: batch fan-out (MENTOR_BATCH_FANOUT=1) — one upstream call per table
+// batch fan-out (MENTOR_BATCH_FANOUT=1) — one upstream call per table
 // ---------------------------------------------------------------------------
 
-describe('mentor-table batch fan-out (F158)', () => {
+describe('mentor-table batch fan-out ()', () => {
   const batchEnvKeys = [
     'LLM_API_KEY', 'LLM_MODEL', 'LLM_API_BASE_URL',
     'MENTOR_UPSTREAM_TIMEOUT_MS', 'MENTOR_BATCH_FANOUT',
@@ -3541,7 +3541,7 @@ describe('mentor-table batch fan-out (F158)', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it('F168: retries a fast 429 and succeeds on the second attempt', async () => {
+  it('retries a fast 429 and succeeds on the second attempt', async () => {
     process.env.MENTOR_BATCH_FANOUT = '0';
     const llmResponse = makeLLMResponse('elon_musk', 'Elon Musk', 'en');
     let calls = 0;
@@ -3563,7 +3563,7 @@ describe('mentor-table batch fan-out (F158)', () => {
     expect(res._status).toBe(200);
     expect(res._json.mentorReplies[0].mentorId).toBe('elon_musk');
     expect(calls).toBe(2);
-    // F170 (P26): the retry itself is observable in Logs (warn level).
+    // : the retry itself is observable in Logs (warn level).
     const retryEvent = logSpy.mock.calls
       .map((c) => c[0])
       .find((line) => {
@@ -3573,7 +3573,7 @@ describe('mentor-table batch fan-out (F158)', () => {
     logSpy.mockRestore();
   });
 
-  it('F168: retries exhausted within budget fall back (server-fallback)', async () => {
+  it('retries exhausted within budget fall back (server-fallback)', async () => {
     process.env.MENTOR_BATCH_FANOUT = '0';
     process.env.MENTOR_LLM_MAX_ATTEMPTS = '3';
     let calls = 0;
@@ -3589,7 +3589,7 @@ describe('mentor-table batch fan-out (F158)', () => {
     expect(res._json.meta.provider).toBe('server-fallback');
   });
 
-  it('F168: MENTOR_LLM_MAX_ATTEMPTS=1 disables retries', async () => {
+  it('MENTOR_LLM_MAX_ATTEMPTS=1 disables retries', async () => {
     process.env.MENTOR_BATCH_FANOUT = '0';
     process.env.MENTOR_LLM_MAX_ATTEMPTS = '1';
     let calls = 0;

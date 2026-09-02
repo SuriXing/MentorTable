@@ -993,7 +993,7 @@ describe('fetchBuffer redirect following', () => {
     const res = mockRes();
     await handler(mockReq({ query: { name: 'RO Person' } }), res);
 
-    // F57 (U8.1 R2): the legacy `console.warn('[mentor-image] cache write failed', ...)`
+    // : the legacy `console.warn('[mentor-image] cache write failed', ...)`
     // duplicate has been removed. The structured logger's 'warn' level routes
     // through console.warn — assert the JSON line carries the EROFS code.
     expect(warnSpy).toHaveBeenCalled();
@@ -1063,7 +1063,7 @@ describe('fetchBuffer redirect following', () => {
     const res = mockRes();
     await handler(mockReq({ query: { name: 'No Code' } }), res);
 
-    // F57 (U8.1 R2): the legacy console.warn duplicate that printed the
+    // : the legacy console.warn duplicate that printed the
     // raw thrown string is gone. Assert the structured logger captured it
     // via errorMessageTruncated instead.
     expect(warnSpy).toHaveBeenCalled();

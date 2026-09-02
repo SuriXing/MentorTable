@@ -290,7 +290,7 @@ module.exports = async function mentorImageHandler(req, res) {
         errorName: err instanceof Error ? err.name : typeof err,
         errorMessageTruncated: truncateErrorMessage(err, 200),
       });
-      // F57 (U8.1 R2): removed the parallel `console.warn(... String(err))`
+      // : removed the parallel `console.warn(... String(err))`
       // duplicate. The structured `log('warn', 'api_error', ...)` above is
       // the sole record and uses `truncateErrorMessage` so no full stack
       // trace reaches Vercel Logs.
@@ -349,7 +349,7 @@ module.exports = async function mentorImageHandler(req, res) {
       errorCode: err && err.code ? err.code : undefined,
       errorMessageTruncated: truncateErrorMessage(err, 200),
     });
-    // F57 (U8.1 R2): removed the parallel `console.warn(...)` duplicate.
+    // : removed the parallel `console.warn(...)` duplicate.
     // The structured log above is the sole record.
   }
 

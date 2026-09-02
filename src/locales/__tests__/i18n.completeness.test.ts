@@ -19,7 +19,7 @@ function flatKeys(obj: Record<string, unknown>, prefix = ''): string[] {
   );
 }
 
-describe('i18n completeness (F165, P18/P19)', () => {
+describe('i18n completeness (, /)', () => {
   const resources: Record<string, Record<string, unknown>> = Object.fromEntries(
     locales.map((lng) => [lng, load(lng)])
   );
