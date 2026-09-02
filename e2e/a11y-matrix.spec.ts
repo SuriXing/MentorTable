@@ -1,5 +1,5 @@
 /**
- * U6.1: matrix axe scan across (theme × language) on the single SPA route.
+ * matrix axe scan across (theme × language) on the single SPA route.
  *
  * The existing a11y-r3.spec.ts covers the invite + session phases under a
  * single (theme=blue, mode=light, language=auto) combo. This file extends

@@ -85,12 +85,12 @@ Local dev reads from `.env` at repo root (gitignored). Never commit keys.
 | `LLM_DISABLED` | No (operator kill switch) | Vercel env | Set to `1` or `true` to 503 every LLM call. Use during an incident. |
 | `LLM_HOURLY_BUDGET` | No | Vercel env | Per-instance rolling-hour cap on upstream LLM calls. Default: `1000`. |
 | `DISABLE_RATE_LIMIT` | No | local only | Set to `1` to skip per-IP rate limiting — test harness only. |
-| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | No | Vercel env (or Upstash equivalents `UPSTASH_REDIS_REST_*`) | F166 (P22): enables GLOBAL rate limiting via Vercel KV / Upstash REST fixed-window counters. Unset → per-instance in-memory buckets only. |
+| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | No | Vercel env (or Upstash equivalents `UPSTASH_REDIS_REST_*`) | : enables GLOBAL rate limiting via Vercel KV / Upstash REST fixed-window counters. Unset → per-instance in-memory buckets only. |
 | `MENTOR_TABLE_KV_LIMIT` | No | Vercel env | Global per-IP request budget per 60s window for `/api/mentor-table` when KV is configured. Default: `30`. |
 | `MENTOR_IMAGE_KV_LIMIT` | No | Vercel env | Same for `/api/mentor-image`. Default: `120`. |
-| `MENTOR_LLM_CACHE` | No | Vercel env | F167 (P23): set to `0` to disable the per-instance LLM reply cache. Default: on. |
+| `MENTOR_LLM_CACHE` | No | Vercel env | : set to `0` to disable the per-instance LLM reply cache. Default: on. |
 | `MENTOR_LLM_CACHE_TTL_SECONDS` | No | Vercel env | Reply cache freshness window. Default: `900` (15 min). |
-| `MENTOR_LLM_MAX_ATTEMPTS` | No | Vercel env | F168 (P24): upstream retry attempts for transient failures (429/5xx/network). Default: `3`; `1` disables retries. |
+| `MENTOR_LLM_MAX_ATTEMPTS` | No | Vercel env | : upstream retry attempts for transient failures (429/5xx/network). Default: `3`; `1` disables retries. |
 | `NODE_ENV` | Auto | Vercel / local | `production` in prod; disables in-process rate limiter when `test`. |
 | `VERCEL_ENV` | Auto | Vercel-injected | `production` / `preview` / `development`. Used by CORS posture and health endpoint. |
 | `VERCEL_GIT_COMMIT_SHA` | Auto | Vercel-injected | Commit SHA returned by `/api/health`. |
@@ -100,7 +100,7 @@ Local dev reads from `.env` at repo root (gitignored). Never commit keys.
 | `VITE_COVERAGE` | No | local only | Set to `1` to enable Istanbul coverage in the Vite dev build. |
 | `VITE_MENTOR_API_URL` | No | **build time (Vite inlines)** | Override the production `/api/mentor-table` endpoint URL at build time. Read in `src/features/mentorTable/mentorApi.ts`. Changing it requires a rebuild + redeploy. |
 | `VITE_MENTOR_DEBUG_API_URL` | No | **build time (Vite inlines)** | Override the `/api/mentor-debug-prompt` endpoint URL. Same build-time semantics as above. |
-| `VITE_MENTOR_API_TIMEOUT_MS` | No | **build time (Vite inlines)** | Client-side fetch timeout (ms) for mentor API calls. Default in code: `28000` — must stay between the upstream budget (25s) and the 30s function ceiling (F175). Build time only. |
+| `VITE_MENTOR_API_TIMEOUT_MS` | No | **build time (Vite inlines)** | Client-side fetch timeout (ms) for mentor API calls. Default in code: `28000` — must stay between the upstream budget (25s) and the 30s function ceiling. Build time only. |
 | `VITE_MENTOR_NOTE_COORDINATE_ALL` | No | **build time (Vite inlines)** | Feature flag: `1` to enable cross-mentor note coordination on `MentorTablePage`. Build time only. |
 | `COLLECT_UI_COVERAGE` | No | local only (Playwright) | Set to `1` to collect Istanbul UI coverage during `playwright` runs. Read in `playwright.config.ts`. |
 | `ANALYZE` | No | local only | Set to `1` to emit bundle-stats HTML/JSON outside `dist/`. |
@@ -127,7 +127,7 @@ below.
 **Symptom.** Clients see `429 Rate limit exceeded`. `lib/security.js`
 returns this from `enforceRateLimit` once a per-IP token bucket is empty
 (memory limiter) or the KV fixed-window count exceeds the budget
-(F166/P22 — filter by `limiter` to tell them apart).
+(filter by `limiter` to tell them apart).
 
 **Log query.**
 
@@ -140,7 +140,7 @@ vercel logs <domain> --since 15m | grep 'rate_limited' | grep -c '"limiter":"kv"
 **Remediation.**
 
 ```bash
-# F64 (U8.1 R2): rate-limit cap is hardcoded at 30 in lib/security.js;
+# : rate-limit cap is hardcoded at 30 in lib/security.js;
 # changing it requires a code edit + deploy. There is no env-var override.
 # Option 1 (real flood): confirm it's not a single hot client. Look at
 # distinct x-forwarded-for first-hop addresses in the past 15m:
@@ -300,7 +300,7 @@ For a faster operator-side kill (no code edit), block the
 
 ## Deployment Pipeline
 
-Owner: U9.1. Last reviewed: 2026/04/21.
+Owner: . Last reviewed: 2026/04/21.
 
 ### Configuration source
 
@@ -372,9 +372,9 @@ before merge:
    before the runner:
    - `npx playwright test` — primary suite (`e2e/*.spec.ts`,
      Chromium only per `playwright.config.ts`; WebKit was dropped in
-     U9.1 R3 because the config has no `projects:` array, so installing
-     it would download a browser that never executes — F89).
-   - Cypress was removed (P28): the Playwright suite superseded it and
+     R3 because the config has no `projects:` array, so installing
+     it would download a browser that never executes).
+   - Cypress was removed: the Playwright suite superseded it and
      the duplicate smoke cost a 10MB dev dependency plus a second
      browser install in CI.
 
@@ -383,10 +383,10 @@ To make this a hard merge gate (one-time, in GitHub UI):
 > Settings → Branches → Branch protection rules → `main` → **Require
 > status checks to pass** → add `Lint • Type-check • Test • Build • E2E`.
 
-**F113 — required pre-U10.1 step.** Branch protection on `main` is
+**— required pre-step.** Branch protection on `main` is
 currently absent (`gh api repos/{owner}/{repo}/branches/main/protection`
 returns 404), which makes every CI red advisory rather than blocking.
-Run this ONCE before merging any U10.1 work to `main`:
+Run this ONCE before merging any work to `main`:
 
 ```bash
 # Replace OWNER/REPO. Requires admin on the repo.
@@ -458,7 +458,7 @@ If step 4 doesn't flip the sha within ~10s, the dashboard path is the
 fallback: Deployments → previous → ⋯ → Promote to Production.
 
 
-## Observability Events (F170 / P26)
+## Observability Events
 
 Every server log line is one JSON object: `{ ts, level, event, ...fields }`.
 Events an operator will actually filter on:
@@ -467,9 +467,9 @@ Events an operator will actually filter on:
 |---|---|---|
 | `request_complete` | info | One per successful `/api/mentor-table` request: `mode` (batch/fanout), `mentorCount`, `failedCount`, `provider` (api / partial-fallback / server-fallback), `latencyMs`. Baseline health signal — alert on failedCount spikes. |
 | `rate_limited` | warn | A 429 was sent (`limiter`: memory vs kv). Sustained kv-limiting means real traffic pressure; sustained memory-limiting on ONE instance means a hot client. |
-| `llm_breaker_blocked` | warn | F19 cost ceiling tripped — the instance is 503ing LLM work until the hour window rolls. Flip `LLM_DISABLED` only if you need a longer stop. |
-| `llm_retry` | warn | F168 transient-failure retry (`status`, `retryAfterMs`). A burst of these with eventual `request_complete` is healthy vendor flakiness; retries with `api_error` after = vendor outage. |
-| `api_cache_hit` | info | F167 reply cache served a replay (does NOT count against the LLM hourly budget). |
+| `llm_breaker_blocked` | warn | cost ceiling tripped — the instance is 503ing LLM work until the hour window rolls. Flip `LLM_DISABLED` only if you need a longer stop. |
+| `llm_retry` | warn | transient-failure retry (`status`, `retryAfterMs`). A burst of these with eventual `request_complete` is healthy vendor flakiness; retries with `api_error` after = vendor outage. |
+| `api_cache_hit` | info | reply cache served a replay (does NOT count against the LLM hourly budget). |
 | `api_request` / `api_ok` | info | Per-mentor upstream lifecycle (fan-out and batch). |
 | `api_error` | error | Upstream non-OK or parse failure, body redacted to 200 chars. |
 
@@ -482,7 +482,7 @@ vercel logs <domain> --since 1h | grep request_complete | grep -c '"provider":"s
 vercel logs <domain> --since 1h | grep -c '"event":"llm_retry"'
 ```
 
-## Dependency Audit Posture (P30)
+## Dependency Audit Posture 
 
 `npm audit --omit=dev` (the set that ships to Vercel): **0
 vulnerabilities**. The API endpoints run on raw Node `http` via
@@ -500,7 +500,7 @@ Rotation policy: re-run `npm audit` before each release; any PROD-chain
 finding is a release blocker, dev-chain findings are triaged by
 exposure. Node engines: `>=24` (matches the Vercel Node.js 24 runtime).
 
-## Load Smoke (P31 / F172)
+## Load Smoke
 
 `scripts/load-smoke.mjs` drives N concurrent virtual users against a
 LOCAL `server.js` and reports latency percentiles, error rate, and 429
@@ -519,7 +519,7 @@ Baseline (2026-04-30, MacBook local, 10 VUs / 25s): 5,010 requests,
 (the 0.3/s refill + 20 burst per IP is the DESIGN under sustained
 overload), **0 errors, p50 21ms / p95 24ms / p99 25ms**.
 
-Reading the shed percentage honestly (F176 review follow-up): the
+Reading the shed percentage honestly (review follow-up): the
 ~94% shed figure is arithmetic against a 10x-overloaded target, not a
 production prediction. Each of the 10 VUs holds a distinct
 x-forwarded-for IP, so the budget is 10 × (20 burst + 0.3/s × 25s) ≈
@@ -528,7 +528,7 @@ configured budget sheds ~94% by construction. The smoke's real signal
 is that the admitted ~5.6% flows through the full path with 0 errors
 and p95 24ms.
 
-**Shed-curve sweep (P39, 2026-05-07)** — `npm run test:load:sweep`
+**Shed-curve sweep (2026-05-07)** — `npm run test:load:sweep`
 replaces the old "raise VUs until 429s appear, then sweep down" manual
 procedure. 429s appear at every VU count (a VU's 20 rps think-time
 empties the 20-token burst in ~1s against a 0.3/s refill), so the sweep
@@ -554,7 +554,7 @@ local MacBook the fallback path had no boundary inside the swept range.
 
 Two operational caveats the first sweep run taught:
 
-1. **The F19 breaker will eat an un-raised sweep.** Each admitted
+1. **The breaker will eat an un-raised sweep.** Each admitted
    request fans out per-mentor and every fan-out call counts against
    the rolling `LLM_HOURLY_BUDGET` (default 1000/instance) — the first
    sweep run spent it by ~20 VUs and every later admitted request 503'd
@@ -576,7 +576,7 @@ Pass criteria: non-429 error rate < 1% and p95 < 500ms. Do NOT set
 `LLM_DISABLED=1` during a smoke — the breaker 503s every table request
 by design and the run will read as an error storm.
 
-## v1.0.0 Release Checklist (P32)
+## v1.0.0 Release Checklist 
 
 Verified locally before tag (2026-04-30):
 
@@ -600,7 +600,7 @@ dev machine CI:
    confirm the alias sha flips and restores.
 4. Tag: `git tag v1.0.0 && git push origin v1.0.0`.
 
-Release-gate status (F176 review follow-up): the four operator steps
+Release-gate status (review follow-up): the four operator steps
 above are POST-tag operational duties, not gates that block v1.0.0 —
 the tag was cut on local verification alone. The two contract defects
 the external review marked blocking (mentor-count schema drift, client
@@ -613,14 +613,14 @@ tagging, not after.
 
 Found by the external v1.0.0 review, fixed in one patch set:
 
-- **F174 — mentor-count ceiling drift**: response schema capped
+- **— mentor-count ceiling drift**: response schema capped
   `mentorReplies` at 8 while server (`MENTORS_MAX`) and client
   (`MAX_PEOPLE`) both allowed 10. Schema aligned to 10; a contract-parity
   test now pins all three to one constant.
-- **F175 — inverted timeout chain**: client timeout (35s) outlived the
+- **— inverted timeout chain**: client timeout (35s) outlived the
   30s Vercel function ceiling. Client default now 28s — upstream (25s) <
   client (28s) < function (30s) — with a chain test pinning the order.
-- **F176 — untested KV-outage semantics**: KV failure was already
+- **— untested KV-outage semantics**: KV failure was already
   fail-safe (degrades to the per-instance memory bucket) but nothing
   locked that in; an integration test now proves a KV outage still
   rate-limits and logs `limiter: 'memory'`.
@@ -629,7 +629,7 @@ Post-tag patch set: 991/991 unit tests, type-check + lint + build green.
 These fixes are candidates for a v1.0.1 tag once the operator steps
 above have been run against a deployed build.
 
-## Local Tooling (P34-P36, 2026-05-06)
+## Local Tooling (-, 2026-05-06)
 
 Lint now covers the whole repo, not just `src`:
 
@@ -655,7 +655,7 @@ Git hooks (husky + lint-staged, activated by the `prepare` script on
 - `pre-push`: `type-check + lint + full vitest` (~1 min). Build and
   Playwright stay in CI — a push gate that costs five minutes gets
   bypassed, and a bypassed gate is worse than no gate.
-- `--no-verify` is legitimate exactly once per bootstrap (the P34
+- `--no-verify` is legitimate exactly once per bootstrap (the 
   commit used it because the gate didn't exist yet) and for the rare
   WIP checkpoint you intend to rework before push. Anything else that
   skips the gates should fail CI within minutes — the hooks are a

@@ -15,7 +15,7 @@ interface VersionedMemoryStore {
 }
 
 /**
- * F163 (P16): memories previously lived only in React state — a refresh
+ * : memories previously lived only in React state — a refresh
  * silently destroyed every saved conversation. This module is the sole
  * owner of the localStorage surface: load (with migration), save (bounded,
  * quota-safe), clear.

@@ -5,7 +5,7 @@
  * - vercel.ts        → deployed response headers (via @vercel/config)
  * - vite.config.mts  → `vite preview` serves the SAME headers locally,
  *                      so e2e can exercise the production header posture
- * - e2e/prod-headers.spec.ts → asserts every header verbatim (F153)
+ * - e2e/prod-headers.spec.ts → asserts every header verbatim ()
  *
  * Change headers HERE only. The e2e spec fails on any drift between this
  * module and what the preview server actually emits.

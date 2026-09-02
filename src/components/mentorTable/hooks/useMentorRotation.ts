@@ -14,7 +14,7 @@ interface UseMentorRotationOptions {
 }
 
 /**
- * RERENDER-5: imperative mentor auto-rotation — walks mentorNodeRefs and
+ * imperative mentor auto-rotation — walks mentorNodeRefs and
  * flips the speaker class directly, so the tick costs 0 React re-renders.
  * MC-2: the page's onFocus/onBlur mirror the hover pause so keyboard users
  * can pause auto-rotation the same way mouse users do.

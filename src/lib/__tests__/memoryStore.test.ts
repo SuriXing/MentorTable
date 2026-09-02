@@ -27,7 +27,7 @@ const card: MemoryCard = {
   takeaways: ['Start with the smallest shippable slice.'],
 };
 
-describe('memoryStore (F163)', () => {
+describe('memoryStore ()', () => {
   let storage: Storage;
 
   beforeEach(() => {

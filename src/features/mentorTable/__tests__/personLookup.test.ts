@@ -930,11 +930,11 @@ describe('personLookup', () => {
   });
 });
 
-// F154: in production the CSP (`connect-src 'self'`) blocks every client-side
+// in production the CSP (`connect-src 'self'`) blocks every client-side
 // Wikipedia request, and CN networks block the host regardless. These tests
 // pin the production posture: the module must not even ATTEMPT a wiki fetch,
 // and must degrade to local data + the render-time proxy chain.
-describe('personLookup production gating (F154)', () => {
+describe('personLookup production gating ()', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.stubEnv('DEV', false);
@@ -990,11 +990,11 @@ describe('personLookup production gating (F154)', () => {
   });
 });
 
-// F154/F155: the image ladder is the load-bearing piece of the CSP/client
+// /the image ladder is the load-bearing piece of the CSP/client
 // parity work — these tests pin the chain shape per environment so neither
 // a prod chain regression (blocked hosts) nor a dev chain regression
 // (lost fallbacks) can land silently.
-describe('buildMentorImageChain (F154/F155)', () => {
+describe('buildMentorImageChain (/)', () => {
   beforeEach(() => {
     vi.resetModules();
   });

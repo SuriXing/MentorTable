@@ -4,7 +4,7 @@ This document covers the security posture, the operator kill switches, and the
 known residual risks. Update this file whenever the security middleware
 (`lib/security.js`) or `vercel.json` headers change.
 
-## 1. Rate-limit residual risk and the LLM kill switch (F19)
+## 1. Rate-limit residual risk and the LLM kill switch ()
 
 ### Threat model
 
@@ -42,7 +42,7 @@ Three layers, in order of response time:
   At today's defaults that's a finite, knowable bound; the operator must
   watch dashboards and trigger the kill switch within minutes if abuse is
   observed. **True global accounting requires Vercel KV / Upstash Redis**
-  (option 2 in the U5.1 R2 task brief — deferred for KISS).
+  (option 2 in the R2 task brief — deferred for KISS).
 - The breaker counter resets on cold start. A fresh instance starts with
   full budget. This is acceptable because cold-start frequency is bounded
   by Vercel's autoscale logic; abuse that triggers many cold starts is
@@ -56,7 +56,7 @@ Three layers, in order of response time:
 | Sustained traffic spike, want to throttle hard   | Lower `LLM_HOURLY_BUDGET` (e.g., `100`) and redeploy.        |
 | Single noisy IP                                  | Already capped by per-IP bucket. Check logs and consider WAF rule. |
 
-## 2. HSTS preload commitment (F24)
+## 2. HSTS preload commitment ()
 
 `vercel.json` sets:
 
@@ -72,7 +72,7 @@ included, **removal requires submitting a removal request to
 weeks to months to propagate** through browser updates. Do not enable
 `preload` on a domain that may need to serve plain HTTP again.
 
-## 3. F20 audit — pre-U5.1 LLM_API_KEY leak check (CLEAR)
+## 3. audit — pre-LLM_API_KEY leak check (CLEAR)
 
 Performed 2026-04-20 against the full repo history.
 
@@ -87,13 +87,13 @@ $ git log --all --diff-filter=A --name-only --pretty=format: \
 (empty — neither dist/ nor build/ has ever been added to the index)
 
 $ git log --all -p -- vite.config.mts | grep -i "LLM_API_KEY\|DASHSCOPE_API_KEY"
-(only matches: comments in U5.1 R1 commit explaining the F6 fix — no
+(only matches: comments in R1 commit explaining the fix — no
 actual key material in any committed file)
 ```
 
 `.gitignore` has had `dist/` and `build/` entries throughout the relevant
 history, and `.env*` is gitignored. The pre-R1 vulnerability described in
-the F6 commit message was a build-time `define` injection that exposed shell
+the commit message was a build-time `define` injection that exposed shell
 env vars **into the client bundle at build time** — the bundle (`dist/`)
 itself was never committed to git, so **no historical commit contains the
 production LLM_API_KEY**. **No key rotation is required.**
@@ -116,13 +116,13 @@ this audit before pushing.
 | 7  | Google `AIza...`                       | `AIza[REDACTED]`      |
 | 8  | AWS `AKIA...`                          | `AKIA[REDACTED]`      |
 | 9  | xAI `xai-...`                          | `xai-[REDACTED]`      |
-| 10 | **Aliyun RAM `LTAI...`** (F21, R2)     | `LTAI[REDACTED]`      |
+| 10 | **Aliyun RAM `LTAI...`** (, R2)     | `LTAI[REDACTED]`      |
 | 11 | JWT `eyJ...`                           | `eyJ[REDACTED]`       |
 
 The redactor runs over all error messages emitted by the API handlers before
 they reach client-facing JSON or server logs.
 
-## 5. Subresource Integrity (SRI) — deferred (F27)
+## 5. Subresource Integrity (SRI) — deferred ()
 
 Vite does not natively emit SRI hashes for built assets. We could add
 `vite-plugin-sri3`, but the same-origin asset model + CSP `script-src
@@ -133,7 +133,7 @@ case SRI doesn't help — they can rewrite the integrity attribute too).
 Deferred as low-leverage. Revisit if we ever serve assets from a CDN
 outside the deployment domain.
 
-## 6. Vercel `x-forwarded-for` trust boundary (F23)
+## 6. Vercel `x-forwarded-for` trust boundary ()
 
 See the comment block above `getClientIp` in `lib/security.js`. The TL;DR:
 Vercel terminates TLS and prepends its edge IP to the chain. Only the

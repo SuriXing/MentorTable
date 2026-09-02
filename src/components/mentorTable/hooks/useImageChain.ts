@@ -10,7 +10,7 @@ interface UseImageChainOptions {
 }
 
 /**
- * F162 (P13): avatar fallback-ladder progress extracted from
+ * : avatar fallback-ladder progress extracted from
  * MentorTablePage — which ladder entry renders now (imageSrcFor) and how
  * errors advance the ladder (markImageBroken, with the wikimedia 429
  * single-retry delay).

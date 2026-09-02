@@ -58,7 +58,7 @@ export interface MentorReplyTurn {
 }
 
 /**
- * The session state machine (P15's deferred second half): phase navigation,
+ * The session state machine ('s deferred second half): phase navigation,
  * boot/live mode, the problem input, the result commit, both async
  * orchestrators, and the reveal heartbeat. Pure orchestration — identity
  * helpers, notes, memories, and panel resets arrive via options.
@@ -86,7 +86,7 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<MentorSimulationResult | null>(null);
   const [generateError, setGenerateError] = useState('');
-  // Shared by reply-all + note submits (F162/P14: page previously owned it).
+  // Shared by reply-all + note submits (/page previously owned it).
   const [isRoundGenerating, setIsRoundGenerating] = useState(false);
   const [conversationTurns, setConversationTurns] = useState<ConversationTurn[]>([]);
   const [replyAllDraft, setReplyAllDraft] = useState('');
@@ -234,7 +234,7 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
       // Bug-bash round 1: previously this try/finally had no catch — a
       // malformed response from res.json() bubbled as SyntaxError and the
       // user's message was silently dropped. Surface via generateError.
-      // F157: full detail goes to console; the banner shows stable copy only.
+      // full detail goes to console; the banner shows stable copy only.
       console.error('[mentor-reply-all] request failed:', err);
       setGenerateError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -287,7 +287,7 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
     } catch (err) {
       // ERR-2: surface the failure instead of silently leaving the user
       // with an empty conversation panel.
-      // F157: full detail goes to console; the banner shows stable copy only.
+      // full detail goes to console; the banner shows stable copy only.
       if (!isMountedRef.current) return;
       console.error('[mentor-generate] request failed:', err);
       window.clearTimeout(bootTimer);
@@ -309,7 +309,7 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
     return () => window.clearTimeout(timer);
   }, [sessionMode, result?.mentorReplies.length, visibleReplyCount, isConversationHovered]);
 
-  // U7.1: phase-aware document.title. Single-route SPA → can't do per-route
+  // phase-aware document.title. Single-route SPA → can't do per-route
   // <title> tags, but we can update the tab title as the user moves through
   // the lifecycle so it's obvious at a glance which phase they're in
   // (useful when multitasking across browser tabs).

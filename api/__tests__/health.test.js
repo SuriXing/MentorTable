@@ -73,7 +73,7 @@ describe('api/health', () => {
   });
 
   it('emits application/json Content-Type via res.json', () => {
-    // F63-backend (U8.1 R2): contract-locks the JSON content type so a
+    // -backend : contract-locks the JSON content type so a
     // future change that swaps res.json for res.end won't silently flip
     // the response to text/plain.
     const res = mockRes();
