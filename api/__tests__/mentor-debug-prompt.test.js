@@ -279,3 +279,43 @@ describe('mentor-debug-prompt handler', () => {
     expect(nameValue).toBe('x'.repeat(120));
   });
 });
+
+describe('production gate for the prompt IP', () => {
+  const savedEnv = {};
+  const envKeys = ['NODE_ENV', 'MENTOR_DEBUG_PROMPT_ENABLED'];
+  beforeEach(() => {
+    for (const key of envKeys) {
+      savedEnv[key] = process.env[key];
+      delete process.env[key];
+    }
+  });
+  afterEach(() => {
+    for (const [key, val] of Object.entries(savedEnv)) {
+      if (val === undefined) delete process.env[key];
+      else process.env[key] = val;
+    }
+  });
+  const post = async () => {
+    const res = mockRes();
+    await handler(mockReq({ method: 'POST', body: { mentor: sampleMentor } }), res);
+    return res;
+  };
+  it('answers 404 in production without the explicit flag', async () => {
+    process.env.NODE_ENV = 'production';
+    const res = await post();
+    expect(res._status).toBe(404);
+    expect(res._json).toEqual({ error: 'Not found' });
+  });
+  it('serves in production when the operator opts in', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.MENTOR_DEBUG_PROMPT_ENABLED = '1';
+    const res = await post();
+    expect(res._status).toBe(200);
+    expect(res._json.prompt).toContain('Lisa Su');
+  });
+  it('serves outside production without any flag (dev path)', async () => {
+    process.env.NODE_ENV = 'development';
+    const res = await post();
+    expect(res._status).toBe(200);
+  });
+});

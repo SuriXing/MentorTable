@@ -83,6 +83,15 @@ module.exports = async (req, res) => {
   // server.js dev path (Express wrapper) — see lib/security.js header comment.
   if (!(await applyApiSecurity(req, res, { maxBodyBytes: '64kb' }))) return;
 
+  // The prompt block is product IP: persona engineering, output schema, and
+  // safety constraints in one payload. The dev panel is the only intended
+  // consumer, so production answers 404 (existence hidden) unless the
+  // operator explicitly re-enables the endpoint by env.
+  if (process.env.NODE_ENV === 'production' && process.env.MENTOR_DEBUG_PROMPT_ENABLED !== '1') {
+    res.status(404).json({ error: 'Not found' });
+    return;
+  }
+
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
