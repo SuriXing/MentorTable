@@ -1,7 +1,7 @@
 'use strict';
 
 const { log } = require('../../lib/logger.js');
-const { redactSensitive, recordLlmCall } = require('../../lib/security.js');
+const { redactSensitive, recordLlmCall, recordLlmTokens } = require('../../lib/security.js');
 const {
   RESPONSE_SCHEMA,
   normalizeProviderPayload,
@@ -60,6 +60,9 @@ function buildChatRequestPayload({ protocol, model, temperature, system, user, r
   }
   const payload = {
     model,
+    // Same ceiling as the anthropic adapter: an uncapped completion lets a
+    // hostile request convert one fan-out call into a max-length paid stream.
+    max_tokens: anthropicMaxTokens(isBatch),
     temperature,
     messages: [
       { role: 'system', content: system },
@@ -244,7 +247,7 @@ async function requestMentorReplyFromLLM({
       model,
     });
      
-    console.log(`[mentor-api] upstream request start mentor=${mentor.id} model=${model}`);
+    log('info', 'upstream_request_start', { handler: 'mentor-table', mentorId: mentor.id, model });
     response = await callChatCompletionsWithRetry({
       url: chatCompletionsUrl,
       apiKey,
@@ -280,13 +283,12 @@ async function requestMentorReplyFromLLM({
     latency_ms: Date.now() - startedAt,
   });
    
-  console.log(
-    `[mentor-api] upstream response mentor=${mentor.id} status=${response.status} elapsed=${Date.now() - startedAt}ms`
-  );
+  log('info', 'upstream_response', { handler: 'mentor-table', mentorId: mentor.id, status: response.status, elapsedMs: Date.now() - startedAt });
   // : upstream error bodies are redacted inside the shared
   // pipeline — Authorization/sk-/LTAI prefixes echoed back from upstream
   // never reach the logs or the thrown Error.
   const { parsed, content } = await parseChatJsonReply({
+    recordTokenUsage: recordLlmTokens,
     response,
     mentorId: mentor.id,
     protocol,
@@ -310,8 +312,9 @@ async function requestMentorReplyFromLLM({
   // reply instead.
   const normalized = normalizeProviderPayload(parsed, { mentors: [mentor], language });
   if (!normalized) {
-    const preview = String(content || '').slice(0, 180).replace(/\s+/g, ' ');
-    throw new Error(`Model returned invalid JSON for ${mentor.id}. Preview: ${preview}`);
+    // No content preview in the error: model output paraphrases the user's
+    // problem, and this message lands in structured logs.
+    throw new Error(`Model returned invalid JSON for ${mentor.id} (${String(content || '').length} chars)`);
   }
 
   // normalizeProviderPayload guarantees mentorReplies.length > 0 when it returns
@@ -346,13 +349,25 @@ function reasoningUsage(data) {
   return details && typeof details.reasoning_tokens === 'number' ? details.reasoning_tokens : null;
 }
 
+// Normalized consumption metering across provider envelope shapes:
+// openai-compatible usage.total_tokens, anthropic input+output tokens.
+function upstreamTotalTokens(data) {
+  const usage = data && data.usage;
+  if (!usage) return 0;
+  if (Number.isFinite(usage.total_tokens)) return Number(usage.total_tokens);
+  const input = Number(usage.input_tokens) || 0;
+  const output = Number(usage.output_tokens) || 0;
+  return input + output;
+}
+
 function logReasoningStats({ mentorId, reasoning, reasoningTokens }) {
+  // Counters only: reasoning text routinely paraphrases the user's problem,
+  // and the product promises conversations are not stored server-side.
   log('info', 'upstream_reasoning', {
     handler: 'mentor-table',
     mentorId,
     reasoningChars: reasoning.length,
-    reasoningTokens,
-    preview: reasoning.slice(0, 120).replace(/\s+/g, ' ')
+    reasoningTokens
   });
 }
 
@@ -373,6 +388,7 @@ async function parseChatJsonReply({
   chatCompletionsUrl,
   timeoutMs,
   recordRepairCall,
+  recordTokenUsage,
   repairSystem,
   buildRepairUser,
   isBatch
@@ -399,6 +415,7 @@ async function parseChatJsonReply({
   }
 
   const data = await response.json();
+  if (recordTokenUsage) recordTokenUsage(upstreamTotalTokens(data));
   let content = extractAssistantContent(data);
   const reasoning = extractReasoningContent(data);
   if (reasoning) {
@@ -435,6 +452,7 @@ async function parseChatJsonReply({
       });
       if (repairResponse.ok) {
         const repairedData = await repairResponse.json();
+        if (recordTokenUsage) recordTokenUsage(upstreamTotalTokens(repairedData));
         content = extractAssistantContent(repairedData);
         const repairedReasoning = extractReasoningContent(repairedData);
         if (repairedReasoning) {
@@ -539,9 +557,7 @@ async function requestMentorBatchReplyFromLLM({
       model,
     });
      
-    console.log(
-      `[mentor-api] upstream request start mode=batch mentors=${mentors.length} model=${model}`
-    );
+    log('info', 'upstream_request_start', { handler: 'mentor-table', mode: 'batch', mentors: mentors.length, model });
     response = await callChatCompletionsWithRetry({
       url: chatCompletionsUrl,
       apiKey,
@@ -578,10 +594,9 @@ async function requestMentorBatchReplyFromLLM({
     latency_ms: Date.now() - startedAt,
   });
    
-  console.log(
-    `[mentor-api] upstream response mode=batch mentors=${mentors.length} status=${response.status} elapsed=${Date.now() - startedAt}ms`
-  );
+  log('info', 'upstream_response', { handler: 'mentor-table', mode: 'batch', mentors: mentors.length, status: response.status, elapsedMs: Date.now() - startedAt });
   const { parsed, content } = await parseChatJsonReply({
+    recordTokenUsage: recordLlmTokens,
     response,
     mentorId: 'batch',
     protocol,

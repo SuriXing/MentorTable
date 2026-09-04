@@ -147,11 +147,11 @@ const resolveProviderChain = (input) => {
       }
       const unknownEnv = names.find((n) => !isKnownProvider(n));
       if (unknownEnv) {
-        console.warn(`[mentor-table] ignoring unknown LLM_PROVIDER_CHAIN entry '${unknownEnv}' (${providerErrorHint()})`);
+        log('warn', 'provider_chain_config_ignored', { entry: unknownEnv, chainVar: 'LLM_PROVIDER_CHAIN', hint: providerErrorHint() });
       }
     } else {
       if (process.env.LLM_PROVIDER && !isKnownProvider(process.env.LLM_PROVIDER)) {
-        console.warn(`[mentor-table] ignoring unknown LLM_PROVIDER '${process.env.LLM_PROVIDER}' (${providerErrorHint()}); using legacy env config`);
+        log('warn', 'provider_config_ignored', { provider: process.env.LLM_PROVIDER, hint: providerErrorHint() });
       }
       if (isKnownProvider(process.env.LLM_PROVIDER)) {
         names.push(process.env.LLM_PROVIDER);
