@@ -67,7 +67,7 @@ Local dev reads from `.env` at repo root (gitignored). Never commit keys.
 
 | Name | Required? | Where set | Purpose |
 |---|---|---|---|
-| `LLM_API_KEY` | Yes (prod) | Vercel env (Production, Preview) | Primary DashScope / OpenAI-compatible API key used by `api/mentor-table.js` and `api/mentor-debug-prompt.js`. Handlers fall through to `OPENAI_API_KEY` → `LLM_API_TOKEN` → `OPENAI_KEY` if unset; in practice we set this one. |
+| `LLM_API_KEY` | Yes (prod) | Vercel env (Production, Preview) | Primary DashScope / OpenAI-compatible API key used by `api/mentor-table.js`. Handlers fall through to `OPENAI_API_KEY` → `LLM_API_TOKEN` → `OPENAI_KEY` if unset; in practice we set this one. |
 | `OPENAI_API_KEY` | No | Vercel env | Fallback key if `LLM_API_KEY` is missing. Kept for local dev parity with OpenAI tooling. |
 | `LLM_API_TOKEN` | No | Vercel env | Secondary fallback key (legacy alias). |
 | `OPENAI_KEY` | No | Vercel env | Tertiary fallback key (legacy alias). |
