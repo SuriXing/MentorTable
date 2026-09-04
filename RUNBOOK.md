@@ -84,6 +84,7 @@ Local dev reads from `.env` at repo root (gitignored). Never commit keys.
 | `ALLOWED_ORIGINS` | Yes (prod) | Vercel env | Comma-separated CORS allowlist. Empty in prod triggers a loud warning and disables wildcard (`lib/security.js:resolveAllowOrigin`). |
 | `LLM_DISABLED` | No (operator kill switch) | Vercel env | Set to `1` or `true` to 503 every LLM call. Use during an incident. |
 | `LLM_HOURLY_BUDGET` | No | Vercel env | Per-instance rolling-hour cap on upstream LLM calls. Default: `1000`. |
+| `LLM_TOKEN_HOURLY_BUDGET` | No | Vercel env | Per-instance rolling-hour ceiling on actual upstream token consumption (metered from response usage, repair calls included). Default: `1000000`. The breaker trips when EITHER budget is crossed. |
 | `DISABLE_RATE_LIMIT` | No | local only | Set to `1` to skip per-IP rate limiting — test harness only. |
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | No | Vercel env (or Upstash equivalents `UPSTASH_REDIS_REST_*`) | : enables GLOBAL rate limiting via Vercel KV / Upstash REST fixed-window counters. Unset → per-instance in-memory buckets only. |
 | `MENTOR_TABLE_KV_LIMIT` | No | Vercel env | Global per-IP request budget per 60s window for `/api/mentor-table` when KV is configured. Default: `30`. |
@@ -140,8 +141,9 @@ vercel logs <domain> --since 15m | grep 'rate_limited' | grep -c '"limiter":"kv"
 **Remediation.**
 
 ```bash
-# : rate-limit cap is hardcoded at 30 in lib/security.js;
-# changing it requires a code edit + deploy. There is no env-var override.
+# : per-handler burst caps live in the handlers (mentor-table 20,
+# mentor-image 60) and the shared-state KV budgets are env-tunable — see
+# lib/security.js. There is no single global "30" constant.
 # Option 1 (real flood): confirm it's not a single hot client. Look at
 # distinct x-forwarded-for first-hop addresses in the past 15m:
 vercel logs <domain> --since 15m | grep -oE '"xff":"[^"]+"' | sort -u | wc -l
@@ -498,7 +500,7 @@ Known dev-chain advisories (accepted, reviewed 2026-04-30):
 
 Rotation policy: re-run `npm audit` before each release; any PROD-chain
 finding is a release blocker, dev-chain findings are triaged by
-exposure. Node engines: `>=24` (matches the Vercel Node.js 24 runtime).
+exposure. Node engines: `>=22` (matches package.json engines).
 
 ## Load Smoke
 
@@ -578,7 +580,9 @@ by design and the run will read as an error storm.
 
 ## v1.0.0 Release Checklist 
 
-Verified locally before tag (2026-04-30):
+Verified locally before the tag was re-anchored onto the public-history
+restart snapshot (the working tree at tagging time is the 2026-05-17
+state; the 2026-04-30 root-commit date is the disclosed restart anchor):
 
 - 986/986 unit tests (33 files), type-check (tsconfig + tsconfig.node),
   lint, production build — all green.
@@ -636,7 +640,7 @@ Lint now covers the whole repo, not just `src`:
 - `npm run lint` = `lint:fe` (src, TS) + `lint:be` (api/, lib/,
   server.js as CommonJS-on-Node; scripts/ as ESM). CI keeps calling
   `lint` — no workflow change was needed.
-- `.eslintrc.cjs` is built on `eslint:recommended`. For TS files
+- `eslint.config.cjs` is built on `eslint:recommended`. For TS files
   `no-undef` is deliberately off (tsc owns that) and the TS-aware
   `no-unused-vars` is on; for backend JS `no-undef` is on and the
   browser env is revoked. Two suites under `api/**/__tests__` use

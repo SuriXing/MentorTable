@@ -1,0 +1,30 @@
+# Asserts the security headers against the LIVE deployment, not a local
+# preview. The repo's e2e suite can only exercise vite preview; this job is
+# the only thing that fails if the compiled vercel.ts header set ever stops
+# reaching production (toolchain regression, platform-side change, drift).
+name: prod-headers
+
+on:
+  schedule:
+    - cron: '0 3 * * *' # daily 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-headers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assert security headers on the production URL
+        run: |
+          set -euo pipefail
+          url='https://mentor-table.vercel.app/'
+          headers="$(curl -sI --max-time 30 "$url")"
+          fail() { echo "MISSING on $url: $1" >&2; exit 1; }
+          echo "$headers" | grep -qi '^content-security-policy:' || fail 'Content-Security-Policy'
+          echo "$headers" | grep -qi '^strict-transport-security:' || fail 'Strict-Transport-Security'
+          echo "$headers" | grep -qi '^x-frame-options: *DENY' || fail 'X-Frame-Options: DENY'
+          echo "$headers" | grep -qi '^x-content-type-options: *nosniff' || fail 'X-Content-Type-Options: nosniff'
+          echo "$headers" | grep -qi '^referrer-policy:' || fail 'Referrer-Policy'
+          echo 'All production security headers present.'

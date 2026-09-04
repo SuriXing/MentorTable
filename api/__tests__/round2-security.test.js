@@ -680,25 +680,23 @@ describe('resolveAllowOrigin production fallback (NEW-7)', () => {
     _resetBlankOriginsWarning();
   });
 
-  it("refuses '*' when VERCEL_ENV=production and allowlist empty", () => {
+  it('withholds CORS entirely when VERCEL_ENV=production and allowlist empty', () => {
     delete process.env.ALLOWED_ORIGINS;
     process.env.VERCEL_ENV = 'production';
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const out = resolveAllowOrigin('https://attacker.com');
-    expect(out).not.toBe('*');
-    // Echoes the caller origin (so the request still works for legit clients)
-    // or 'null' when no origin header — but never '*'.
-    expect(out).toBe('https://attacker.com');
+    // Echoing the attacker origin would be a per-request wildcard, so the
+    // production fallback sends NO ACAO header at all: same-origin traffic
+    // (the deployed frontend) needs no CORS, and cross-origin reads fail.
+    expect(resolveAllowOrigin('https://attacker.com')).toBe('');
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();
   });
 
-  it("returns 'null' when production + no origin header", () => {
+  it("returns '' when production + no origin header", () => {
     delete process.env.ALLOWED_ORIGINS;
     process.env.VERCEL_ENV = 'production';
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const out = resolveAllowOrigin(undefined);
-    expect(out).toBe('null');
+    expect(resolveAllowOrigin(undefined)).toBe('');
     warnSpy.mockRestore();
   });
 

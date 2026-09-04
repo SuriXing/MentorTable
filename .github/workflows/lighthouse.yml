@@ -25,10 +25,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '24'
           cache: 'npm'
@@ -39,7 +39,7 @@ jobs:
       - name: Wait for Vercel preview deployment
         if: github.event_name == 'pull_request'
         id: vercel-preview
-        uses: patrickedqvist/wait-for-vercel-preview@v1.3.2
+        uses: patrickedqvist/wait-for-vercel-preview@06c79330064b0e6ef7a2574603b62d3c98789125 # v1.3.2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           max_timeout: 600
@@ -66,7 +66,7 @@ jobs:
       # Intentional — preview URLs are already public — but DO NOT enable
       # this on a workflow that audits an authenticated/internal page.
       - name: Run Lighthouse CI
-        uses: treosh/lighthouse-ci-action@v12
+        uses: treosh/lighthouse-ci-action@512cc908a55bfb0ad231facca52adf3d3a651df4 # v12
         id: lhci
         with:
           urls: |
@@ -79,7 +79,7 @@ jobs:
       # the github-script body (not template-string interpolation).
       - name: Comment Lighthouse scores on PR
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         env:
           LHCI_LINKS: ${{ steps.lhci.outputs.links }}
           PREVIEW_URL: ${{ steps.url.outputs.preview_url }}

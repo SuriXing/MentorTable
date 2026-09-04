@@ -2,7 +2,7 @@
 
 This document covers the security posture, the operator kill switches, and the
 known residual risks. Update this file whenever the security middleware
-(`lib/security.js`) or `vercel.json` headers change.
+(`lib/security.js`) or `vercel.ts` headers change.
 
 ## 1. Rate-limit residual risk and the LLM kill switch ()
 
@@ -29,10 +29,16 @@ Three layers, in order of response time:
 
 2. **`LLM_HOURLY_BUDGET=<n>` per-instance breaker.** Default: `1000` calls
    per instance per rolling hour. When breached, that instance returns 503
-   until its window rolls. With ~50 instances the worst-case global ceiling
-   is ~50,000 calls/hr. Tune lower if the bill spikes.
+   until its window rolls. Tune lower if the bill spikes.
 
-3. **Per-IP token bucket (`enforceRateLimit`).** Best-effort UX guard
+3. **`LLM_TOKEN_HOURLY_BUDGET=<n>` per-instance token breaker.** Default:
+   `1,000,000` upstream tokens per instance per rolling hour, metered from
+   each response's actual `usage.total_tokens` (openai) or
+   `input_tokens + output_tokens` (anthropic), including repair calls. The
+   breaker trips for subsequent requests when EITHER ceiling is crossed, so
+   a few huge requests cannot hide behind the call-count budget.
+
+4. **Per-IP token bucket (`enforceRateLimit`).** Best-effort UX guard
    against naive flooding from a single source. Not a security boundary.
 
 ### Residual risk
@@ -58,7 +64,7 @@ Three layers, in order of response time:
 
 ## 2. HSTS preload commitment ()
 
-`vercel.json` sets:
+`vercel.ts` sets:
 
 ```
 Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
