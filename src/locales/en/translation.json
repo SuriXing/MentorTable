@@ -304,5 +304,13 @@
   "mt.generateFailedHint": "The network or service may be temporarily unavailable. Your session is saved — try again in a moment.",
   "mt.addPerson": "Add person",
   "mt.searching": "Searching...",
-  "mt.noResults": "No results — press Enter to add as custom mentor"
+  "mt.noResults": "No results — press Enter to add as custom mentor",
+  "mt.quickTablesTitle": "Start with a ready-made table",
+  "mt.quickTablesHint": "Choose a table to seat mentors and prefill an editable question.",
+  "mt.presetStartup": "Startup decisions",
+  "mt.presetStartupQuestion": "I have a product idea but no users yet. What should I do in the next seven days?",
+  "mt.presetCareer": "Career crossroads",
+  "mt.presetCareerQuestion": "I am choosing between a safer path and a riskier opportunity. How should I decide?",
+  "mt.presetCreative": "Creative review",
+  "mt.presetCreativeQuestion": "My idea feels promising but unfinished. What should I improve first?"
 }

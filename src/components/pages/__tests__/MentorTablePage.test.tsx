@@ -39,11 +39,12 @@ const mentorTestState = (globalThis as any).__mentorTestState;
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k: string, opts?: { defaultValue?: string }) => {
+    t: (k: string, opts?: { defaultValue?: string; lng?: string }) => {
       // F162 (P18): the t map is now keyed into the real resources — the
       // mock resolves from them so tests assert actual shipped copy.
       const lang = (globalThis as any).__mentorTestState.language as string;
-      return String((RESOURCES[lang] ?? RESOURCES.en)[k] ?? opts?.defaultValue ?? k);
+      const requestedLang = opts?.lng ?? lang;
+      return String((RESOURCES[requestedLang] ?? RESOURCES.en)[k] ?? opts?.defaultValue ?? k);
     },
     i18n: {
       get language() {
@@ -239,6 +240,90 @@ describe('MentorTablePage (unit)', () => {
     fireEvent.click(screen.getByTestId('mentor-add-person'));
     await waitFor(() => expect(input.value).toBe(''));
     expect(getGuestStrong()).toContain('Bill Gates');
+  });
+
+  it('applies a ready-made table and opens its editable seeded question', () => {
+    render(<MentorTablePage standalone />);
+
+    fireEvent.click(screen.getByTestId('mentor-preset-startup'));
+
+    const problemInput = screen.getByTestId('mentor-problem-input');
+    expect(problemInput).toHaveValue(
+      'I have a product idea but no users yet. What should I do in the next seven days?'
+    );
+    expect(screen.getByText(/Guests:\s*3/)).toBeInTheDocument();
+    expect(screen.getAllByText('Steve Jobs').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Bill Gates').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Oprah Winfrey').length).toBeGreaterThan(0);
+
+    fireEvent.change(problemInput, { target: { value: 'My edited question' } });
+    expect(problemInput).toHaveValue('My edited question');
+    expect(generateMentorAdviceMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps preset copy aligned with the generation language in a Japanese UI', async () => {
+    mentorTestState.language = 'ja';
+    render(<MentorTablePage standalone />);
+
+    fireEvent.click(screen.getByTestId('mentor-preset-career'));
+
+    const problemInput = screen.getByTestId('mentor-problem-input');
+    expect(problemInput).toHaveValue(
+      'I am choosing between a safer path and a riskier opportunity. How should I decide?'
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('mentor-begin-session'));
+    });
+
+    await waitFor(() => expect(generateMentorAdviceMock).toHaveBeenCalledTimes(1));
+    expect(generateMentorAdviceMock.mock.calls[0][0]).toMatchObject({
+      language: 'en',
+      problem: 'I am choosing between a safer path and a riskier opportunity. How should I decide?',
+    });
+  });
+
+  it('does not carry a previous session into a newly applied preset', async () => {
+    render(<MentorTablePage standalone />);
+    await runSession();
+
+    const editBtn = Array.from(document.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim().toLowerCase() === 'edit'
+    );
+    fireEvent.click(editBtn!);
+    await waitFor(() => expect(screen.getByTestId('mentor-person-input')).toBeInTheDocument());
+
+    const removeBtn = Array.from(document.querySelectorAll('button')).find((button) =>
+      button.className.includes('removeGuestBtn')
+    );
+    fireEvent.click(removeBtn!);
+    await waitFor(() => expect(screen.getByTestId('mentor-preset-startup')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('mentor-preset-startup'));
+    expect(
+      screen.queryByText('I would identify the bottleneck and break it into steps.')
+    ).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('mentor-begin-session'));
+    });
+
+    await waitFor(() => expect(generateMentorAdviceMock).toHaveBeenCalledTimes(2));
+    const presetRequest = generateMentorAdviceMock.mock.calls[1][0];
+    expect(presetRequest.problem).toBe(
+      'I have a product idea but no users yet. What should I do in the next seven days?'
+    );
+    expect(presetRequest.mentors.map((mentor: { displayName: string }) => mentor.displayName)).toEqual([
+      'Steve Jobs',
+      'Bill Gates',
+      'Oprah Winfrey',
+    ]);
+    expect(JSON.stringify(presetRequest.conversationHistory)).not.toContain(
+      'How do I stay motivated?'
+    );
+    expect(JSON.stringify(presetRequest.conversationHistory)).not.toContain(
+      'I would identify the bottleneck and break it into steps.'
+    );
   });
 
   it('removes a mentor when its remove button is clicked', async () => {

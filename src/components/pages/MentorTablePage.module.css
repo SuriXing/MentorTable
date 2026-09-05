@@ -359,6 +359,71 @@
   gap: 8px;
 }
 
+.quickTables {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--primary-color) 24%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--primary-color) 7%, var(--bg-surface));
+}
+
+.quickTables h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.94rem;
+}
+
+.quickTables > p {
+  margin: 4px 0 10px;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.quickTableList {
+  display: grid;
+  gap: 8px;
+}
+
+.quickTableButton {
+  width: 100%;
+  min-height: 58px;
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--primary-color) 35%, transparent);
+  border-radius: 11px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.quickTableButton:hover {
+  border-color: var(--primary-color);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--primary-color) 14%, transparent);
+  transform: translateY(-1px);
+}
+
+.quickTableButton:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary-color) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.quickTableName {
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.quickTableMentors {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
 .guestCard {
   position: relative;
   border: 1px solid #cfe0ff;
