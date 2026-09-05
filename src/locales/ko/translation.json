@@ -304,5 +304,13 @@
   "mt.you": "나",
   "mt.typing": "입력 중...",
   "mt.typingNow": "입력하는 중",
-  "mt.tonightTakeaway": "오늘 밤의 요약"
+  "mt.tonightTakeaway": "오늘 밤의 요약",
+  "mt.quickTablesTitle": "준비된 원탁으로 시작하기",
+  "mt.quickTablesHint": "원탁을 선택하면 멘토와 수정 가능한 질문이 자동으로 설정됩니다.",
+  "mt.presetStartup": "창업 의사결정",
+  "mt.presetStartupQuestion": "제품 아이디어는 있지만 아직 사용자가 없습니다. 앞으로 7일 동안 무엇을 해야 할까요?",
+  "mt.presetCareer": "커리어 갈림길",
+  "mt.presetCareerQuestion": "안정적인 길과 위험이 큰 기회 사이에서 어떻게 결정해야 할까요?",
+  "mt.presetCreative": "창의적 아이디어 검토",
+  "mt.presetCreativeQuestion": "아이디어는 가능성이 있지만 아직 미완성입니다. 무엇을 먼저 개선해야 할까요?"
 }

@@ -28,6 +28,10 @@ import { fetchMentorDebugPrompt } from '../../features/mentorTable/mentorApi';
 import type { MentorSimulationResult } from '../../features/mentorTable/mentorEngine';
 import { makeLocalizedName, makeMentorNameResolver, normalizeMentorKey } from '../../features/mentorTable/mentorIdentity';
 import { floatingCardPlacement, seatStyle } from '../../features/mentorTable/seatLayout';
+import {
+  ROUNDTABLE_PRESETS,
+  type RoundtablePreset,
+} from '../../features/mentorTable/roundtablePresets';
 import { useMentorRotation } from '../mentorTable/hooks/useMentorRotation';
 import {
   PersonOption,
@@ -593,6 +597,47 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     return imageSrcFor(resolvedName, match?.imageUrl, match?.candidateImageUrls);
   };
 
+  const applyRoundtablePreset = (preset: RoundtablePreset) => {
+    const people = preset.mentorNames.slice(0, MAX_PEOPLE).map((name): PersonOption => {
+      try {
+        const verified = findVerifiedPerson(name);
+        if (verified) {
+          return {
+            name: verified.canonical,
+            imageUrl: verified.imageUrl,
+            candidateImageUrls: verified.candidateImageUrls,
+          };
+        }
+      } catch {
+        // The name still seats correctly if the optional lookup is unavailable.
+      }
+      return { name };
+    });
+
+    setResult(null);
+    setSessionMode('idle');
+    setVisibleReplyCount(0);
+    setShowSessionWrap(false);
+    setShowGroupSolve(false);
+    setConversationTurns([]);
+    setReplyAllDraft('');
+    resetNotes();
+    setExpandedReplyId('');
+    setExpandedSuggestion(null);
+    setOpenDebugMentorId('');
+    setHoveredDebugMentorId('');
+    setDebugPromptByMentorId({});
+    setDebugPromptLoadingByMentorId({});
+    setDebugPromptErrorByMentorId({});
+    setSaveNotice('');
+    activeIndexRef.current = 0;
+    setSelectedPeople(people);
+    setProblem(String(tI18n(preset.questionKey, { lng: uiLanguage })));
+    setPersonQuery('');
+    setGenerateError('');
+    setPhase('wish');
+  };
+
   const addPerson = async (person: PersonOption | string) => {
     const rawName = typeof person === 'string' ? person : person.name;
     const trimmed = rawName.trim();
@@ -1116,6 +1161,36 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                       </div>
                     )}
                   </div>
+
+                  {selectedPeople.length === 0 && (
+                    <section
+                      className={styles.quickTables}
+                      aria-labelledby="mentor-quick-tables-heading"
+                    >
+                      <h3 id="mentor-quick-tables-heading">
+                        {tI18n('mt.quickTablesTitle')}
+                      </h3>
+                      <p>{tI18n('mt.quickTablesHint')}</p>
+                      <div className={styles.quickTableList}>
+                        {ROUNDTABLE_PRESETS.map((preset) => (
+                          <button
+                            type="button"
+                            key={preset.id}
+                            data-testid={`mentor-preset-${preset.id}`}
+                            className={styles.quickTableButton}
+                            onClick={() => applyRoundtablePreset(preset)}
+                          >
+                            <span className={styles.quickTableName}>
+                              {tI18n(preset.titleKey)}
+                            </span>
+                            <span className={styles.quickTableMentors}>
+                              {preset.mentorNames.map(localizeName).join(' · ')}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  )}
 
                   <div className={styles.selectedPeopleGrid}>
                     {selectedPeople.length === 0 && (

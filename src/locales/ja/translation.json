@@ -304,5 +304,13 @@
   "mt.you": "あなた",
   "mt.typing": "入力中...",
   "mt.typingNow": "入力しています",
-  "mt.tonightTakeaway": "今夜のまとめ"
+  "mt.tonightTakeaway": "今夜のまとめ",
+  "mt.quickTablesTitle": "おすすめの円卓から始める",
+  "mt.quickTablesHint": "円卓を選ぶと、メンターと編集可能な質問が自動で設定されます。",
+  "mt.presetStartup": "起業の意思決定",
+  "mt.presetStartupQuestion": "プロダクトのアイデアはありますが、まだユーザーがいません。次の7日間で何をすべきですか？",
+  "mt.presetCareer": "キャリアの分岐点",
+  "mt.presetCareerQuestion": "安定した道とリスクの高い機会のどちらを選ぶべきか、どう判断すればよいですか？",
+  "mt.presetCreative": "クリエイティブレビュー",
+  "mt.presetCreativeQuestion": "アイデアには可能性を感じますが、まだ未完成です。最初に何を改善すべきですか？"
 }

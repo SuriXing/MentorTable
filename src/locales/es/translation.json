@@ -304,5 +304,13 @@
   "mt.you": "Tú",
   "mt.typing": "escribiendo...",
   "mt.typingNow": "Escribiendo ahora",
-  "mt.tonightTakeaway": "Resumen de esta noche"
+  "mt.tonightTakeaway": "Resumen de esta noche",
+  "mt.quickTablesTitle": "Empieza con una mesa preparada",
+  "mt.quickTablesHint": "Elige una mesa para sentar a los mentores y completar una pregunta editable.",
+  "mt.presetStartup": "Decisiones para emprender",
+  "mt.presetStartupQuestion": "Tengo una idea de producto, pero todavía no tengo usuarios. ¿Qué debería hacer durante los próximos siete días?",
+  "mt.presetCareer": "Encrucijada profesional",
+  "mt.presetCareerQuestion": "Estoy eligiendo entre un camino seguro y una oportunidad arriesgada. ¿Cómo debería decidir?",
+  "mt.presetCreative": "Revisión creativa",
+  "mt.presetCreativeQuestion": "Mi idea parece prometedora, pero está incompleta. ¿Qué debería mejorar primero?"
 }

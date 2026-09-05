@@ -54,6 +54,20 @@ test.describe('Mentor Table E2E', () => {
     await expect(page.getByTestId('mentor-person-input')).toBeVisible();
   });
 
+  test('ready-made table seats mentors and opens an editable question', async ({ page }) => {
+    await expect(page.locator('[data-testid^="mentor-preset-"]')).toHaveCount(3);
+
+    await page.getByTestId('mentor-preset-startup').click();
+
+    await expect(page.locator('text=/Guests.*3|人物数.*3/')).toBeVisible();
+    const problemInput = page.getByTestId('mentor-problem-input');
+    await expect(problemInput).toBeVisible();
+    await expect(problemInput).not.toHaveValue('');
+
+    await problemInput.fill('An edited starter question');
+    await expect(problemInput).toHaveValue('An edited starter question');
+  });
+
   test('mentor selection — search and add mentors', async ({ page }) => {
     await addMentor(page, 'Bill Gates');
 
