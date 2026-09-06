@@ -236,6 +236,8 @@ describe('mentorEngine', () => {
       const result = simulateMentorTable('我需要帮助', [customMentor], 'zh-CN');
       expect(result.mentorReplies[0].likelyResponse).toContain('可执行步骤');
       expect(result.mentorReplies[0].oneActionStep).toContain('20分钟');
+      expect(result.mentorReplies[0].whyThisFits).not.toMatch(/[A-Za-z]/);
+      expect(result.mentorReplies[0].oneActionStep).not.toMatch(/[A-Za-z]/);
     });
   });
 
@@ -293,12 +295,25 @@ describe('mentorEngine', () => {
       expect(result.mentorReplies[0].oneActionStep).toContain('take one focused step');
     });
 
-    it('zh-CN fallback oneActionStep for unknown mentor', () => {
+    it('zh-CN fallback does not expose English decision patterns', () => {
       const mentor = createCustomMentorProfile('Test Person');
-      const modified = { ...mentor, decisionPatterns: ['单一模式'] };
+      const modified = { ...mentor, decisionPatterns: ['observe details'] };
       const result = simulateMentorTable('问题', [modified], 'zh-CN');
-      expect(result.mentorReplies[0].oneActionStep).toContain('单一模式');
       expect(result.mentorReplies[0].oneActionStep).toContain('下一步');
+      expect(result.mentorReplies[0].oneActionStep).not.toContain('observe details');
+      expect(result.mentorReplies[0].oneActionStep).not.toMatch(/[A-Za-z]/);
+    });
+
+    it('zh-CN fallback does not expose any English persona fields', () => {
+      const mentor = createCustomMentorProfile('Steve Jobs');
+      const result = simulateMentorTable('我应该怎么开始创业？', [mentor], 'zh-CN');
+      const reply = result.mentorReplies[0];
+
+      expect(reply.whyThisFits).not.toContain(mentor.speakingStyle[0]);
+      expect(reply.whyThisFits).not.toContain(mentor.coreValues[0]);
+      expect(reply.oneActionStep).not.toContain(mentor.decisionPatterns[1]);
+      expect(reply.whyThisFits).not.toMatch(/[A-Za-z]/);
+      expect(reply.oneActionStep).not.toMatch(/[A-Za-z]/);
     });
   });
 });
