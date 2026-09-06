@@ -103,7 +103,7 @@ function buildLikelyResponse(problem: string, mentor: MentorProfile, language: '
 
 function buildWhyThisFits(mentor: MentorProfile, language: 'zh-CN' | 'en'): string {
   if (language === 'zh-CN') {
-    return `这类建议贴合其公开形象：说话方式偏${mentor.speakingStyle[0]}，核心价值常围绕${mentor.coreValues.slice(0, 2).join('、')}，遇到压力时更倾向于${mentor.decisionPatterns[0]}。`;
+    return '这类建议贴合其公开形象：关注长期方向，也强调把复杂问题拆成可执行的下一步；具体判断仍需结合你的实际情况。';
   }
 
   return `This fits their public persona: a ${mentor.speakingStyle[0]} tone, values around ${mentor.coreValues.slice(0, 2).join(' and ')}, and a tendency to ${mentor.decisionPatterns[0]}.`;
@@ -135,11 +135,11 @@ function buildOneActionStep(mentor: MentorProfile, language: 'zh-CN' | 'en'): st
       ? '下一步：把当前困境拆成“事实/假设”两列，删除1个错误假设后重排你的计划。'
       : 'Next step: split the problem into facts vs assumptions, remove one weak assumption, then rebuild your plan.';
   }
-  const pattern = mentor.decisionPatterns[1] || mentor.decisionPatterns[0] || 'take one focused step';
   if (language === 'zh-CN') {
-    return `下一步（今天可做）：写下1个你能在20分钟内完成的小任务，并按“${pattern}”执行，完成后再决定下一个动作。`;
+    return '下一步（今天可做）：写下1个你能在20分钟内完成的小任务，立即完成它；记录结果后，再决定下一个动作。';
   }
 
+  const pattern = mentor.decisionPatterns[1] || mentor.decisionPatterns[0] || 'take one focused step';
   return `Next step (today): define one 20-minute task and execute it using this principle: “${pattern}.” Then reassess.`;
 }
 
