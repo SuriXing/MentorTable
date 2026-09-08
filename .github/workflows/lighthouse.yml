@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   lighthouse:
-    name: Lighthouse audit on Vercel preview
+    name: Lighthouse audit
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -33,30 +33,45 @@ jobs:
           node-version: '24'
           cache: 'npm'
 
-      # Wait for the Vercel preview deployment to finish and capture the URL.
-      # F93: only the default GITHUB_TOKEN is needed — no Vercel secret.
-      # Skipped on workflow_dispatch (URL provided by input instead).
-      - name: Wait for Vercel preview deployment
+      # PR previews can be protected by Vercel Authentication and return 401
+      # to CI even after a successful deployment. Audit the exact branch
+      # production bundle locally instead; production-header parity remains
+      # covered by e2e/prod-headers.spec.ts in the main CI workflow.
+      - name: Install dependencies
         if: github.event_name == 'pull_request'
-        id: vercel-preview
-        uses: patrickedqvist/wait-for-vercel-preview@06c79330064b0e6ef7a2574603b62d3c98789125 # v1.3.2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          max_timeout: 600
+        run: npm ci
+
+      - name: Build production app
+        if: github.event_name == 'pull_request'
+        run: npm run build
+
+      - name: Start local production preview
+        if: github.event_name == 'pull_request'
+        run: |
+          nohup npm run preview -- --host 127.0.0.1 > /tmp/lighthouse-preview.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl -fs http://127.0.0.1:5001/ > /dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/lighthouse-preview.log
+          exit 1
 
       # F91: do NOT interpolate ${{ ... }} into bash bodies. Pass via env
       # and read "$VAR" — defends against script-injection.
-      - name: Resolve preview URL
+      - name: Resolve audit URL
         id: url
         env:
           EVENT_NAME: ${{ github.event_name }}
           INPUT_URL: ${{ inputs.preview_url }}
-          DETECTED_URL: ${{ steps.vercel-preview.outputs.url }}
         run: |
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             echo "preview_url=$INPUT_URL" >> "$GITHUB_OUTPUT"
+            echo "target_label=$INPUT_URL" >> "$GITHUB_OUTPUT"
           else
-            echo "preview_url=$DETECTED_URL" >> "$GITHUB_OUTPUT"
+            echo "preview_url=http://127.0.0.1:5001" >> "$GITHUB_OUTPUT"
+            echo "target_label=PR production build (local preview)" >> "$GITHUB_OUTPUT"
           fi
 
       # F81: score budgets enforced via lighthouserc.json (perf >=0.9,
@@ -82,16 +97,16 @@ jobs:
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         env:
           LHCI_LINKS: ${{ steps.lhci.outputs.links }}
-          PREVIEW_URL: ${{ steps.url.outputs.preview_url }}
+          AUDIT_TARGET: ${{ steps.url.outputs.target_label }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const links = process.env.LHCI_LINKS || '';
-            const url = process.env.PREVIEW_URL || '';
+            const target = process.env.AUDIT_TARGET || '';
             const body = [
               '### Lighthouse CI',
               '',
-              `**Preview:** ${url}`,
+              `**Target:** ${target}`,
               '',
               '**Reports:**',
               '```',
