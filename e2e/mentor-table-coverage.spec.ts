@@ -619,11 +619,14 @@ test.describe('Mentor Table Coverage E2E', () => {
     await page.getByTestId('mentor-problem-input').fill('Rotation test');
     await page.getByTestId('mentor-begin-session').click();
 
-    // Move mouse off so isConversationHovered stays false
+    const conversation = page.getByTestId('mentor-conversation-panel');
+    await expect(conversation.locator('footer')).toHaveCount(1, { timeout: 30000 });
+    // Reply reveal timing is covered by the multi-mentor session test above.
+    // Make this test own only rotation timing so a hover pause cannot strand
+    // it at one visible reply before the 4.2s interval is exercised.
+    await page.getByTestId('mentor-reveal-all').click();
     await page.mouse.move(0, 0);
-    await expect(
-      page.getByTestId('mentor-conversation-panel').locator('footer')
-    ).toHaveCount(2, { timeout: 30000 });
+    await expect(conversation.locator('footer')).toHaveCount(2);
 
     // Wait long enough for the 4.2s activeResultIndex interval to fire at
     // least twice (so setActiveResultIndex's callback runs).
