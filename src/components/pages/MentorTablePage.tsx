@@ -47,6 +47,7 @@ import { DebugPromptPanel } from '../mentorTable/DebugPromptPanel';
 import { SuggestionDeck, type ExpandedSuggestionCard, type SuggestionDeckEntry } from '../mentorTable/SuggestionDeck';
 import { ExpandedSuggestionOverlay } from '../mentorTable/ExpandedSuggestionOverlay';
 import { ReplyThreadOverlay } from '../mentorTable/ReplyThreadOverlay';
+import { ActionRoundup } from '../mentorTable/ActionRoundup';
 import { usePersonSearch } from '../mentorTable/hooks/usePersonSearch';
 import { useImageChain } from '../mentorTable/hooks/useImageChain';
 import { useMentorNotes } from '../mentorTable/hooks/useMentorNotes';
@@ -176,9 +177,9 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     typing: tI18n('mt.typing'),
     typingNow: tI18n('mt.typingNow'),
     mentorTyping: tI18n('mt.mentorTyping'),
-    hideGroup: tI18n('mt.hideGroup'),
-    showGroup: tI18n('mt.showGroup'),
-    jointStrategy: tI18n('mt.jointStrategy'),
+    hideActionRoundup: tI18n('mt.hideActionRoundup'),
+    showActionRoundup: tI18n('mt.showActionRoundup'),
+    actionRoundup: tI18n('mt.actionRoundup'),
     replyToAllHeader: tI18n('mt.replyToAllHeader'),
     replyAllPlaceholder: tI18n('mt.replyAllPlaceholder'),
     sendToAll: tI18n('mt.sendToAll'),
@@ -271,7 +272,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     isGenerating, generateError, setGenerateError, isRoundGenerating, setIsRoundGenerating,
     conversationTurns, setConversationTurns, replyAllDraft, setReplyAllDraft,
     visibleReplyCount, setVisibleReplyCount, showSessionWrap, setShowSessionWrap,
-    showGroupSolve, setShowGroupSolve, handleGenerate, handleReplyAll, buildConversationHistory, scrollConversationToBottom,
+    showActionRoundup, setShowActionRoundup, handleGenerate, handleReplyAll, buildConversationHistory, scrollConversationToBottom,
   } = useSessionFlow({
     selectedMentors,
     uiLanguage,
@@ -541,7 +542,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   useEffect(() => {
     if (phase !== 'session' || sessionMode !== 'live') return;
     scrollConversationToBottom();
-  }, [phase, sessionMode, visibleReplyCount, noteReplies, conversationTurns, showGroupSolve, showSessionWrap, scrollConversationToBottom]);
+  }, [phase, sessionMode, visibleReplyCount, noteReplies, conversationTurns, showActionRoundup, showSessionWrap, scrollConversationToBottom]);
 
   // SR-4: focus the risk banner on first appearance so screen-reader
   // users land on the safety message immediately. Uses a stable string
@@ -618,7 +619,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     setSessionMode('idle');
     setVisibleReplyCount(0);
     setShowSessionWrap(false);
-    setShowGroupSolve(false);
+    setShowActionRoundup(false);
     setConversationTurns([]);
     setReplyAllDraft('');
     resetNotes();
@@ -793,24 +794,6 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const expandedReply = visibleReplies.find((reply) => reply.mentorId === expandedReplyId) || null;
 
    
-  // reads only `selectedPeople` (already a dep); localizeName is memoized and
-  // firing on its identity change would be spurious. Deps intentionally minimal.
-  const groupSolveText = useMemo(() => {
-    if (!result?.mentorReplies?.length) return '';
-    // Bug #41: i18n-safe separator. Bug #40 (indicator for extras): include
-    // all replies instead of silently dropping mentors 5..N. Chinese users
-    // get a fullwidth separator, English users a regular ASCII separator.
-    const separator = isZh ? ' ｜ ' : ' | ';
-    const lines = result.mentorReplies.map((reply) => {
-      const name = localizeName(resolveMentorName(reply.mentorName));
-      return `${name}: ${reply.oneActionStep}`;
-    });
-    return lines.join(separator);
-  // resolveMentorName reads only `selectedPeople` (already a dep); localizeName
-  // is memoized via useCallback. Adding them would re-fire spuriously.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [result?.mentorReplies, selectedPeople, isZh]);
-
   const openDebugMentor = selectedMentors.find((mentor) => mentor.id === openDebugMentorId) || null;
   const openDebugMentorDisplayName = openDebugMentor ? localizeName(openDebugMentor.displayName) : '';
   const openDebugPromptText = openDebugMentor ? debugPromptByMentorId[openDebugMentor.id] || '' : '';
@@ -1062,7 +1045,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                   setSessionMode('idle');
                   setVisibleReplyCount(0);
                   setShowSessionWrap(false);
-                  setShowGroupSolve(false);
+                  setShowActionRoundup(false);
                   setConversationTurns([]);
                   setReplyAllDraft('');
                   setExpandedReplyId('');
@@ -1637,23 +1620,30 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                         ))}
 
                         {sessionComplete && (
-                          <div className={styles.groupActions}>
+                          <div className={styles.actionRoundupActions}>
                             <button
                               type="button"
                               className={styles.secondaryCta}
-                              onClick={() => setShowGroupSolve((v) => !v)}
+                              aria-expanded={showActionRoundup}
+                              aria-controls="mentor-action-roundup"
+                              onClick={() => setShowActionRoundup((visible) => !visible)}
                             >
-                              {showGroupSolve ? t.hideGroup : t.showGroup}
+                              {showActionRoundup ? t.hideActionRoundup : t.showActionRoundup}
                             </button>
                           </div>
                         )}
 
-                        {sessionComplete && showGroupSolve && (
+                        {sessionComplete && showActionRoundup && result && (
                           <div className={styles.conversationRowLeft}>
-                            <article className={`${styles.conversationBubble} ${styles.groupSolveCard}`}>
-                              <header>{t.jointStrategy}</header>
-                              <p>{groupSolveText}</p>
-                            </article>
+                            <ActionRoundup
+                              id="mentor-action-roundup"
+                              heading={t.actionRoundup}
+                              entries={result.mentorReplies.map((reply, index) => ({
+                                key: `${reply.mentorId}-${index}`,
+                                mentorName: localizeName(resolveMentorName(reply.mentorName)),
+                                actionStep: reply.oneActionStep,
+                              }))}
+                            />
                           </div>
                         )}
 

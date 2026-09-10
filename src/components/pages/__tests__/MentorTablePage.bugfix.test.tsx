@@ -9,7 +9,6 @@
  *  - Bug #44: conversation history sent to the API is capped at
  *    MAX_CONVERSATION_TURNS_IN_HISTORY turns.
  *  - Bug #40: saveTakeawayMemory saves all mentor takeaways, not just 3.
- *  - Bug #41: groupSolveText uses locale-aware separator.
  *  - Bug #42: icon-only buttons carry aria-label.
  */
 import '@testing-library/jest-dom';
