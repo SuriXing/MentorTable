@@ -6,13 +6,14 @@
  *   - expanded reply overlay inline pass-a-note flow
  *   - debug prompt panel open + close
  *   - candle click (stateful cycle)
- *   - group solve toggle + hide
+ *   - mentor action roundup toggle + hide
  *   - table arena ripple click
  *   - mentor node name plate flip
  *
  * All API calls are mocked with page.route so runs are deterministic.
  */
 import type { Page, Route } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 import { test, expect } from './coverage-fixture';
 
 test.setTimeout(60000);
@@ -201,25 +202,70 @@ test.describe('Mentor Table Coverage E2E', () => {
     await expect(candle).toBeVisible();
   });
 
-  // ---- 5. Group solve toggle on and off ----
-  test('group solve toggles on and off after session complete', async ({ page }) => {
-    await runSession(page);
-
-    const groupBtn = page.locator('button').filter({ hasText: /Group solve together|共同讨论方案/ });
-    await expect(groupBtn).toBeVisible({ timeout: 10000 });
-    await groupBtn.click();
-
-    // Joint strategy card visible
-    await expect(page.locator('[class*="groupSolveCard"]')).toBeVisible({
-      timeout: 3000
+  // ---- 5. Mentor action roundup toggle on and off ----
+  test('mentor action roundup is structured and fits desktop and mobile viewports', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const MULTI = {
+      ...MOCK_RESPONSE,
+      mentorReplies: [
+        MOCK_RESPONSE.mentorReplies[0],
+        {
+          mentorId: 'oprah_winfrey',
+          mentorName: 'Oprah Winfrey',
+          likelyResponse: 'Name the emotional truth before choosing.',
+          whyThisFits: 'Reflective approach.',
+          oneActionStep: 'Write down the boundary you need today.',
+          confidenceNote: 'AI-simulated perspective.'
+        }
+      ]
+    };
+    await page.route(/\/api\/mentor-table/, (route: Route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MULTI)
+      });
     });
-
-    // Hide it again
-    const hideBtn = page.locator('button').filter({ hasText: /Hide group solve|隐藏共同讨论/ });
-    await hideBtn.click();
-    await expect(page.locator('[class*="groupSolveCard"]')).not.toBeVisible({
-      timeout: 3000
+    await addMentor(page, 'Bill Gates');
+    await addMentor(page, 'Oprah');
+    await page.getByTestId('mentor-continue-wish').click();
+    await page.getByTestId('mentor-problem-input').fill('Action roundup test');
+    await page.getByTestId('mentor-begin-session').click();
+    await expect(page.getByTestId('mentor-conversation-panel').locator('footer')).toHaveCount(1, {
+      timeout: 30000
     });
+    await page.getByTestId('mentor-reveal-all').click();
+
+    const showButton = page.getByRole('button', { name: /Show mentor actions|查看导师行动/ });
+    await expect(showButton).toBeVisible();
+    await showButton.click();
+
+    const card = page.locator('[class*="actionRoundupCard"]');
+    const list = page.getByRole('list', { name: /Mentor action roundup|导师行动汇总/ });
+    await expect(card).toBeVisible();
+    await expect(list.getByRole('listitem')).toHaveCount(2);
+    const desktopDimensions = await card.evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    expect(desktopDimensions.scrollWidth).toBeLessThanOrEqual(desktopDimensions.clientWidth);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(card).toBeVisible();
+    const mobileDimensions = await card.evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    expect(mobileDimensions.scrollWidth).toBeLessThanOrEqual(mobileDimensions.clientWidth);
+    const accessibility = await new AxeBuilder({ page })
+      .include('[class*="actionRoundupCard"]')
+      .disableRules(['color-contrast'])
+      .analyze();
+    expect(accessibility.violations.map((violation) => violation.id)).toEqual([]);
+
+    const hideButton = page.getByRole('button', { name: /Hide mentor actions|隐藏导师行动/ });
+    await hideButton.click();
+    await expect(card).not.toBeVisible();
   });
 
   // ---- 6. Table arena click creates a ripple ----
@@ -249,7 +295,7 @@ test.describe('Mentor Table Coverage E2E', () => {
     expect(after).toMatch(/·/);
   });
 
-  // ---- 8. Save chat after group solve + session wrap (combined flow) ----
+  // ---- 8. Save chat after action roundup + session wrap (combined flow) ----
   test('full wrap flow: show wrap, save chat, drawer updated', async ({ page }) => {
     await runSession(page);
 

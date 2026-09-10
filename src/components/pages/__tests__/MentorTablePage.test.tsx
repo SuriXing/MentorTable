@@ -9,7 +9,7 @@
  * reply overlay, memory drawer, etc.) without any real network I/O.
  */
 import '@testing-library/jest-dom';
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor, within } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 // ---------- Mocks ----------
@@ -464,22 +464,37 @@ describe('MentorTablePage (unit)', () => {
     });
   });
 
-  it('toggles group solve panel on', async () => {
+  it('toggles the semantic mentor action roundup', async () => {
+    generateMentorAdviceMock.mockResolvedValue(
+      buildMockResult({
+        mentorReplies: Array.from({ length: 10 }, (_, index) => ({
+          mentorId: `mentor_${index + 1}`,
+          mentorName: `Mentor ${index + 1}`,
+          likelyResponse: `Reply ${index + 1}.`,
+          whyThisFits: 'A distinct perspective.',
+          oneActionStep: `Action ${index + 1}.`,
+          confidenceNote: 'AI-simulated.',
+        })),
+      })
+    );
     render(<MentorTablePage standalone />);
     await runSession();
+    fireEvent.click(screen.getByTestId('mentor-reveal-all'));
 
-    const groupBtn = await screen.findByText(/Group solve together/);
-    fireEvent.click(groupBtn);
+    const showButton = await screen.findByRole('button', { name: 'Show mentor actions' });
+    expect(showButton).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(showButton);
 
-    // After toggle, group solve text appears and button label changes
+    const list = await screen.findByRole('list', { name: 'Mentor action roundup' });
+    expect(within(list).getAllByRole('listitem')).toHaveLength(10);
+    expect(within(list).getByText('Mentor 10')).toBeInTheDocument();
+    expect(within(list).getByText('Action 10.')).toBeInTheDocument();
+
+    const hideButton = screen.getByRole('button', { name: 'Hide mentor actions' });
+    expect(hideButton).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(hideButton);
     await waitFor(() => {
-      expect(screen.getByText(/All mentors/)).toBeInTheDocument();
-    });
-    // Toggle off again
-    const hideBtn = screen.getByText(/Hide group solve/);
-    fireEvent.click(hideBtn);
-    await waitFor(() => {
-      expect(screen.queryByText(/Hide group solve/)).not.toBeInTheDocument();
+      expect(screen.queryByRole('list', { name: 'Mentor action roundup' })).not.toBeInTheDocument();
     });
   });
 

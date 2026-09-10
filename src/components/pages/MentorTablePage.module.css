@@ -1770,14 +1770,59 @@
   color: #9c4a42;
 }
 
-.groupActions {
+.actionRoundupActions {
   display: flex;
   justify-content: center;
 }
 
-.groupSolveCard {
+.actionRoundupCard {
+  width: 100%;
+  max-width: min(640px, 92%);
+  box-sizing: border-box;
   border-style: dashed;
   border-color: #b7cdf4;
+  color: var(--text-on-primary, #f5f7ff);
+}
+
+.actionRoundupCard > header {
+  font-size: 0.9rem;
+}
+
+.actionRoundupList {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.actionRoundupItem {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(96px, 0.35fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.actionRoundupMentor {
+  min-width: 0;
+  color: var(--text-on-primary, #f5f7ff);
+  font-size: 0.8rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.actionRoundupStep {
+  min-width: 0;
+  margin: 0;
+  color: var(--text-on-primary, #f5f7ff);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .turnGroup {
@@ -2444,6 +2489,15 @@
 
   .suggestionSecondary {
     font-size: 0.73rem;
+  }
+
+  .actionRoundupCard {
+    max-width: 96%;
+  }
+
+  .actionRoundupItem {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3px;
   }
 
   .replyExpandedCard {

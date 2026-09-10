@@ -92,7 +92,7 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
   const [replyAllDraft, setReplyAllDraft] = useState('');
   const [visibleReplyCount, setVisibleReplyCount] = useState(0);
   const [showSessionWrap, setShowSessionWrap] = useState(false);
-  const [showGroupSolve, setShowGroupSolve] = useState(false);
+  const [showActionRoundup, setShowActionRoundup] = useState(false);
 
   /**
    * Conversation history forwarded to the mentor API on each round. Built
@@ -255,7 +255,7 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
     setSessionMode('booting');
     setVisibleReplyCount(0);
     setShowSessionWrap(false);
-    setShowGroupSolve(false);
+    setShowActionRoundup(false);
     setConversationTurns([]);
     setReplyAllDraft('');
     sessionStartRef.current?.();
@@ -344,8 +344,8 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
     setVisibleReplyCount,
     showSessionWrap,
     setShowSessionWrap,
-    showGroupSolve,
-    setShowGroupSolve,
+    showActionRoundup,
+    setShowActionRoundup,
     handleGenerate,
     handleReplyAll,
     buildConversationHistory,
