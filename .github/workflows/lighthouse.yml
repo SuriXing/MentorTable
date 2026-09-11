@@ -86,6 +86,7 @@ jobs:
         with:
           urls: |
             ${{ steps.url.outputs.preview_url }}
+          runs: 3
           configPath: ./lighthouserc.json
           uploadArtifacts: true
           temporaryPublicStorage: true
