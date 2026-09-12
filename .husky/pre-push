@@ -1,1 +1,1 @@
-npm run type-check && npm run lint && npm test
+npm run type-check && npm run lint && npm run test:perf && npm test

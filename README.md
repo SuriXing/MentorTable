@@ -19,6 +19,7 @@ npm install
 npm run dev            # vite dev server
 npm run server         # local API proxy on :8787 (server.js)
 npm test               # vitest unit suite
+npm run test:perf      # uninstrumented performance regression suite
 npm run test:e2e       # Playwright (needs `npx playwright install chromium`)
 ```
 

@@ -44,13 +44,13 @@ jobs:
         # paths, so timing them inside the coverage run measures V8's probes
         # rather than production behavior. Keep the original budgets and run
         # the benchmark in its own uninstrumented Vitest process.
-        run: npm test -- --run src/features/mentorTable/__tests__/perf-r3.test.ts
+        run: npm run test:perf
 
       - name: Unit tests (Vitest with coverage)
         # Coverage gate: must stay >=95% (statements/branches/lines/functions).
         # The performance file ran immediately above; exclude it only from
         # instrumentation so coverage cannot distort its timing assertions.
-        run: npm test -- --coverage --exclude src/features/mentorTable/__tests__/perf-r3.test.ts
+        run: npm test -- --coverage
 
       - name: Build
         run: npm run build
