@@ -241,10 +241,23 @@
   /* MV-1: touch target >= 44x44 */
   min-width: 44px;
   height: 44px;
+  padding: 0 12px;
   border-radius: 10px;
   background: #2d61cc;
   color: var(--text-on-primary, #f5f7ff);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.addBtn:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
 }
 
 .suggestionMenu {
@@ -311,6 +324,22 @@
   background: #e4ecff;
 }
 
+.customMentorOption {
+  border-top: 1px solid #dce6fb;
+  background: #f6f9ff;
+}
+
+.customMentorOptionIcon {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #2d61cc;
+  color: #fff;
+}
+
 .suggestionItem + .suggestionItem {
   border-top: 1px solid #edf2ff;
 }
@@ -350,6 +379,13 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.customMentorHelper {
+  margin: 7px 2px 0;
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  line-height: 1.45;
 }
 
 .selectedPeopleGrid {
@@ -490,6 +526,14 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
+}
+
+.guestNameRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
 }
 
 .guestMeta strong {
@@ -500,6 +544,17 @@
 .guestMeta span {
   color: #4f6ba0;
   font-size: 0.74rem;
+}
+
+.guestMeta .customMentorBadge {
+  border-radius: 999px;
+  border: 1px solid #a9bee9;
+  background: #edf3ff;
+  color: #345c9b;
+  padding: 2px 6px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  line-height: 1.2;
 }
 
 .flipMiniBtn {

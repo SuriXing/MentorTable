@@ -610,19 +610,39 @@ test.describe('Mentor Table Coverage E2E', () => {
     await expect(page.getByTestId('mentor-person-input')).toBeVisible();
   });
 
-  // ---- 17. Custom mentor added via Enter key triggers fetchPersonImage hydration ----
-  test('custom mentor via Enter triggers image hydration (fetchPersonImage path)', async ({
+  // ---- 17. Custom mentor creation is discoverable by pointer and keyboard ----
+  test('custom mentor CTA and Enter path are discoverable and labeled', async ({
     page
   }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
     const input = page.getByTestId('mentor-person-input');
-    // Unusual name that has no verified person entry, forcing the shouldHydrateProfile branch
-    await input.fill('Zaphod Beeblebrox');
+    await expect(page.locator('[class*="customMentorHelper"]')).toBeVisible();
+    await input.fill('Future Me 2040');
+
+    const createOption = page.getByTestId('mentor-create-custom');
+    await expect(createOption).toBeVisible();
+    await expect(createOption).toContainText(/Future Me 2040/);
+    const accessibility = await new AxeBuilder({ page })
+      .include('#mentor-suggestion-menu')
+      .disableRules(['color-contrast'])
+      .analyze();
+    expect(accessibility.violations.map((violation) => violation.id)).toEqual([]);
+    await createOption.click();
+    await expect(input).toHaveValue('', { timeout: 3000 });
+    await expect(page.getByText('Future Me 2040').first()).toBeVisible();
+    await expect(page.getByText(/Custom mentor|自定义导师/).first()).toBeVisible();
+
+    await input.fill('Skeptical Customer 2040');
     await input.press('Enter');
     await expect(input).toHaveValue('', { timeout: 3000 });
-    // Wait a beat for the background hydration Promise.all to settle
-    await page.waitForTimeout(500);
-    // Card still present
-    await expect(page.getByText('Zaphod Beeblebrox').first()).toBeVisible();
+    await expect(page.getByText('Skeptical Customer 2040').first()).toBeVisible();
+    await expect(page.locator('[class*="customMentorBadge"]')).toHaveCount(2);
+
+    const panelWidth = await page.locator('[class*="panel"]').first().evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    expect(panelWidth.scrollWidth).toBeLessThanOrEqual(panelWidth.clientWidth);
   });
 
   // ---- 18. Long session triggers the 4.2s activeResultIndex interval ----

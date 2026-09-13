@@ -237,9 +237,44 @@ describe('MentorTablePage (unit)', () => {
     render(<MentorTablePage standalone />);
     const input = screen.getByTestId('mentor-person-input') as HTMLInputElement;
     fireEvent.change(input, { target: { value: 'Bill Gates' } });
+    await waitFor(() => expect(screen.queryByTestId('mentor-create-custom')).not.toBeInTheDocument());
+    expect(screen.getByTestId('mentor-add-person')).toHaveTextContent('Add person');
     fireEvent.click(screen.getByTestId('mentor-add-person'));
     await waitFor(() => expect(input.value).toBe(''));
     expect(getGuestStrong()).toContain('Bill Gates');
+    expect(screen.queryByText('Custom mentor')).not.toBeInTheDocument();
+  });
+
+  it('makes custom mentor creation explicit and labels the seated mentor', async () => {
+    render(<MentorTablePage standalone />);
+    expect(
+      screen.getByText(/Search a person, role, or character/)
+    ).toBeInTheDocument();
+
+    const input = screen.getByTestId('mentor-person-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Future Me 2040' } });
+
+    const createOption = await screen.findByTestId('mentor-create-custom');
+    expect(createOption).toHaveAttribute('role', 'option');
+    expect(createOption).toHaveTextContent('Create “Future Me 2040” as a custom mentor');
+    expect(createOption).toHaveTextContent('Uses a general AI persona');
+    expect(screen.getByTestId('mentor-add-person')).toHaveTextContent('Create');
+
+    fireEvent.click(createOption);
+    await waitFor(() => expect(input.value).toBe(''));
+    expect(getGuestStrong()).toContain('Future Me 2040');
+    expect(screen.getByText('Custom mentor')).toBeInTheDocument();
+  });
+
+  it('creates a custom mentor with Enter and shows the same badge', async () => {
+    render(<MentorTablePage standalone />);
+    const input = screen.getByTestId('mentor-person-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Skeptical Customer 2040' } });
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+
+    await waitFor(() => expect(input.value).toBe(''));
+    expect(getGuestStrong()).toContain('Skeptical Customer 2040');
+    expect(screen.getByText('Custom mentor')).toBeInTheDocument();
   });
 
   it('applies a ready-made table and opens its editable seeded question', () => {
@@ -1370,13 +1405,14 @@ describe('MentorTablePage (unit)', () => {
       });
 
       // The component did NOT crash: the input is still rendered and
-      // functional, and the suggestion dropdown either shows the empty-state
-      // row or nothing at all — crucially, no suggestion items are present
-      // because every data source returned empty or threw.
+      // functional. No verified result survives, but the explicit custom
+      // creation option remains available even when every lookup source fails.
       expect(screen.getByTestId('mentor-person-input')).toBeInTheDocument();
-      // No real suggestionItem entries survived.
-      const items = document.querySelectorAll('[class*="suggestionItem"]');
-      expect(items.length).toBe(0);
+      const verifiedItems = Array.from(
+        document.querySelectorAll('[class*="suggestionItem"]')
+      ).filter((item) => !item.className.includes('customMentorOption'));
+      expect(verifiedItems).toHaveLength(0);
+      expect(screen.getByTestId('mentor-create-custom')).toHaveTextContent('Zqxyz');
     } finally {
       errorSpy.mockRestore();
       warnSpy.mockRestore();
@@ -3164,7 +3200,11 @@ describe('MentorTablePage (branch closure — final pass)', () => {
   it('addPerson is a no-op when the same name is added twice', async () => {
     render(<MentorTablePage standalone />);
     await addPlain('Bill');
-    await addPlain('Bill');
+    const input = screen.getByTestId('mentor-person-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Bill' } });
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+    expect(input.value).toBe('Bill');
+    expect(screen.getByText('This mentor is already seated.')).toBeInTheDocument();
     expect(
       document.querySelectorAll('[class*="guestCard"]').length
     ).toBe(1);
@@ -3174,13 +3214,19 @@ describe('MentorTablePage (branch closure — final pass)', () => {
 
   it('addPerson stops adding past MAX_PEOPLE', async () => {
     render(<MentorTablePage standalone />);
-    for (let i = 0; i < 12; i += 1) {
+    for (let i = 0; i < 10; i += 1) {
       await addPlain(`Person ${i}`);
     }
+    const input = screen.getByTestId('mentor-person-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Person 10' } });
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
     // MAX_PEOPLE is 10
     expect(
       document.querySelectorAll('[class*="guestCard"]').length
     ).toBe(10);
+    expect(input.value).toBe('Person 10');
+    expect(screen.getByTestId('mentor-add-person')).toBeDisabled();
+    expect(screen.getByText('The table is full at 10 mentors.')).toBeInTheDocument();
   });
 
   // ---- L688 addPerson hydration: fetchedImage falsy → use p.imageUrl ----

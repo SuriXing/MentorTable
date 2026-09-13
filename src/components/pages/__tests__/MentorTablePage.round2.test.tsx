@@ -545,51 +545,6 @@ describe('R2 perf — ALGO-2 reply lookup is Map-backed (behavioral sanity)', ()
   });
 });
 
-describe('R2 ARCH-3 — addPerson coalesces rapid same-key double-clicks', () => {
-  it('two add calls for the same name within 200ms still result in 1 guest card', async () => {
-    render(<MentorTablePage standalone />);
-    // Fire two add presses back-to-back without awaiting the input reset.
-    const input = screen.getByTestId('mentor-person-input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'Bill' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-    fireEvent.change(input, { target: { value: 'Bill' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-    await waitFor(() => {
-      expect(document.querySelectorAll('[class*="guestCard"]').length).toBe(1);
-    });
-  });
-
-  it('coalesce early-return path still clears the personQuery input', async () => {
-    // This exercises the 813-817 branch: lastStart > 0 && <200ms →
-    // setPersonQuery('') + return. We use a pending Promise for
-    // fetchPersonImage so the first hydration never completes within the
-    // 200ms window, forcing the second rapid call into the early-return.
-    let resolveFetch!: (v: string) => void;
-    const pending = new Promise<string>((res) => { resolveFetch = res; });
-    state.fetchPersonImage = () => pending;
-    state.findVerifiedPerson = () => undefined;
-
-    render(<MentorTablePage standalone />);
-    const input = screen.getByTestId('mentor-person-input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'Mystery' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-    // First call starts hydrating but won't complete until we resolve.
-    await waitFor(() => expect(input.value).toBe(''));
-    // Immediately fire a second rapid call for the same key. Because the
-    // timestamp ref still holds a positive value, this hits the early
-    // return branch that clears the input and bails.
-    fireEvent.change(input, { target: { value: 'Mystery' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-    await waitFor(() => expect(input.value).toBe(''));
-
-    // Clean up the dangling promise so later tests don't share it.
-    await act(async () => {
-      resolveFetch('https://example.com/m.jpg');
-      await Promise.resolve();
-    });
-  });
-});
-
 describe('R2 KB-4 — expandedSuggestion overlay Escape handler', () => {
   it('Escape on the expandedSuggestion overlay closes it', async () => {
     generateMentorAdviceMock.mockResolvedValue(
