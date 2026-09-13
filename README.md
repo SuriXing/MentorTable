@@ -4,10 +4,11 @@ Throw your problem onto a table of mentors — historical figures, MBTI
 types, game/film characters — and get each one's take in parallel: a
 likely response, why it fits, and one smallest executable next step.
 New visitors can start from one of three ready-made tables, which seat
-the mentors and prefill an editable question. Multi-round follow-ups,
-per-mentor private notes, a reply-all round table, a structured roundup
-of every mentor's next action, and saved memories that survive refreshes.
-Five UI languages (en / zh-CN / ja / ko / es).
+the mentors and prefill an editable question. Search can also create an
+unlisted person, role, or character as a clearly labeled custom mentor.
+Multi-round follow-ups, per-mentor private notes, a reply-all round table,
+a structured roundup of every mentor's next action, and saved memories
+that survive refreshes. Five UI languages (en / zh-CN / ja / ko / es).
 
 **The mentors are AI-simulated perspectives inspired by public figures.
 They are not real statements from real people.**

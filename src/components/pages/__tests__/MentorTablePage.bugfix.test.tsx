@@ -425,46 +425,6 @@ describe('MentorTablePage bug-fix regressions', () => {
       expect(guestCards.length).toBe(1);
     });
 
-    it('addPerson clears stale imageAttempt/imageRetry keys on re-add without prior removal', async () => {
-      // Exercises the delete-key branch in addPerson's setImageAttemptByKey /
-      // setImageRetryByKey callbacks (MentorTablePage.tsx:724-726 + 730-732).
-      // Steps:
-      //   1) add Bill → guest card renders
-      //   2) fire img errors → imageAttemptByKey + imageRetryByKey now hold the
-      //      normalized "bill gates" key
-      //   3) re-add Bill (without removing) — setSelectedPeople dedupes, but
-      //      the image-key delete branches still execute and must clear the
-      //      counters for the next render pass.
-      render(<MentorTablePage standalone />);
-      await addPerson('Bill');
-
-      const guestImg = document.querySelector(
-        '[class*="guestCard"] img'
-      ) as HTMLImageElement;
-      expect(guestImg).toBeTruthy();
-
-      // Advance both attempt and retry counters. Using example.com (not
-      // wikimedia) so each error increments imageAttemptByKey directly.
-      fireEvent.error(guestImg);
-      fireEvent.error(guestImg);
-
-      // Sanity: the guest card is still present before re-adding.
-      expect(document.querySelectorAll('[class*="guestCard"]').length).toBe(1);
-
-      // Re-add without removing first — selectedPeople dedupes but the
-      // image-key delete branches run on the existing state. This exercises
-      // the delete path, not the "key missing → return prev" fast path.
-      await addPerson('Bill');
-
-      // Still exactly one guest card, and the image src reverts to chain[0]
-      // now that attempt/retry counters were cleared.
-      const guestCards = document.querySelectorAll('[class*="guestCard"]');
-      expect(guestCards.length).toBe(1);
-      const imgAfter = guestCards[0].querySelector('img') as HTMLImageElement;
-      // chain[0] is the primary Bill image — cleared counters mean no retry
-      // query-string and no advance into candidateImageUrls[0].
-      expect(imgAfter.src).not.toMatch(/bill2\.jpg/);
-    });
   });
 
   describe('Bug #42: icon-only buttons have aria-label', () => {

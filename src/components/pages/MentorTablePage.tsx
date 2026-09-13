@@ -343,10 +343,6 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   // LEAK-1: guard against setState after unmount. handleGenerate and
   // other async paths check this before state transitions.
   const mentorNodeRefs = useRef<Array<HTMLDivElement | null>>([]);
-  // ARCH-3: coalesce rapid-fire addPerson calls for the same key so a
-  // double-click on the add button doesn't cancel the prior hydration.
-  const addPersonTimestampRef = useRef<Map<string, number>>(new Map());
-
   useEffect(() => {
     // Mount/unmount bookkeeping lives in useMountedGuard. This effect only
     // owns the timer sweep. Capture the ref's Set into effect scope so the
@@ -644,22 +640,6 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     const trimmed = rawName.trim();
     if (!trimmed) return;
 
-    // ARCH-3: coalesce rapid double-clicks while a hydration for the
-    // same key is still in-flight, so the second invocation doesn't
-    // cancel the first one via a hydration-seq bump. We record the
-    // start time and only bail if < 200ms has elapsed AND the prior
-    // call hasn't yet recorded a completion timestamp (negative).
-    const coalesceKey = trimmed.toLowerCase();
-    const now = Date.now();
-    const lastStart = addPersonTimestampRef.current.get(coalesceKey) ?? 0;
-    if (lastStart > 0 && now - lastStart < 200) {
-      // Still clear the search input so a keyboard user who hammered
-      // Enter twice doesn't end up stuck with their query mid-air.
-      setPersonQuery('');
-      return;
-    }
-    addPersonTimestampRef.current.set(coalesceKey, now);
-
     // ── Resolve raw text to canonical name + image ──
     // R2-FIX: Autocomplete was silently overwriting typed input on Enter
     // (e.g. "Bob" → "海绵宝宝"). Only promote to a verified canonical name
@@ -669,6 +649,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     let name = typeof person === 'string' ? trimmed : person.name;
     let initialImage = typeof person === 'string' ? undefined : person.imageUrl;
     let initialCandidates = typeof person === 'string' ? undefined : person.candidateImageUrls;
+    let isCustom = typeof person === 'string' ? true : Boolean(person.isCustom);
 
     if (typeof person === 'string') {
       try {
@@ -682,6 +663,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
             name = verified.canonical;
             initialImage = verified.imageUrl;
             initialCandidates = verified.candidateImageUrls;
+            isCustom = false;
           }
         }
       } catch { /* findVerifiedPerson may not be available due to module cache */ }
@@ -690,7 +672,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     setSelectedPeople((prev) => {
       if (prev.some((p) => p.name.toLowerCase() === name.toLowerCase())) return prev;
       if (prev.length >= MAX_PEOPLE) return prev;
-      return [...prev, { name, imageUrl: initialImage, candidateImageUrls: initialCandidates }];
+      return [...prev, { name, imageUrl: initialImage, candidateImageUrls: initialCandidates, isCustom }];
     });
 
     // Bug #20: bump the hydration sequence so any in-flight fetches from a
@@ -731,9 +713,34 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
         }
       } catch { /* remote image fetch failed — keep initial/fallback */ }
     }
-    // Mark this key as "hydration complete" so a legitimate re-add
-    // (e.g. after a remove) isn't blocked by the 200ms coalesce window.
-    addPersonTimestampRef.current.set(coalesceKey, -1);
+  };
+
+  const normalizedPersonQuery = normalizeNameKey(personQuery);
+  const exactQuerySuggestion = suggestions.find(
+    (suggestion) => normalizeNameKey(suggestion.name) === normalizedPersonQuery
+  );
+  const queryAlreadySelected = selectedPeople.some(
+    (person) => normalizeNameKey(person.name) === normalizedPersonQuery
+  );
+  const mentorLimitReached = selectedPeople.length >= MAX_PEOPLE;
+  const canCreateCustomMentor = Boolean(
+    normalizedPersonQuery &&
+    !exactQuerySuggestion &&
+    !queryAlreadySelected &&
+    !mentorLimitReached
+  );
+  const queryActionLabel = !normalizedPersonQuery || exactQuerySuggestion
+    ? tI18n('mt.addPerson')
+    : tI18n('mt.createPerson');
+  const queryUnavailableMessage = mentorLimitReached
+    ? String(tI18n('mt.mentorLimitReached')).replace('{count}', String(MAX_PEOPLE))
+    : queryAlreadySelected
+      ? tI18n('mt.mentorAlreadyAdded')
+      : '';
+
+  const addPersonFromQuery = () => {
+    if (!normalizedPersonQuery || queryAlreadySelected || mentorLimitReached) return;
+    void addPerson(exactQuerySuggestion || personQuery);
   };
 
   const removePerson = (name: string) => {
@@ -1073,7 +1080,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
-                          addPerson(personQuery);
+                          addPersonFromQuery();
                         }
                       }}
                       placeholder={t.invitePlaceholder}
@@ -1085,18 +1092,22 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                       aria-label={t.invitePlaceholder}
                       // KB-6: combobox semantics for the search → menu pair.
                       role="combobox"
-                      aria-expanded={Boolean(personQuery.trim() && suggestions.length > 0)}
+                      aria-expanded={Boolean(personQuery.trim())}
                       aria-controls="mentor-suggestion-menu"
                       aria-autocomplete="list"
+                      aria-describedby="mentor-custom-helper"
                     />
                     <button
                       type="button"
                       data-testid="mentor-add-person"
                       className={styles.addBtn}
-                      aria-label={String(tI18n('mt.addPerson'))}
-                      onClick={() => addPerson(personQuery)}
+                      aria-label={String(queryActionLabel)}
+                      aria-describedby="mentor-custom-helper"
+                      disabled={!normalizedPersonQuery || queryAlreadySelected || mentorLimitReached}
+                      onClick={addPersonFromQuery}
                     >
                       <FontAwesomeIcon icon={faPlus} />
+                      <span>{queryActionLabel}</span>
                     </button>
                     {personQuery.trim() && (
                       // KB-6: listbox paired with the combobox input above.
@@ -1138,12 +1149,38 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                           );
                         })}
                         {isSearching && <div className={styles.searchingRow}>{tI18n('mt.searching')}</div>}
-                        {!isSearching && suggestions.length === 0 && (
+                        {canCreateCustomMentor && (
+                          <button
+                            type="button"
+                            data-testid="mentor-create-custom"
+                            className={`${styles.suggestionItem} ${styles.customMentorOption}`}
+                            onClick={() => void addPerson(personQuery)}
+                            role="option"
+                            aria-selected={false}
+                          >
+                            <span className={styles.customMentorOptionIcon} aria-hidden="true">
+                              <FontAwesomeIcon icon={faPlus} />
+                            </span>
+                            <span className={styles.suggestionText}>
+                              <span className={styles.suggestionName}>
+                                {String(tI18n('mt.createCustomMentor')).replace('{name}', personQuery.trim())}
+                              </span>
+                              <span className={styles.suggestionDesc}>{tI18n('mt.customMentorHint')}</span>
+                            </span>
+                          </button>
+                        )}
+                        {queryUnavailableMessage && (
+                          <div className={styles.searchingRow} role="status">{queryUnavailableMessage}</div>
+                        )}
+                        {!isSearching && suggestions.length === 0 && !canCreateCustomMentor && !queryUnavailableMessage && (
                           <div className={styles.searchingRow}>{tI18n('mt.noResults')}</div>
                         )}
                       </div>
                     )}
                   </div>
+                  <p id="mentor-custom-helper" className={styles.customMentorHelper}>
+                    {tI18n('mt.customMentorHelper')}
+                  </p>
 
                   {selectedPeople.length === 0 && (
                     <section
@@ -1232,7 +1269,14 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                             onError={() => markImageBroken(person.name, person.imageUrl, person.candidateImageUrls)}
                           />
                           <div className={styles.guestMeta}>
-                            <strong>{localizeName(person.name)}</strong>
+                            <div className={styles.guestNameRow}>
+                              <strong>{localizeName(person.name)}</strong>
+                              {person.isCustom && (
+                                <span className={styles.customMentorBadge}>
+                                  {tI18n('mt.customMentorBadge')}
+                                </span>
+                              )}
+                            </div>
                             <span>
                               {flipped
                                 ? `${localizedVibeTags[idx % localizedVibeTags.length]} · “${t.keepGoing}”`

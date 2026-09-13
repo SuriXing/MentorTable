@@ -4,6 +4,7 @@ export interface PersonOption {
   candidateImageUrls?: string[];
   description?: string;
   descriptionZh?: string;
+  isCustom?: boolean;
 }
 
 import { getCartoonAvatarUrl } from './mentorProfiles';
