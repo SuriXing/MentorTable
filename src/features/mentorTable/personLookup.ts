@@ -1894,7 +1894,7 @@ export async function searchPeopleWithPhotos(query: string, limit = 6): Promise<
     (k) => k === qKey || k.includes(qKey) || qKey.includes(k)
   );
   if (!alreadyCovered) {
-    unique.set(qKey, withAvatarFallback({ name: q }));
+    unique.set(qKey, withAvatarFallback({ name: q, isCustom: true }));
   }
 
   return Array.from(unique.values())
