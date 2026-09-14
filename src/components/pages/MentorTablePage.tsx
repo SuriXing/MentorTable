@@ -716,7 +716,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   };
 
   const normalizedPersonQuery = normalizeNameKey(personQuery);
-  const exactQuerySuggestion = suggestions.find(
+  const verifiedSuggestions = suggestions.filter((suggestion) => !suggestion.isCustom);
+  const exactQuerySuggestion = verifiedSuggestions.find(
     (suggestion) => normalizeNameKey(suggestion.name) === normalizedPersonQuery
   );
   const queryAlreadySelected = selectedPeople.some(
@@ -1117,7 +1118,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                         role="listbox"
                         aria-label={t.invitePlaceholder}
                       >
-                        {suggestions.map((s) => {
+                        {verifiedSuggestions.map((s) => {
                           const desc = isZh ? (s.descriptionZh || s.description) : s.description;
                           return (
                             <button
@@ -1172,7 +1173,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                         {queryUnavailableMessage && (
                           <div className={styles.searchingRow} role="status">{queryUnavailableMessage}</div>
                         )}
-                        {!isSearching && suggestions.length === 0 && !canCreateCustomMentor && !queryUnavailableMessage && (
+                        {!isSearching && verifiedSuggestions.length === 0 && !canCreateCustomMentor && !queryUnavailableMessage && (
                           <div className={styles.searchingRow}>{tI18n('mt.noResults')}</div>
                         )}
                       </div>

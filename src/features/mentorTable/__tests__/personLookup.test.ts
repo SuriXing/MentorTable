@@ -208,8 +208,12 @@ describe('personLookup', () => {
     const { searchPeopleWithPhotos } = await import('../personLookup');
 
     const results = await searchPeopleWithPhotos('zzzyyyxxx', 6);
-    // Should include the raw typed query as a fallback option
-    expect(results.some((item) => item.name === 'zzzyyyxxx')).toBe(true);
+    // The raw typed query stays distinguishable from verified/Wikipedia hits
+    // so the UI can render an honest custom-mentor creation action.
+    expect(results.find((item) => item.name === 'zzzyyyxxx')).toMatchObject({
+      name: 'zzzyyyxxx',
+      isCustom: true,
+    });
   });
 
   it('searchPeopleWithPhotos merges wiki results with verified and deduplicates', async () => {
