@@ -468,6 +468,7 @@ Events an operator will actually filter on:
 | Event | Level | Meaning |
 |---|---|---|
 | `request_complete` | info | One per successful `/api/mentor-table` request: `mode` (batch/fanout), `mentorCount`, `failedCount`, `provider` (api / partial-fallback / server-fallback), `latencyMs`. Baseline health signal — alert on failedCount spikes. |
+| `reply_quality` | info | Privacy-safe reply-set metrics: `mentorCount`, maximum pairwise similarity + mentor IDs, near-duplicate pair IDs/scores, and mentor IDs whose action lacks a measurable finish condition. Contains no user problem or reply text. |
 | `rate_limited` | warn | A 429 was sent (`limiter`: memory vs kv). Sustained kv-limiting means real traffic pressure; sustained memory-limiting on ONE instance means a hot client. |
 | `llm_breaker_blocked` | warn | cost ceiling tripped — the instance is 503ing LLM work until the hour window rolls. Flip `LLM_DISABLED` only if you need a longer stop. |
 | `llm_retry` | warn | transient-failure retry (`status`, `retryAfterMs`). A burst of these with eventual `request_complete` is healthy vendor flakiness; retries with `api_error` after = vendor outage. |
@@ -482,6 +483,8 @@ Quick dashboards (Vercel Logs → filter by event):
 vercel logs <domain> --since 1h | grep request_complete | grep -c '"provider":"server-fallback"'
 # retry storm check
 vercel logs <domain> --since 1h | grep -c '"event":"llm_retry"'
+# reply quality: near-duplicate sets or weak actions (IDs and scores only)
+vercel logs <domain> --since 1h | grep '"event":"reply_quality"'
 ```
 
 ## Dependency Audit Posture 
@@ -668,4 +671,3 @@ Git hooks (husky + lint-staged, activated by the `prepare` script on
   inline `eslint-disable` comments with justification; the redaction
   regexes in lib/security.js were re-escaped with probe-verified
   match equivalence, not by hand-waving.
-

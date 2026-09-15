@@ -655,8 +655,29 @@ describe('mentor-table LLM integration', () => {
     const logSpy2 = vi.spyOn(console, 'log').mockImplementation(() => {});
     const res3 = mockRes();
     await handler(mockReq({ method: 'POST', body: { problem: 'another problem entirely', language: 'en', mentors: [sampleMentor] } }), res3);
+    const qualityEvent = logSpy2.mock.calls
+      .map(([line]) => {
+        try {
+          return JSON.parse(line);
+        } catch {
+          return null;
+        }
+      })
+      .find((entry) => entry && entry.event === 'reply_quality');
     logSpy2.mockRestore();
     expect(res3._status).toBe(200);
+    expect(qualityEvent).toMatchObject({
+      level: 'info',
+      event: 'reply_quality',
+      handler: 'mentor-table',
+      mentorCount: 1,
+      maxSimilarity: 0,
+      maxSimilarityMentorIds: [],
+      nearDuplicatePairs: [],
+      weakActionMentorIds: [],
+    });
+    expect(JSON.stringify(qualityEvent)).not.toContain('another problem entirely');
+    expect(JSON.stringify(qualityEvent)).not.toContain('I think you should take a small step first.');
   }, 15000);
 
   it('returns replies for multiple mentors', async () => {
@@ -3094,6 +3115,12 @@ describe('buildSystemPrompt', () => {
   it('includes priority and output discipline sections', () => {
     const result = buildSystemPrompt([sampleMentor]);
     expect(result).toContain('Priority rules');
+    expect(result).toContain('Decision diversity');
+    expect(result).toContain('clear position');
+    expect(result).toContain('trade-off');
+    expect(result).toContain('likely blind spot');
+    expect(result).toContain('measurable completion condition');
+    expect(result).toContain('Pairwise self-check');
     expect(result).toContain('Output discipline');
     expect(result).toContain('elon_musk');
   });

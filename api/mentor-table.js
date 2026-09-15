@@ -51,6 +51,7 @@ const {
   requestMentorBatchReplyFromLLM,
   _resetLlmReplyCache,
 } = require('./lib/mentor-upstream.js');
+const { assessMentorReplyQuality } = require('./lib/mentor-quality.js');
 
 // single source for the mentor-count ceiling. The number itself lives
 // in shared/mentors-contract.json, imported by the client (MAX_PEOPLE) and
@@ -564,6 +565,12 @@ const mentorTableHandler = async (req, res) => {
     } else if (failedMentors.length > 0) {
       finalized.meta.provider = 'partial-fallback';
     }
+
+    const replyQuality = assessMentorReplyQuality(finalized.mentorReplies, effectiveLanguage);
+    log('info', 'reply_quality', {
+      handler: 'mentor-table',
+      ...replyQuality,
+    });
 
     // : one grep-able summary per successful request — outcome,
     // fan-out mode, cost proxies (mentor count, failures), latency.
