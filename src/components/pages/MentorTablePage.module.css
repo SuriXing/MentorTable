@@ -2130,6 +2130,7 @@
   color: #465d85;
   line-height: 1.6;
   flex: 1;
+  white-space: pre-line;
 }
 
 .slideDots {

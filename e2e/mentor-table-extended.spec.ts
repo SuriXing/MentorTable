@@ -157,6 +157,24 @@ test.describe('Mentor Table Extended E2E', () => {
     await freshPage.close();
   });
 
+  test('onboarding renders after a lazy-loaded Japanese locale is detected', async ({ browser }) => {
+    const ctx = await browser.newContext({ baseURL: 'http://localhost:3001' });
+    const freshPage = await ctx.newPage();
+    await freshPage.addInitScript(() => {
+      localStorage.setItem('language', 'ja');
+      localStorage.setItem('mentorTableOnboardingHiddenV2', '0');
+    });
+    await freshPage.goto('/', { waitUntil: 'networkidle' });
+
+    const slideTitle = freshPage.locator('[class*="onboardingCard"] h3');
+    await expect(slideTitle).toHaveText('メンターテーブルへようこそ', { timeout: 10000 });
+    await freshPage.getByRole('button', { name: '次へ' }).click();
+    await expect(slideTitle).toHaveText('使い方');
+    await expect(freshPage.locator('[class*="onboardingCard"] p')).toContainText('1. 相談したい相手');
+
+    await ctx.close();
+  });
+
   // ---- 2. Onboarding — don't show again ----
   test('onboarding — don\'t show again persists across reload', async ({ browser }) => {
     // Use a fresh context so no addInitScript interferes with localStorage

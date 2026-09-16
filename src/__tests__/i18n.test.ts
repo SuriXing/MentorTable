@@ -173,6 +173,7 @@ describe('i18n setup', () => {
     const opts = initSpy.mock.calls[0][0];
     expect(opts.react.useSuspense).toBe(false);
     expect(opts.react.bindI18n).toBe('languageChanged');
+    expect(opts.react.bindI18nStore).toBe('added');
   });
 
   it('exports the i18n instance as default', async () => {
