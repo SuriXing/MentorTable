@@ -127,8 +127,17 @@ vi.mock('../../../features/mentorTable/personLookup', async (importOriginal) => 
 // Import AFTER mocks
 import MentorTablePage from '../MentorTablePage';
 import enResources from '../../../locales/en/translation.json';
+import esResources from '../../../locales/es/translation.json';
+import jaResources from '../../../locales/ja/translation.json';
+import koResources from '../../../locales/ko/translation.json';
 import zhResources from '../../../locales/zh-CN/translation.json';
-const RESOURCES: Record<string, Record<string, unknown>> = { en: enResources, 'zh-CN': zhResources };
+const RESOURCES: Record<string, Record<string, unknown>> = {
+  en: enResources,
+  es: esResources,
+  ja: jaResources,
+  ko: koResources,
+  'zh-CN': zhResources,
+};
 
 // ---------- Fixtures ----------
 
@@ -984,6 +993,22 @@ describe('MentorTablePage (unit)', () => {
     localStorage.setItem('mentorTableOnboardingHiddenV2', '0');
     render(<MentorTablePage standalone />);
     expect(screen.getByText(/欢迎来到名人桌/)).toBeInTheDocument();
+  });
+
+  it.each([
+    ['ja', 'メンターテーブルへようこそ', '使い方'],
+    ['ko', '멘토 테이블에 오신 것을 환영합니다', '어떻게 사용하나요?'],
+    ['es', 'Te damos la bienvenida a Mentor Table', '¿Cómo funciona?'],
+  ])('renders localized onboarding slides in %s', (language, firstTitle, secondTitle) => {
+    mentorTestState.language = language;
+    localStorage.setItem('mentorTableOnboardingHiddenV2', '0');
+    render(<MentorTablePage standalone />);
+
+    expect(screen.getByRole('heading', { name: firstTitle })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', {
+      name: language === 'ja' ? '次へ' : language === 'ko' ? '다음' : 'Siguiente',
+    }));
+    expect(screen.getByRole('heading', { name: secondTitle })).toBeInTheDocument();
   });
 
   it('note to a mentor whose 200 response carries no reply shows a no-response marker, not fabricated speech', async () => {

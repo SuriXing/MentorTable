@@ -62,21 +62,6 @@ const MAX_PEOPLE = mentorsContract.mentorsMax;
 const COORDINATE_PASS_NOTE_WITH_ALL = (import.meta.env.VITE_MENTOR_NOTE_COORDINATE_ALL ?? '1') !== '0';
 const ONBOARDING_KEY = 'mentorTableOnboardingHiddenV2';
 
-const onboardingSlides = [
-  {
-    title: '欢迎来到名人桌',
-    body: '把你的问题抛给一桌名人、角色或性格类型——每个人都会从自己的视角给你建议。就像同时和爱因斯坦、哆啦A梦、还有你最喜欢的游戏角色聊天一样。'
-  },
-  {
-    title: '怎么用？',
-    body: '1. 搜索并添加你想咨询的对象（名人、MBTI类型、动漫/游戏/电影角色都可以）\n2. 写下你的问题\n3. 点击开始，等待每位对象的回复\n\n你还可以单独追问某个人，或同时问所有人。'
-  },
-  {
-    title: '准备好了吗？',
-    body: '有用的回复可以保存到右下角的记忆抽屉，方便以后查看。选择下次是否还显示这个说明，然后开始吧！'
-  }
-];
-
 const vibeTags = ['Builder', 'Storyteller', 'Competitor', 'Strategist', 'Dreamer', 'Rebel'];
 const vibeTagsZh = ['构建者', '讲述者', '行动派', '战略派', '梦想家', '突破者'];
 
@@ -902,22 +887,20 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     { id: 'session', label: t.openCircle }
   ];
 
-  const localizedOnboardingSlides = isZh
-    ? onboardingSlides
-    : [
-        {
-          title: 'Welcome to Mentor Table',
-          body: 'Throw your question at a table of famous people, fictional characters, or personality types — each one gives you advice from their own perspective. It\'s like chatting with Einstein, Doraemon, and your favorite game character all at once.'
-        },
-        {
-          title: 'How does it work?',
-          body: '1. Search and add who you want advice from (celebrities, MBTI types, cartoon/game/movie characters — all work)\n2. Describe your problem\n3. Hit start and wait for each one to reply\n\nYou can also follow up with one person, or ask everyone at once.'
-        },
-        {
-          title: 'Ready?',
-          body: 'Save useful replies to the memory drawer (bottom-right) for later. Choose whether to show this guide next time, then jump in!'
-        }
-      ];
+  const localizedOnboardingSlides = [
+    {
+      title: tI18n('mt.onboardingWelcomeTitle'),
+      body: tI18n('mt.onboardingWelcomeBody'),
+    },
+    {
+      title: tI18n('mt.onboardingHowTitle'),
+      body: tI18n('mt.onboardingHowBody'),
+    },
+    {
+      title: tI18n('mt.onboardingReadyTitle'),
+      body: tI18n('mt.onboardingReadyBody'),
+    },
+  ];
 
   // RERENDER-2: memoize the deck entries so we don't rebuild the full
   // SuggestionDeckEntry array on every render. Keyed on the inputs the

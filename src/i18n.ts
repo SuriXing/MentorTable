@@ -82,7 +82,7 @@ const options: InitOptions = {
   react: {
     useSuspense: false,
     bindI18n: 'languageChanged',
-    bindI18nStore: '',
+    bindI18nStore: 'added',
     transEmptyNodeValue: '',
     transSupportBasicHtmlNodes: true,
     transKeepBasicHtmlNodesFor: ['br', 'strong', 'i', 'p', 'span']
