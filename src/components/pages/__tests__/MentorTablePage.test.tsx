@@ -327,6 +327,46 @@ describe('MentorTablePage (unit)', () => {
     });
   });
 
+  it('switches untouched preset copy with advice language but preserves user edits', () => {
+    mentorTestState.language = 'ja';
+    render(<MentorTablePage standalone />);
+
+    fireEvent.click(screen.getByTestId('mentor-preset-startup'));
+    const problemInput = screen.getByTestId('mentor-problem-input');
+    expect(screen.getByRole('radio', { name: '英語' })).toBeChecked();
+    expect(screen.getByText(/現在、英語と簡体字中国語/)).toBeInTheDocument();
+    expect(problemInput).toHaveValue(
+      'I have a product idea but no users yet. What should I do in the next seven days?'
+    );
+
+    fireEvent.click(screen.getByRole('radio', { name: '簡体字中国語' }));
+    expect(localStorage.getItem('mentorTableAdviceLanguage')).toBe('zh-CN');
+    expect(problemInput).toHaveValue(
+      '我有一个产品想法，但还没有用户。接下来七天我最应该做什么？'
+    );
+
+    fireEvent.change(problemInput, { target: { value: '自分で編集した質問' } });
+    fireEvent.click(screen.getByRole('radio', { name: '英語' }));
+    expect(problemInput).toHaveValue('自分で編集した質問');
+  });
+
+  it('uses a persisted advice language for the initial mentor request', async () => {
+    localStorage.setItem('mentorTableAdviceLanguage', 'zh-CN');
+    render(<MentorTablePage standalone />);
+    await addBillGates();
+    fireEvent.click(screen.getByTestId('mentor-continue-wish'));
+    expect(screen.getByRole('radio', { name: 'Simplified Chinese' })).toBeChecked();
+    fireEvent.change(screen.getByTestId('mentor-problem-input'), {
+      target: { value: 'Please answer this in Chinese.' },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('mentor-begin-session'));
+    });
+
+    await waitFor(() => expect(generateMentorAdviceMock).toHaveBeenCalledTimes(1));
+    expect(generateMentorAdviceMock.mock.calls[0][0].language).toBe('zh-CN');
+  });
+
   it('does not carry a previous session into a newly applied preset', async () => {
     render(<MentorTablePage standalone />);
     await runSession();
@@ -571,6 +611,7 @@ describe('MentorTablePage (unit)', () => {
     // the typed text must have reached the API via `problem` or
     // `conversationHistory`.
     const replyAllCall = generateMentorAdviceMock.mock.calls[callsBefore][0];
+    expect(replyAllCall.language).toBe('en');
     expect(replyAllCall.mentors.length).toBe(1); // runSession() only added Bill
     expect(replyAllCall.mentors[0].id).toBe('custom_bill_gates');
     const serialized =
@@ -847,6 +888,7 @@ describe('MentorTablePage (unit)', () => {
       expect(fetchMentorDebugPromptMock).toHaveBeenCalled();
       expect(screen.getByText(/MOCK PROMPT TEXT/)).toBeInTheDocument();
     });
+    expect(fetchMentorDebugPromptMock.mock.calls[0][0].language).toBe('en');
 
     // Close the debug panel
     const closeBtn = Array.from(document.querySelectorAll('button')).find((b) =>
@@ -2679,6 +2721,7 @@ describe('MentorTablePage (branch closure — zh-CN + multi-mentor)', () => {
           // zh copy from the live reply or localized fixture text
           expect(screen.getAllByText(/收到你的补充|我会先找出|我会先给你/).length).toBeGreaterThan(0);
         });
+        expect(generateMentorAdviceMock.mock.calls.at(-1)?.[0].language).toBe('zh-CN');
       }
     }
   });

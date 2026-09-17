@@ -1,4 +1,5 @@
 import { MentorProfile } from './mentorProfiles';
+import type { AdviceLanguage } from './adviceLanguage';
 
 export type MentorRiskLevel = 'none' | 'low' | 'medium' | 'high';
 
@@ -13,7 +14,7 @@ export interface MentorReply {
 
 export interface MentorSimulationResult {
   schemaVersion: 'mentor_table.v1';
-  language: 'zh-CN' | 'en';
+  language: AdviceLanguage;
   safety: {
     riskLevel: MentorRiskLevel;
     needsProfessionalHelp: boolean;
@@ -56,7 +57,7 @@ function detectRiskLevel(problem: string): MentorRiskLevel {
   return problem.trim() ? 'low' : 'none';
 }
 
-function buildLikelyResponse(problem: string, mentor: MentorProfile, language: 'zh-CN' | 'en'): string {
+function buildLikelyResponse(problem: string, mentor: MentorProfile, language: AdviceLanguage): string {
   const excerpt = problem.slice(0, language === 'zh-CN' ? 42 : 80) + (problem.length > (language === 'zh-CN' ? 42 : 80) ? '...' : '');
 
   if (mentor.id === 'bill_gates') {
@@ -101,7 +102,7 @@ function buildLikelyResponse(problem: string, mentor: MentorProfile, language: '
   return `I would break this into executable steps first: define the main bottleneck, then move with steady momentum instead of solving everything at once. For “${excerpt}”, I would start with one focused move.`;
 }
 
-function buildWhyThisFits(mentor: MentorProfile, language: 'zh-CN' | 'en'): string {
+function buildWhyThisFits(mentor: MentorProfile, language: AdviceLanguage): string {
   if (language === 'zh-CN') {
     return '这类建议贴合其公开形象：关注长期方向，也强调把复杂问题拆成可执行的下一步；具体判断仍需结合你的实际情况。';
   }
@@ -109,7 +110,7 @@ function buildWhyThisFits(mentor: MentorProfile, language: 'zh-CN' | 'en'): stri
   return `This fits their public persona: a ${mentor.speakingStyle[0]} tone, values around ${mentor.coreValues.slice(0, 2).join(' and ')}, and a tendency to ${mentor.decisionPatterns[0]}.`;
 }
 
-function buildOneActionStep(mentor: MentorProfile, language: 'zh-CN' | 'en'): string {
+function buildOneActionStep(mentor: MentorProfile, language: AdviceLanguage): string {
   if (mentor.id === 'bill_gates') {
     return language === 'zh-CN'
       ? '下一步：列出3个问题，只选“影响最大”的1个，给它安排今天30分钟深度处理。'
@@ -146,7 +147,7 @@ function buildOneActionStep(mentor: MentorProfile, language: 'zh-CN' | 'en'): st
 export function simulateMentorTable(
   problem: string,
   mentors: MentorProfile[],
-  language: 'zh-CN' | 'en'
+  language: AdviceLanguage
 ): MentorSimulationResult {
   const riskLevel = detectRiskLevel(problem);
   const isHighRisk = riskLevel === 'high';
