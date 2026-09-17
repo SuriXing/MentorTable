@@ -1,5 +1,6 @@
 import { MentorProfile } from './mentorProfiles';
 import { MentorSimulationResult, simulateMentorTable } from './mentorEngine';
+import type { AdviceLanguage } from './adviceLanguage';
 
 export interface MentorConversationMessage {
   role: 'user' | 'mentor' | 'system';
@@ -9,7 +10,7 @@ export interface MentorConversationMessage {
 
 interface MentorApiRequest {
   problem: string;
-  language: 'zh-CN' | 'en';
+  language: AdviceLanguage;
   mentors: MentorProfile[];
   conversationHistory?: MentorConversationMessage[];
   // Optional upstream provider name, validated server-side against the
@@ -20,7 +21,7 @@ interface MentorApiRequest {
 
 interface MentorDebugPromptRequest {
   mentor: MentorProfile;
-  language: 'zh-CN' | 'en';
+  language: AdviceLanguage;
 }
 
 function uniqueNonEmpty(values: Array<string | undefined>): string[] {

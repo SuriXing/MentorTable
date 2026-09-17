@@ -32,6 +32,11 @@ import {
   ROUNDTABLE_PRESETS,
   type RoundtablePreset,
 } from '../../features/mentorTable/roundtablePresets';
+import {
+  loadAdviceLanguagePreference,
+  saveAdviceLanguagePreference,
+  type AdviceLanguage,
+} from '../../features/mentorTable/adviceLanguage';
 import { useMentorRotation } from '../mentorTable/hooks/useMentorRotation';
 import {
   PersonOption,
@@ -48,6 +53,7 @@ import { SuggestionDeck, type ExpandedSuggestionCard, type SuggestionDeckEntry }
 import { ExpandedSuggestionOverlay } from '../mentorTable/ExpandedSuggestionOverlay';
 import { ReplyThreadOverlay } from '../mentorTable/ReplyThreadOverlay';
 import { ActionRoundup } from '../mentorTable/ActionRoundup';
+import { AdviceLanguageSelector } from '../mentorTable/AdviceLanguageSelector';
 import { usePersonSearch } from '../mentorTable/hooks/usePersonSearch';
 import { useImageChain } from '../mentorTable/hooks/useImageChain';
 import { useMentorNotes } from '../mentorTable/hooks/useMentorNotes';
@@ -84,7 +90,11 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   // F162 (P13): search suggestions + spinner state live in usePersonSearch.
   const { suggestions, isSearching } = usePersonSearch(personQuery);
   const [selectedPeople, setSelectedPeople] = useState<PersonOption[]>([]);
-  const uiLanguage: 'zh-CN' | 'en' = isZh ? 'zh-CN' : 'en';
+  const [adviceLanguagePreference, setAdviceLanguagePreference] = useState<AdviceLanguage | null>(
+    () => loadAdviceLanguagePreference()
+  );
+  const adviceLanguage: AdviceLanguage = adviceLanguagePreference || (isZh ? 'zh-CN' : 'en');
+  const [seededQuestionKey, setSeededQuestionKey] = useState<RoundtablePreset['questionKey'] | null>(null);
   const selectedMentors = useMemo(
     () => selectedPeople.map((person) => createCustomMentorProfile(person.name)),
     [selectedPeople]
@@ -260,7 +270,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     showActionRoundup, setShowActionRoundup, handleGenerate, handleReplyAll, buildConversationHistory, scrollConversationToBottom,
   } = useSessionFlow({
     selectedMentors,
-    uiLanguage,
+    adviceLanguage,
     isZh,
     isConversationHovered,
     scheduleTimeout,
@@ -273,6 +283,15 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     youLabel: t.you,
     sessionStartRef,
   });
+  useEffect(() => {
+    if (!seededQuestionKey) return;
+    setProblem(String(tI18n(seededQuestionKey, { lng: adviceLanguage })));
+  }, [adviceLanguage, seededQuestionKey, setProblem, tI18n]);
+
+  const chooseAdviceLanguage = (language: AdviceLanguage) => {
+    setAdviceLanguagePreference(language);
+    saveAdviceLanguagePreference(language);
+  };
   // RERENDER-5: activeResultIndex lives in a ref below — removed from state.
   // This component only runs client-side (the app has no SSR), so `window`
   // and `localStorage` are always available.
@@ -468,7 +487,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     resetNotes,
   } = useMentorNotes({
     selectedMentors,
-    uiLanguage,
+    adviceLanguage,
     threadKeyFor: mentorThreadKey,
     localizeName,
     resolveName: resolveMentorName,
@@ -614,7 +633,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     setSaveNotice('');
     activeIndexRef.current = 0;
     setSelectedPeople(people);
-    setProblem(String(tI18n(preset.questionKey, { lng: uiLanguage })));
+    setSeededQuestionKey(preset.questionKey);
+    setProblem(String(tI18n(preset.questionKey, { lng: adviceLanguage })));
     setPersonQuery('');
     setGenerateError('');
     setPhase('wish');
@@ -829,7 +849,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
 
     fetchMentorDebugPrompt({
       mentor,
-      language: uiLanguage
+      language: adviceLanguage
     })
       .then((prompt) => {
         if (cancelled) return;
@@ -848,7 +868,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     return () => {
       cancelled = true;
     };
-  }, [openDebugMentorId, selectedMentors, uiLanguage]);
+  }, [openDebugMentorId, selectedMentors, adviceLanguage]);
 
   const saveTakeawayMemory = () => {
     // Save button only renders under `sessionComplete && showSessionWrap`,
@@ -1324,12 +1344,25 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
               {phase === 'wish' && (
                 <div className={styles.block}>
                   <h2 id="mentor-wish-heading"><FontAwesomeIcon icon={faBookOpen} /> {t.placeArtifact}</h2>
+                  <AdviceLanguageSelector
+                    value={adviceLanguage}
+                    onChange={chooseAdviceLanguage}
+                    labels={{
+                      legend: tI18n('mt.adviceLanguageLabel'),
+                      hint: tI18n('mt.adviceLanguageHint'),
+                      english: tI18n('mt.adviceLanguageEnglish'),
+                      chinese: tI18n('mt.adviceLanguageChinese'),
+                    }}
+                  />
                   <div className={styles.artifactInput}>
                     <textarea
                       data-testid="mentor-problem-input"
                       className={styles.problemInput}
                       value={problem}
-                      onChange={(e) => setProblem(e.target.value)}
+                      onChange={(e) => {
+                        setSeededQuestionKey(null);
+                        setProblem(e.target.value);
+                      }}
                       placeholder={t.artifactPlaceholder}
                       rows={7}
                       // SR-9: heading points the label at the textarea.

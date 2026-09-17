@@ -687,6 +687,58 @@
   transition: transform 260ms ease, box-shadow 260ms ease;
 }
 
+.adviceLanguageFieldset {
+  margin: 0 0 10px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--primary-color) 28%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--primary-color) 7%, var(--bg-surface));
+}
+
+.adviceLanguageFieldset legend {
+  padding: 0 5px;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.adviceLanguageOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.adviceLanguageOption {
+  min-height: 44px;
+  padding: 8px 11px;
+  border: 1px solid color-mix(in srgb, var(--primary-color) 30%, transparent);
+  border-radius: 10px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.adviceLanguageOptionActive {
+  border-color: var(--primary-color);
+  box-shadow: inset 0 0 0 1px var(--primary-color);
+}
+
+.adviceLanguageOption input {
+  accent-color: var(--primary-color);
+}
+
+.adviceLanguageHint {
+  margin: 7px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
 .artifactInput:focus-within {
   transform: translateY(-3px);
   box-shadow: 0 14px 22px rgba(20, 35, 67, 0.17);

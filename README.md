@@ -8,7 +8,9 @@ the mentors and prefill an editable question. Search can also create an
 unlisted person, role, or character as a clearly labeled custom mentor.
 Multi-round follow-ups, per-mentor private notes, a reply-all round table,
 a structured roundup of every mentor's next action, and saved memories
-that survive refreshes. Five UI languages (en / zh-CN / ja / ko / es).
+that survive refreshes. Five UI languages (en / zh-CN / ja / ko / es);
+mentor reply language is selected independently and currently supports
+English or Simplified Chinese.
 
 **The mentors are AI-simulated perspectives inspired by public figures.
 They are not real statements from real people.**

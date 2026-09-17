@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { MentorProfile } from '../../../features/mentorTable/mentorProfiles';
 import { generateMentorAdvice, MentorConversationMessage } from '../../../features/mentorTable/mentorApi';
 import type { AiMeta, ConversationTurn, NoteThreadEntry } from '../../../features/mentorTable/conversationTypes';
+import type { AdviceLanguage } from '../../../features/mentorTable/adviceLanguage';
 
 interface UseMentorNotesOptions {
   selectedMentors: MentorProfile[];
-  uiLanguage: 'zh-CN' | 'en';
+  adviceLanguage: AdviceLanguage;
   /** Page-owned identity helpers (locale-aware). */
   threadKeyFor: (rawName: string) => string;
   localizeName: (rawName: string) => string;
@@ -44,7 +45,7 @@ export function useMentorNotes(options: UseMentorNotesOptions): {
 } {
   const {
     selectedMentors,
-    uiLanguage,
+    adviceLanguage,
     threadKeyFor,
     localizeName,
     resolveName,
@@ -91,7 +92,7 @@ export function useMentorNotes(options: UseMentorNotesOptions): {
     try {
       const aiResult = await generateMentorAdvice({
         problem: text,
-        language: uiLanguage,
+        language: adviceLanguage,
         mentors: coordinatedMentorSet,
         conversationHistory: buildConversationHistory(text)
       });

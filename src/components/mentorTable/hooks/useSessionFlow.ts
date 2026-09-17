@@ -3,6 +3,7 @@ import { MentorProfile } from '../../../features/mentorTable/mentorProfiles';
 import { generateMentorAdvice, MentorConversationMessage } from '../../../features/mentorTable/mentorApi';
 import type { MentorSimulationResult } from '../../../features/mentorTable/mentorEngine';
 import type { ConversationTurn } from '../../../features/mentorTable/conversationTypes';
+import type { AdviceLanguage } from '../../../features/mentorTable/adviceLanguage';
 
 export type RitualPhase = 'invite' | 'wish' | 'session';
 export type SessionMode = 'idle' | 'booting' | 'live';
@@ -23,7 +24,7 @@ export function uniqueId(prefix = 'id'): string {
 
 export interface UseSessionFlowOptions {
   selectedMentors: MentorProfile[];
-  uiLanguage: 'zh-CN' | 'en';
+  adviceLanguage: AdviceLanguage;
   isZh: boolean;
   /** Rotation + reveal pause flag owned by the page's hover/focus wiring. */
   isConversationHovered: boolean;
@@ -66,7 +67,7 @@ export interface MentorReplyTurn {
 export function useSessionFlow(options: UseSessionFlowOptions) {
   const {
     selectedMentors,
-    uiLanguage,
+    adviceLanguage,
     isZh,
     isConversationHovered,
     scheduleTimeout,
@@ -199,7 +200,7 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
     try {
       const aiResult = await generateMentorAdvice({
         problem: safeText,
-        language: uiLanguage,
+        language: adviceLanguage,
         mentors: selectedMentors,
         conversationHistory: buildConversationHistory(safeText)
       });
@@ -247,7 +248,7 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
     // problem.trim() && selectedMentors.length > 0, so this handler cannot
     // be invoked with empty inputs from the UI. Both defensive guards were
     // removed as unreachable.
-    const language = uiLanguage;
+    const language = adviceLanguage;
 
     setGenerateError('');
     setIsGenerating(true);

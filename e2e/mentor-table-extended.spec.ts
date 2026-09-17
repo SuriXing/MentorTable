@@ -1,4 +1,5 @@
 import type { Page, Route } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 import { test, expect } from './coverage-fixture';
 
 test.setTimeout(60000);
@@ -171,6 +172,57 @@ test.describe('Mentor Table Extended E2E', () => {
     await freshPage.getByRole('button', { name: '次へ' }).click();
     await expect(slideTitle).toHaveText('使い方');
     await expect(freshPage.locator('[class*="onboardingCard"] p')).toContainText('1. 相談したい相手');
+
+    await ctx.close();
+  });
+
+  test('Japanese UI exposes and persists its supported mentor reply language', async ({ browser }) => {
+    const ctx = await browser.newContext({
+      baseURL: 'http://localhost:3001',
+      viewport: { width: 390, height: 844 },
+    });
+    const freshPage = await ctx.newPage();
+    await freshPage.addInitScript(() => {
+      localStorage.setItem('language', 'ja');
+      localStorage.setItem('mentorTableOnboardingHiddenV2', '1');
+    });
+    await freshPage.goto('/', { waitUntil: 'networkidle' });
+    await freshPage.getByTestId('mentor-preset-startup').click();
+
+    const group = freshPage.getByRole('group', { name: 'メンターの回答言語' });
+    const english = freshPage.getByRole('radio', { name: '英語' });
+    const chinese = freshPage.getByRole('radio', { name: '簡体字中国語' });
+    const problem = freshPage.getByTestId('mentor-problem-input');
+    await expect(group).toBeVisible();
+    await expect(english).toBeChecked();
+    await expect(problem).toHaveValue(
+      'I have a product idea but no users yet. What should I do in the next seven days?'
+    );
+
+    await chinese.check();
+    await expect(problem).toHaveValue(
+      '我有一个产品想法，但还没有用户。接下来七天我最应该做什么？'
+    );
+    await problem.fill('自分で編集した質問');
+    await english.check();
+    await expect(problem).toHaveValue('自分で編集した質問');
+    await chinese.check();
+    await expect(problem).toHaveValue('自分で編集した質問');
+    await expect.poll(() => freshPage.evaluate(() => localStorage.getItem('mentorTableAdviceLanguage')))
+      .toBe('zh-CN');
+
+    const accessibility = await new AxeBuilder({ page: freshPage })
+      .include('[class*="adviceLanguageFieldset"]')
+      .disableRules(['color-contrast'])
+      .analyze();
+    expect(accessibility.violations.map((violation) => violation.id)).toEqual([]);
+
+    await freshPage.reload({ waitUntil: 'networkidle' });
+    await freshPage.getByTestId('mentor-preset-startup').click();
+    await expect(freshPage.getByRole('radio', { name: '簡体字中国語' })).toBeChecked();
+    await expect(freshPage.getByTestId('mentor-problem-input')).toHaveValue(
+      '我有一个产品想法，但还没有用户。接下来七天我最应该做什么？'
+    );
 
     await ctx.close();
   });
