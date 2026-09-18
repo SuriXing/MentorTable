@@ -529,9 +529,16 @@ test.describe('Mentor Table Coverage E2E', () => {
     await page.getByTestId('mentor-problem-input').fill('I feel stuck at work.');
     await page.getByTestId('mentor-begin-session').click();
 
-    // Move the mouse far off-screen so isConversationHovered stays false and
-    // the reveal loop (2.6s interval) can advance to both replies.
-    await page.mouse.move(0, 0);
+    // The panel intentionally pauses reveal on either hover OR focus. When
+    // the begin-session button unmounts, a shared runner can leave focus on
+    // the newly mounted panel even after the pointer moves away. Clear both
+    // pause signals so this test owns the real 2.6s reveal heartbeat.
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    });
+    await page.locator('h1').hover();
 
     // Wait for both replies to appear (reveal loop fires every 2.6s)
     const conv = page.getByTestId('mentor-conversation-panel');
