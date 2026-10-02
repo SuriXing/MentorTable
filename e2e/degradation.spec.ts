@@ -10,6 +10,36 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('no-key degradation contract', () => {
+  test('Chinese fallback never exposes English persona internals', async ({ page }) => {
+    await page.route('**/api/mentor-table', async (route) => {
+      await route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'forced fallback' }),
+      });
+    });
+    await page.addInitScript(() => {
+      localStorage.setItem('mentorTableOnboardingHiddenV2', '1');
+      localStorage.setItem('language', 'zh-CN');
+    });
+    await page.goto('/', { waitUntil: 'networkidle' });
+
+    const search = page.getByTestId('mentor-person-input');
+    await search.fill('Steve Jobs');
+    const suggestion = page.locator('[class*="suggestionItem"]').first();
+    await expect(suggestion).toBeVisible({ timeout: 5000 });
+    await suggestion.click();
+
+    await page.getByTestId('mentor-continue-wish').click();
+    await page.getByTestId('mentor-problem-input').fill('我应该怎么开始创业？');
+    await page.getByTestId('mentor-begin-session').click();
+
+    const conversation = page.getByTestId('mentor-conversation-panel');
+    await expect(conversation).toBeVisible({ timeout: 15000 });
+    await expect(conversation).toContainText('立即完成它', { timeout: 15000 });
+    await expect(conversation).not.toContainText(/observe details|creative and observant|craft quality/i);
+  });
+
   test('session works end to end and every surface discloses local fallback', async ({ page }) => {
     // No route mocking: the request must really hit server.js on :8787 and
     // really fail (CI has no LLM_API_KEY). If a key leaks into the env this
