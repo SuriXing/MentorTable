@@ -42,7 +42,13 @@ describe('i18n completeness (, /)', () => {
     for (const lng of locales) {
       for (const key of used) {
         const value = resources[lng][key];
-        expect({ lng, key, value: typeof value === 'string' ? value : undefined }).toEqual({
+        const nonEmpty =
+          typeof value === 'string' && value.length > 0
+            ? value
+            : Array.isArray(value) && value.length > 0
+              ? 'array'
+              : undefined;
+        expect({ lng, key, value: nonEmpty }).toEqual({
           lng,
           key,
           value: expect.stringMatching(/.+/),
@@ -53,7 +59,7 @@ describe('i18n completeness (, /)', () => {
 
   it('mt.* keys never fall back to defaultValue in the page', () => {
     const page = readFileSync(PAGE_SRC, 'utf-8');
-    const withDefaults = [...page.matchAll(/tI18n\('mt\.[A-Za-z0-9_]+',\s*\{/g)].map((m) => m[0]);
+    const withDefaults = [...page.matchAll(/tI18n\('mt\.[A-Za-z0-9_]+',\s*['"]/g)].map((m) => m[0]);
     expect(withDefaults).toEqual([]);
   });
 

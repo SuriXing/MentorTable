@@ -194,18 +194,6 @@
   "emailNotification": "当有人回复时，您将收到电子邮件通知（如果已启用）",
   "checkWithCode": "随时使用您的访问代码来查看回复和更新",
   "dismiss": "关闭",
-  "mt": {
-    "summonGuests": "召唤人物",
-    "restart": "重新开始",
-    "beginSession": "开启圆桌 ✨",
-    "generating": "正在召唤...",
-    "newTable": "开启新圆桌",
-    "generateFailed": "召唤失败，请重试。",
-    "retry": "重试",
-    "addPerson": "添加人物",
-    "noResults": "未找到结果，按回车添加自定义名人",
-    "searching": "搜索中..."
-  },
   "errorBoundary": {
     "title": "页面出错了。",
     "message": "页面发生了意外错误。请刷新页面；如果问题持续，请尝试关闭隐私浏览或清除网站数据。",
@@ -300,7 +288,7 @@
   "mt.onboardingReadyTitle": "准备好了吗？",
   "mt.onboardingReadyBody": "有用的回复可以保存到右下角的记忆抽屉，方便以后查看。选择下次是否还显示这个说明，然后开始吧！",
   "mt.adviceLanguageLabel": "导师回复语言",
-  "mt.adviceLanguageHint": "导师回复目前支持 English 和简体中文。",
+  "mt.adviceLanguageHint": "回复可用五种界面语言生成。",
   "mt.adviceLanguageEnglish": "English",
   "mt.adviceLanguageChinese": "简体中文",
   "mt.generateFailed": "召唤失败，请重试。",
@@ -329,5 +317,29 @@
   "daysAgo_plural": "{{count}} 天前",
   "weeksAgo_plural": "{{count}} 周前",
   "monthsAgo_plural": "{{count}} 个月前",
-  "yearsAgo_plural": "{{count}} 年前"
+  "yearsAgo_plural": "{{count}} 年前",
+  "mt.emptyIntroHint": "在上方搜索框输入名字，按回车即可入席。",
+  "mt.guests": "人物数",
+  "mt.generatedLive": "由 LLM 接口实时生成",
+  "mt.offline": "(离线)",
+  "mt.noLlm": "(未走 LLM)",
+  "mt.partial": "(部分回退)",
+  "mt.nextMove": "下一步：",
+  "mt.adjustCandle": "调整蜡烛亮度",
+  "mt.flipCard": "翻转卡片 {{name}}",
+  "mt.removeGuest": "移除 {{name}}",
+  "mt.phaseInvite": "邀请",
+  "mt.phaseAsk": "提问",
+  "mt.phaseInSession": "答题中",
+  "mt.vibeTags": [
+    "构建者",
+    "讲述者",
+    "行动派",
+    "战略派",
+    "梦想家",
+    "突破者"
+  ],
+  "mt.adviceLanguageJapanese": "日本語",
+  "mt.adviceLanguageKorean": "한국어",
+  "mt.adviceLanguageSpanish": "Español"
 }

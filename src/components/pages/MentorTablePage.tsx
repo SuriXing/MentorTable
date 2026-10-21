@@ -68,8 +68,6 @@ const MAX_PEOPLE = mentorsContract.mentorsMax;
 const COORDINATE_PASS_NOTE_WITH_ALL = (import.meta.env.VITE_MENTOR_NOTE_COORDINATE_ALL ?? '1') !== '0';
 const ONBOARDING_KEY = 'mentorTableOnboardingHiddenV2';
 
-const vibeTags = ['Builder', 'Storyteller', 'Competitor', 'Strategist', 'Dreamer', 'Rebel'];
-const vibeTagsZh = ['构建者', '讲述者', '行动派', '战略派', '梦想家', '突破者'];
 
 
 // Bug #22: Date.now() alone can collide within the same millisecond when
@@ -93,7 +91,10 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const [adviceLanguagePreference, setAdviceLanguagePreference] = useState<AdviceLanguage | null>(
     () => loadAdviceLanguagePreference()
   );
-  const adviceLanguage: AdviceLanguage = adviceLanguagePreference || (isZh ? 'zh-CN' : 'en');
+  const interfaceLanguage: AdviceLanguage = (['en', 'zh-CN', 'ja', 'ko', 'es'] as readonly string[]).includes(i18n.language)
+    ? (i18n.language as AdviceLanguage)
+    : 'en';
+  const adviceLanguage: AdviceLanguage = adviceLanguagePreference || interfaceLanguage;
   const [seededQuestionKey, setSeededQuestionKey] = useState<RoundtablePreset['questionKey'] | null>(null);
   const selectedMentors = useMemo(
     () => selectedPeople.map((person) => createCustomMentorProfile(person.name)),
@@ -227,7 +228,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     // R2/F39: empty-state copy via t map (was inline isZh ternaries — works
     // but breaks DRY with the rest of the bilingual surface).
     emptyIntroTitle: tI18n('mt.emptyIntroTitle'),
-    emptyIntroHint: isZh ? '在上方搜索框输入名字，按回车即可入席。' : 'Type a name above and press Enter to seat them.'
+    emptyIntroHint: tI18n('mt.emptyIntroHint'),
   }), [isZh, tI18n]);
 
   // RERENDER-1 / ALGO-1: memoize caller-side wrappers on top of the
@@ -399,7 +400,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const personHydrationSeqRef = useRef<Map<string, number>>(new Map());
 
   const ritualStep = phase === 'invite' ? 0 : phase === 'wish' ? 1 : 2;
-  const localizedVibeTags = isZh ? vibeTagsZh : vibeTags;
+  const localizedVibeTags = tI18n('mt.vibeTags', { returnObjects: true }) as string[];
 
   // RERENDER-3: stabilize the string bundle so it doesn't get rebuilt
   // on every render. Callers that capture `t` in closures / deps will
@@ -890,7 +891,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     const memory: MemoryCard = {
       // Bug #22: collision-safe id via uniqueId.
       id: uniqueId('memory'),
-      title: isZh ? '今晚总结' : 'Tonight\'s takeaway',
+      title: tI18n('mt.tonightTakeaway'),
       createdAt: new Date().toLocaleString(),
       takeaways
     };
@@ -1032,7 +1033,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
               })}
             </div>
             <div className={styles.topBarActions}>
-              <div className={styles.guestCount}>{isZh ? '人物数' : 'Guests'}: {selectedPeople.length}</div>
+              <div className={styles.guestCount}>{tI18n('mt.guests')}: {selectedPeople.length}</div>
               <button
                 type="button"
                 className={styles.ghostBtn}
@@ -1290,7 +1291,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                           <button
                             type="button"
                             className={styles.flipMiniBtn}
-                            aria-label={isZh ? `翻转卡片 ${localizeName(person.name)}` : `Flip ${localizeName(person.name)} card`}
+                            aria-label={tI18n('mt.flipCard', { name: localizeName(person.name) })}
                             onClick={() => setFlippedCards((prev) => ({ ...prev, [person.name]: !prev[person.name] }))}
                           >
                             {t.flip}
@@ -1298,7 +1299,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                           <button
                             type="button"
                             className={styles.removeGuestBtn}
-                            aria-label={isZh ? `移除 ${localizeName(person.name)}` : `Remove ${localizeName(person.name)}`}
+                            aria-label={tI18n('mt.removeGuest', { name: localizeName(person.name) })}
                             onClick={() => removePerson(person.name)}
                           >
                             <FontAwesomeIcon icon={faXmark} />
@@ -1352,6 +1353,9 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                       hint: tI18n('mt.adviceLanguageHint'),
                       english: tI18n('mt.adviceLanguageEnglish'),
                       chinese: tI18n('mt.adviceLanguageChinese'),
+                      japanese: tI18n('mt.adviceLanguageJapanese'),
+                      korean: tI18n('mt.adviceLanguageKorean'),
+                      spanish: tI18n('mt.adviceLanguageSpanish'),
                     }}
                   />
                   <div className={styles.artifactInput}>
@@ -1449,7 +1453,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                             ? t.cannedRepliesTitle
                             : result?.meta.provider === 'partial-fallback'
                               ? t.partialFallbackTitle
-                              : (isZh ? '由 LLM 接口实时生成' : 'Generated live by the LLM API')
+                              : tI18n('mt.generatedLive')
                       }
                     >
                       {t.source}: {
@@ -1463,17 +1467,17 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                       }
                       {result?.meta.source !== 'llm' && (
                         <span style={{ marginLeft: 6, fontWeight: 700, color: '#9b6600' }}>
-                          {isZh ? '(离线)' : '(offline)'}
+                          {tI18n('mt.offline')}
                         </span>
                       )}
                       {result?.meta.source === 'llm' && result?.meta.provider === 'server-fallback' && (
                         <span style={{ marginLeft: 6, fontWeight: 700, color: '#9b6600' }}>
-                          {isZh ? '(未走 LLM)' : '(no LLM)'}
+                          {tI18n('mt.noLlm')}
                         </span>
                       )}
                       {result?.meta.source === 'llm' && result?.meta.provider === 'partial-fallback' && (
                         <span style={{ marginLeft: 6, fontWeight: 700, color: '#9b6600' }}>
-                          {isZh ? '(部分回退)' : '(partial)'}
+                          {tI18n('mt.partial')}
                         </span>
                       )}
                     </div>
@@ -1580,7 +1584,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                               <article className={`${styles.conversationBubble} ${styles.conversationLeftBubble} `}>
                                 <header>{mentorName}</header>
                                 <p>{reply.likelyResponse}</p>
-                                <footer>{isZh ? '下一步：' : 'Next move: '} {reply.oneActionStep}</footer>
+                                <footer>{tI18n('mt.nextMove')} {reply.oneActionStep}</footer>
                                 <button
                                   type="button"
                                   className={styles.passNoteBtn}
@@ -1804,7 +1808,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                   <button
                     type="button"
                     className={styles.candleProp}
-                    aria-label={isZh ? '调整蜡烛亮度' : 'Adjust candle brightness'}
+                    aria-label={tI18n('mt.adjustCandle')}
                     style={{ ['--flame-scale' as string]: `${0.8 + candleLevel * 0.26}` }}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -1914,7 +1918,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                 <SuggestionDeck
                   entries={suggestionDeckEntries}
                   totalMentorSlots={Math.max(selectedMentors.length, 1)}
-                  lang={isZh ? 'zh' : 'en'}
+                  lang={adviceLanguage === 'zh-CN' ? 'zh' : 'en'}
                   expandedReplyId={expandedReplyId}
                   placementFor={floatingCardPlacement}
                   onSelectSuggestion={(card) => {
@@ -1934,7 +1938,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                     trapRef={expandedSuggestionTrapRef}
                     onClose={() => setExpandedSuggestion(null)}
                     labels={{ backToTable: t.backToTable, nextMove: '' }}
-                    lang={isZh ? 'zh' : 'en'}
+                    lang={adviceLanguage === 'zh-CN' ? 'zh' : 'en'}
                   />
                 )}
 
@@ -1968,7 +1972,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                       send: t.send,
                       you: t.you,
                     }}
-                    lang={isZh ? 'zh' : 'en'}
+                    lang={adviceLanguage === 'zh-CN' ? 'zh' : 'en'}
                   />
                 )}
 
