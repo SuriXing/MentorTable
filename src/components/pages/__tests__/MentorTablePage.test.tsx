@@ -313,7 +313,7 @@ describe('MentorTablePage (unit)', () => {
 
     const problemInput = screen.getByTestId('mentor-problem-input');
     expect(problemInput).toHaveValue(
-      'I am choosing between a safer path and a riskier opportunity. How should I decide?'
+      '安定した道とリスクの高い機会のどちらを選ぶべきか、どう判断すればよいですか？'
     );
 
     await act(async () => {
@@ -322,8 +322,8 @@ describe('MentorTablePage (unit)', () => {
 
     await waitFor(() => expect(generateMentorAdviceMock).toHaveBeenCalledTimes(1));
     expect(generateMentorAdviceMock.mock.calls[0][0]).toMatchObject({
-      language: 'en',
-      problem: 'I am choosing between a safer path and a riskier opportunity. How should I decide?',
+      language: 'ja',
+      problem: '安定した道とリスクの高い機会のどちらを選ぶべきか、どう判断すればよいですか？',
     });
   });
 
@@ -333,10 +333,10 @@ describe('MentorTablePage (unit)', () => {
 
     fireEvent.click(screen.getByTestId('mentor-preset-startup'));
     const problemInput = screen.getByTestId('mentor-problem-input');
-    expect(screen.getByRole('radio', { name: '英語' })).toBeChecked();
-    expect(screen.getByText(/現在、英語と簡体字中国語/)).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '日本語' })).toBeChecked();
+    expect(screen.getByText(/5つのインターフェース言語/)).toBeInTheDocument();
     expect(problemInput).toHaveValue(
-      'I have a product idea but no users yet. What should I do in the next seven days?'
+      'プロダクトのアイデアはありますが、まだユーザーがいません。次の7日間で何をすべきですか？'
     );
 
     fireEvent.click(screen.getByRole('radio', { name: '簡体字中国語' }));

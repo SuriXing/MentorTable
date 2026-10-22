@@ -7,17 +7,20 @@ import {
 } from '../adviceLanguage';
 
 describe('advice language preference', () => {
-  it('accepts only the two languages supported by the API contract', () => {
+  it('accepts every language the API contract supports', () => {
     expect(parseAdviceLanguage('en')).toBe('en');
     expect(parseAdviceLanguage('zh-CN')).toBe('zh-CN');
-    expect(parseAdviceLanguage('ja')).toBeNull();
+    expect(parseAdviceLanguage('ja')).toBe('ja');
+    expect(parseAdviceLanguage('ko')).toBe('ko');
+    expect(parseAdviceLanguage('es')).toBe('es');
     expect(parseAdviceLanguage('')).toBeNull();
     expect(parseAdviceLanguage(null)).toBeNull();
   });
 
   it('loads a valid preference and ignores stale values', () => {
     expect(loadAdviceLanguagePreference({ getItem: () => 'zh-CN' })).toBe('zh-CN');
-    expect(loadAdviceLanguagePreference({ getItem: () => 'es' })).toBeNull();
+    expect(loadAdviceLanguagePreference({ getItem: () => 'ja' })).toBe('ja');
+    expect(loadAdviceLanguagePreference({ getItem: () => 'de' })).toBeNull();
   });
 
   it('returns null when storage is unavailable', () => {

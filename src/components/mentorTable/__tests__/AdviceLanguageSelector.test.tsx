@@ -6,9 +6,12 @@ import { AdviceLanguageSelector } from '../AdviceLanguageSelector';
 describe('AdviceLanguageSelector', () => {
   const labels = {
     legend: 'Mentor reply language',
-    hint: 'Replies are currently available in English and Simplified Chinese.',
+    hint: 'Replies are available in every interface language.',
     english: 'English',
-    chinese: 'Simplified Chinese',
+    chinese: '简体中文',
+    japanese: '日本語',
+    korean: '한국어',
+    spanish: 'Español',
   };
 
   it('renders a named radio group and reports selection changes', () => {
@@ -27,5 +30,11 @@ describe('AdviceLanguageSelector', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: labels.chinese }));
     expect(onChange).toHaveBeenCalledWith('zh-CN');
+    fireEvent.click(screen.getByRole('radio', { name: labels.japanese }));
+    expect(onChange).toHaveBeenCalledWith('ja');
+    fireEvent.click(screen.getByRole('radio', { name: labels.korean }));
+    expect(onChange).toHaveBeenCalledWith('ko');
+    fireEvent.click(screen.getByRole('radio', { name: labels.spanish }));
+    expect(onChange).toHaveBeenCalledWith('es');
   });
 });

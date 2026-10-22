@@ -10,6 +10,9 @@ interface AdviceLanguageSelectorProps {
     hint: string;
     english: string;
     chinese: string;
+    japanese: string;
+    korean: string;
+    spanish: string;
   };
 }
 
@@ -22,6 +25,9 @@ export function AdviceLanguageSelector({
   const options: Array<{ value: AdviceLanguage; label: string }> = [
     { value: 'en', label: labels.english },
     { value: 'zh-CN', label: labels.chinese },
+    { value: 'ja', label: labels.japanese },
+    { value: 'ko', label: labels.korean },
+    { value: 'es', label: labels.spanish },
   ];
 
   return (
