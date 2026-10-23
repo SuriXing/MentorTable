@@ -100,23 +100,23 @@ describe('translationHelper', () => {
       expect(t('hello')).toBe('Hello');
     });
 
-    it('falls back to zh-CN when current language has no value', () => {
+    it('falls back to en when current language has no value', () => {
       state.currentTranslations = {}; // current empty
       state.fixedTranslations = {
         'zh-CN': { hello: '你好' },
         en: { hello: 'Hello' },
       };
       const { t } = useTypeSafeTranslation();
-      expect(t('hello')).toBe('你好');
+      expect(t('hello')).toBe('Hello');
     });
 
-    it('falls back to en when zh-CN also missing', () => {
+    it('falls back to zh-CN when en is also missing', () => {
       state.fixedTranslations = {
-        'zh-CN': {},
-        en: { hello: 'Hello' },
+        'zh-CN': { hello: '你好' },
+        en: {},
       };
       const { t } = useTypeSafeTranslation();
-      expect(t('hello')).toBe('Hello');
+      expect(t('hello')).toBe('你好');
     });
 
     it('returns key when all fallbacks fail and warns in development', () => {
@@ -184,9 +184,9 @@ describe('translationHelper', () => {
       expect(getCurrentLanguage()).toBe('en');
     });
 
-    it('detects zh from browser and maps to zh-CN', () => {
+    it('maps a zh browser to the English default', () => {
       setNavigatorLanguage('zh-TW');
-      expect(getCurrentLanguage()).toBe('zh-CN');
+      expect(getCurrentLanguage()).toBe('en');
     });
 
     it('maps ja browser language to ja', () => {
@@ -209,9 +209,14 @@ describe('translationHelper', () => {
       expect(getCurrentLanguage()).toBe('en');
     });
 
-    it('defaults to zh-CN for unknown browser languages', () => {
+    it('strips the region suffix when resolving the browser language', () => {
+      setNavigatorLanguage('en-US');
+      expect(getCurrentLanguage()).toBe('en');
+    });
+
+    it('defaults to en for unknown browser languages', () => {
       setNavigatorLanguage('de');
-      expect(getCurrentLanguage()).toBe('zh-CN');
+      expect(getCurrentLanguage()).toBe('en');
     });
   });
 

@@ -107,7 +107,7 @@ describe('i18n setup', () => {
     expect(initSpy).toHaveBeenCalledTimes(1);
     const opts = initSpy.mock.calls[0][0];
     expect(opts.lng).toBe('en');
-    expect(opts.fallbackLng).toEqual(['zh-CN', 'en']);
+    expect(opts.fallbackLng).toEqual(['en', 'zh-CN']);
     expect(opts.load).toBe('currentOnly');
     expect(opts.resources).toBeDefined();
     // R2D BUNDLE-2: only the hot-path locales (zh-CN + en) are statically
