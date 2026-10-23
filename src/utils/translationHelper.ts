@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import i18next, { TOptions } from 'i18next';
 
-const FALLBACK_LANGUAGES = ['zh-CN', 'en'] as const;
+const FALLBACK_LANGUAGES = ['en', 'zh-CN'] as const;
 type SupportedLanguages = 'zh-CN' | 'en' | 'ja' | 'ko' | 'es';
 
 /**
@@ -51,12 +51,14 @@ export function getCurrentLanguage(): SupportedLanguages {
   }
 
   // Try to detect from browser
+  // English is the product default: a zh browser falls through to the map
+  // below and lands on 'en', like any unsupported language. Chinese is one
+  // click away in the switcher — only a saved choice wins by default.
   const browserLang = navigator.language;
-  if (browserLang.startsWith('zh')) {
-    return 'zh-CN';
-  }
-  
-  // Map browser language codes to our supported languages
+
+  // Map browser language codes to our supported languages. The comparison
+  // uses the base language ('en-US' → 'en'), so a region suffix doesn't
+  // silently drop the visitor to the default.
   const languageMap: Record<string, SupportedLanguages> = {
     'ja': 'ja',
     'ko': 'ko',
@@ -64,7 +66,8 @@ export function getCurrentLanguage(): SupportedLanguages {
     'en': 'en'
   };
 
-  return languageMap[browserLang] || 'zh-CN';
+  const baseLang = browserLang.split('-')[0] ?? '';
+  return languageMap[baseLang] || 'en';
 }
 
 /**
