@@ -21,3 +21,5 @@ coverage/
 .bundle-stats/
 supabase/
 *.tsbuildinfo
+.env*
+.vercel-home/
