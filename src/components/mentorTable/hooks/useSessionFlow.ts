@@ -4,6 +4,7 @@ import { generateMentorAdvice, MentorConversationMessage } from '../../../featur
 import type { MentorSimulationResult } from '../../../features/mentorTable/mentorEngine';
 import type { ConversationTurn } from '../../../features/mentorTable/conversationTypes';
 import type { AdviceLanguage } from '../../../features/mentorTable/adviceLanguage';
+import { translate as phaseLabelFor } from '../../../utils/translationHelper';
 
 export type RitualPhase = 'invite' | 'wish' | 'session';
 export type SessionMode = 'idle' | 'booting' | 'live';
@@ -317,9 +318,9 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
   useEffect(() => {
     const base = '名人桌 — Mentor Table';
     const phaseLabel =
-      phase === 'invite' ? (isZh ? '邀请' : 'Invite')
-      : phase === 'wish' ? (isZh ? '提问' : 'Ask')
-      : (isZh ? '答题中' : 'In session');
+      phase === 'invite' ? phaseLabelFor('mt.phaseInvite')
+      : phase === 'wish' ? phaseLabelFor('mt.phaseAsk')
+      : phaseLabelFor('mt.phaseInSession');
     document.title = `${phaseLabel} · ${base}`;
   }, [phase, isZh]);
 
