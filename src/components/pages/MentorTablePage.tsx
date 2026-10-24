@@ -1123,7 +1123,16 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                         aria-label={t.invitePlaceholder}
                       >
                         {verifiedSuggestions.map((s) => {
-                          const desc = isZh ? (s.descriptionZh || s.description) : s.description;
+                          const desc =
+                            i18n.language === 'zh-CN'
+                              ? s.descriptionZh || s.description
+                              : i18n.language === 'ja'
+                                ? s.descriptionJa || s.description
+                                : i18n.language === 'ko'
+                                  ? s.descriptionKo || s.description
+                                  : i18n.language === 'es'
+                                    ? s.descriptionEs || s.description
+                                    : s.description;
                           return (
                             <button
                               type="button"

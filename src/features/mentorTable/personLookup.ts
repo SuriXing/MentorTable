@@ -4,6 +4,9 @@ export interface PersonOption {
   candidateImageUrls?: string[];
   description?: string;
   descriptionZh?: string;
+  descriptionJa?: string;
+  descriptionKo?: string;
+  descriptionEs?: string;
   isCustom?: boolean;
 }
 
@@ -138,6 +141,9 @@ const VERIFIED_PEOPLE: Array<{
   candidateImageUrls?: string[];
   description?: string;
   descriptionZh?: string;
+  descriptionJa?: string;
+  descriptionKo?: string;
+  descriptionEs?: string;
 }> = [
   {
     canonical: 'Bill Gates',
@@ -145,7 +151,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/8/88/Bill_Gates_at_the_European_Commission_-_2025_-_P067383-987995_%28cropped%29.jpg',
     candidateImageUrls: ['https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Bill_Gates_2018.jpg/512px-Bill_Gates_2018.jpg'],
     description: 'Co-founder of Microsoft, philanthropist',
-    descriptionZh: '微软联合创始人、慈善家'
+    descriptionZh: '微软联合创始人、慈善家',
+    descriptionJa: 'マイクロソフト共同創業者、慈善家',
+    descriptionKo: '마이크로소프트 공동 창업자, 자선가',
+    descriptionEs: 'Cofundador de Microsoft, filántropo'
   },
   {
     canonical: 'Oprah Winfrey',
@@ -155,7 +164,10 @@ const VERIFIED_PEOPLE: Array<{
       'https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Oprah_Winfrey_2014.jpg/512px-Oprah_Winfrey_2014.jpg'
     ],
     description: 'Media mogul, talk show host',
-    descriptionZh: '媒体大亨、脱口秀主持人'
+    descriptionZh: '媒体大亨、脱口秀主持人',
+    descriptionJa: 'メディア界の大物、トークショー司会者',
+    descriptionKo: '미디어 재벌, 토크쇼 진행자',
+    descriptionEs: 'Magnate de los medios, presentador de talk show'
   },
   {
     canonical: 'Kobe Bryant',
@@ -165,7 +177,10 @@ const VERIFIED_PEOPLE: Array<{
       'https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Kobe_Bryant_2019.jpg/512px-Kobe_Bryant_2019.jpg'
     ],
     description: 'NBA legend, Black Mamba',
-    descriptionZh: 'NBA传奇球星、黑曼巴'
+    descriptionZh: 'NBA传奇球星、黑曼巴',
+    descriptionJa: 'NBAの伝説的選手、ブラックマンバ',
+    descriptionKo: 'NBA 전설, 블랙 맘바',
+    descriptionEs: 'Leyenda de la NBA, Black Mamba'
   },
   {
     canonical: 'Hayao Miyazaki',
@@ -173,7 +188,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl:
       'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/Hayao_Miyazaki_%282019%29.jpg/512px-Hayao_Miyazaki_%282019%29.jpg',
     description: 'Animator, Studio Ghibli co-founder',
-    descriptionZh: '动画大师、吉卜力工作室联合创始人'
+    descriptionZh: '动画大师、吉卜力工作室联合创始人',
+    descriptionJa: 'アニメーション監督、スタジオジブリ共同創業者',
+    descriptionKo: '애니메이션 감독, 스튜디오 지브리 공동 창업자',
+    descriptionEs: 'Animador, cofundador de Studio Ghibli'
   },
   {
     canonical: 'Elon Musk',
@@ -183,14 +201,20 @@ const VERIFIED_PEOPLE: Array<{
       'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Elon_Musk_-_54820081119_%28cropped%29.jpg/960px-Elon_Musk_-_54820081119_%28cropped%29.jpg'
     ],
     description: 'CEO of Tesla & SpaceX',
-    descriptionZh: 'Tesla与SpaceX CEO'
+    descriptionZh: 'Tesla与SpaceX CEO',
+    descriptionJa: 'TeslaとSpaceXのCEO',
+    descriptionKo: 'Tesla 및 SpaceX CEO',
+    descriptionEs: 'CEO de Tesla y SpaceX'
   },
   {
     canonical: 'Steve Jobs',
     aliases: ['steve jobs', 'jobs', '史蒂夫·乔布斯', '乔布斯'],
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/dc/Steve_Jobs_Headshot_2010-CROP_%28cropped_2%29.jpg/512px-Steve_Jobs_Headshot_2010-CROP_%28cropped_2%29.jpg',
     description: 'Co-founder of Apple',
-    descriptionZh: '苹果联合创始人'
+    descriptionZh: '苹果联合创始人',
+    descriptionJa: 'アップル共同創業者',
+    descriptionKo: '애플 공동 창업자',
+    descriptionEs: 'Cofundador de Apple'
   },
   {
     canonical: 'Super Mario',
@@ -201,7 +225,10 @@ const VERIFIED_PEOPLE: Array<{
       'https://ui-avatars.com/api/?size=512&background=e73a2c&color=ffffff&bold=true&name=Mario'
     ],
     description: 'Nintendo video game character',
-    descriptionZh: '任天堂经典游戏角色'
+    descriptionZh: '任天堂经典游戏角色',
+    descriptionJa: '任天堂のゲームキャラクター',
+    descriptionKo: '닌텐도 게임 캐릭터',
+    descriptionEs: 'Personaje de los juegos de Nintendo'
   },
   {
     canonical: 'Iron Man',
@@ -212,7 +239,10 @@ const VERIFIED_PEOPLE: Array<{
       'https://ui-avatars.com/api/?size=512&background=b71c1c&color=ffd54f&bold=true&name=IM'
     ],
     description: 'Marvel superhero, Tony Stark',
-    descriptionZh: '漫威超级英雄、托尼·斯塔克'
+    descriptionZh: '漫威超级英雄、托尼·斯塔克',
+    descriptionJa: 'マーベルのスーパーヒーロー、トニー・スターク',
+    descriptionKo: '마블 슈퍼히어로, 토니 스타크',
+    descriptionEs: 'Superhéroe de Marvel, Tony Stark'
   },
   {
     canonical: 'Pikachu',
@@ -223,7 +253,10 @@ const VERIFIED_PEOPLE: Array<{
       'https://ui-avatars.com/api/?size=512&background=fdd835&color=795548&bold=true&name=Pk'
     ],
     description: 'Pokémon electric-type mascot',
-    descriptionZh: '宝可梦电属性吉祥物'
+    descriptionZh: '宝可梦电属性吉祥物',
+    descriptionJa: 'ポケモンのでんきタイプのマスコット',
+    descriptionKo: '포켓몬 전기 타입 마스코트',
+    descriptionEs: 'Mascota eléctrica de Pokémon'
   },
   {
     canonical: 'Naruto Uzumaki',
@@ -234,7 +267,10 @@ const VERIFIED_PEOPLE: Array<{
       'https://ui-avatars.com/api/?size=512&background=ff9800&color=1a237e&bold=true&name=NU'
     ],
     description: 'Ninja from Naruto anime',
-    descriptionZh: '火影忍者主角'
+    descriptionZh: '火影忍者主角',
+    descriptionJa: 'アニメ「NARUTO」の忍者',
+    descriptionKo: '나루토 애니메이션의 닌자',
+    descriptionEs: 'Ninja del anime Naruto'
   },
   {
     canonical: 'Monkey D. Luffy',
@@ -245,7 +281,10 @@ const VERIFIED_PEOPLE: Array<{
       'https://ui-avatars.com/api/?size=512&background=d32f2f&color=ffffff&bold=true&name=ML'
     ],
     description: 'Captain of the Straw Hat Pirates',
-    descriptionZh: '草帽海贼团船长'
+    descriptionZh: '草帽海贼团船长',
+    descriptionJa: '麦わら海賊団の船長',
+    descriptionKo: '밀짚모자 해적단 선장',
+    descriptionEs: 'Capitán de los Piratas del Sombrero de Paja'
   },
   {
     canonical: 'Son Goku',
@@ -256,7 +295,10 @@ const VERIFIED_PEOPLE: Array<{
       'https://ui-avatars.com/api/?size=512&background=ff6f00&color=ffffff&bold=true&name=SG'
     ],
     description: 'Saiyan warrior from Dragon Ball',
-    descriptionZh: '龙珠赛亚人战士'
+    descriptionZh: '龙珠赛亚人战士',
+    descriptionJa: 'ドラゴンボールのサイヤ人戦士',
+    descriptionKo: '드래곤볼 사이어인 전사',
+    descriptionEs: 'Guerrero saiyajin de Dragon Ball'
   },
   {
     canonical: 'Spider-Man',
@@ -267,7 +309,10 @@ const VERIFIED_PEOPLE: Array<{
       'https://ui-avatars.com/api/?size=512&background=d50000&color=1565c0&bold=true&name=SM'
     ],
     description: 'Marvel superhero, Peter Parker',
-    descriptionZh: '漫威超级英雄、彼得·帕克'
+    descriptionZh: '漫威超级英雄、彼得·帕克',
+    descriptionJa: 'マーベルのスーパーヒーロー、ピーター・パーカー',
+    descriptionKo: '마블 슈퍼히어로, 피터 파커',
+    descriptionEs: 'Superhéroe de Marvel, Peter Parker'
   },
   {
     canonical: 'Batman',
@@ -278,7 +323,10 @@ const VERIFIED_PEOPLE: Array<{
       'https://ui-avatars.com/api/?size=512&background=212121&color=fdd835&bold=true&name=BM'
     ],
     description: 'DC superhero, Bruce Wayne',
-    descriptionZh: 'DC超级英雄、布鲁斯·韦恩'
+    descriptionZh: 'DC超级英雄、布鲁斯·韦恩',
+    descriptionJa: 'DCのスーパーヒーロー、ブルース・ウェイン',
+    descriptionKo: 'DC 슈퍼히어로, 브루스 웨인',
+    descriptionEs: 'Superhéroe de DC, Bruce Wayne'
   },
   {
     canonical: 'Link',
@@ -289,7 +337,10 @@ const VERIFIED_PEOPLE: Array<{
       'https://ui-avatars.com/api/?size=512&background=2e7d32&color=ffffff&bold=true&name=LK'
     ],
     description: 'Hero of The Legend of Zelda',
-    descriptionZh: '塞尔达传说主角'
+    descriptionZh: '塞尔达传说主角',
+    descriptionJa: 'ゼルダの伝説の主人公',
+    descriptionKo: '젤다의 전설 주인공',
+    descriptionEs: 'Protagonista de The Legend of Zelda'
   },
   {
     canonical: 'Lara Croft',
@@ -300,7 +351,10 @@ const VERIFIED_PEOPLE: Array<{
       'https://ui-avatars.com/api/?size=512&background=4e342e&color=ffffff&bold=true&name=LC'
     ],
     description: 'Tomb Raider adventurer',
-    descriptionZh: '古墓丽影冒险家'
+    descriptionZh: '古墓丽影冒险家',
+    descriptionJa: 'トゥームレイダーの冒険家',
+    descriptionKo: '툼 레이더 모험가',
+    descriptionEs: 'Aventurera de Tomb Raider'
   },
   {
     canonical: 'Lisa Su',
@@ -311,21 +365,30 @@ const VERIFIED_PEOPLE: Array<{
       'https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/AMD_CEO_Lisa_Su_20130415_cropped.jpg/512px-AMD_CEO_Lisa_Su_20130415_cropped.jpg'
     ],
     description: 'CEO of AMD',
-    descriptionZh: 'AMD首席执行官'
+    descriptionZh: 'AMD首席执行官',
+    descriptionJa: 'AMDのCEO',
+    descriptionKo: 'AMD CEO',
+    descriptionEs: 'CEO de AMD'
   },
   {
     canonical: 'Satya Nadella',
     aliases: ['satya nadella', 'satya', 'nadella', '萨提亚·纳德拉', '纳德拉'],
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/MS-Exec-Nadella-Satya-2017-08-31-22_%28cropped%29.jpg/512px-MS-Exec-Nadella-Satya-2017-08-31-22_%28cropped%29.jpg',
     description: 'CEO of Microsoft',
-    descriptionZh: '微软首席执行官'
+    descriptionZh: '微软首席执行官',
+    descriptionJa: 'マイクロソフトのCEO',
+    descriptionKo: '마이크로소프트 CEO',
+    descriptionEs: 'CEO de Microsoft'
   },
   {
     canonical: 'Taylor Swift',
     aliases: ['taylor swift', 'taylor', 'swift', '泰勒·斯威夫特', '泰勒斯威夫特', '霉霉'],
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Taylor_Swift_at_the_2023_MTV_Video_Music_Awards_%283%29.png/512px-Taylor_Swift_at_the_2023_MTV_Video_Music_Awards_%283%29.png',
     description: 'Singer-songwriter, pop icon',
-    descriptionZh: '创作型歌手、流行偶像'
+    descriptionZh: '创作型歌手、流行偶像',
+    descriptionJa: 'シンガーソングライター、ポップアイコン',
+    descriptionKo: '싱어송라이터, 팝 아이콘',
+    descriptionEs: 'Cantautora, icono del pop'
   },
 
   // ── K-pop / J-pop Artists ──
@@ -335,7 +398,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Thai rapper & dancer, BLACKPINK member',
-    descriptionZh: 'BLACKPINK成员、泰国说唱歌手及舞者'
+    descriptionZh: 'BLACKPINK成员、泰国说唱歌手及舞者',
+    descriptionJa: 'BLACKPINKのメンバー、タイ出身のラッパー兼ダンサー',
+    descriptionKo: 'BLACKPINK 멤버, 태국인 래퍼 겸 댄서',
+    descriptionEs: 'Miembro de BLACKPINK, rapera y bailarina tailandesa'
   },
   {
     canonical: 'Jungkook',
@@ -343,7 +409,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'BTS vocalist & performer',
-    descriptionZh: 'BTS主唱及表演者'
+    descriptionZh: 'BTS主唱及表演者',
+    descriptionJa: 'BTSのボーカル兼パフォーマー',
+    descriptionKo: 'BTS 보컬리스트 겸 퍼포머',
+    descriptionEs: 'Vocalista y performer de BTS'
   },
   {
     canonical: 'Rosé (BLACKPINK)',
@@ -351,7 +420,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'BLACKPINK vocalist',
-    descriptionZh: 'BLACKPINK主唱'
+    descriptionZh: 'BLACKPINK主唱',
+    descriptionJa: 'BLACKPINKのボーカル',
+    descriptionKo: 'BLACKPINK 보컬리스트',
+    descriptionEs: 'Vocalista de BLACKPINK'
   },
   {
     canonical: 'Jennie (BLACKPINK)',
@@ -359,7 +431,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'BLACKPINK rapper & vocalist',
-    descriptionZh: 'BLACKPINK说唱及主唱'
+    descriptionZh: 'BLACKPINK说唱及主唱',
+    descriptionJa: 'BLACKPINKのラッパー兼ボーカル',
+    descriptionKo: 'BLACKPINK 래퍼 겸 보컬',
+    descriptionEs: 'Rapera y vocalista de BLACKPINK'
   },
   {
     canonical: 'Jisoo (BLACKPINK)',
@@ -367,7 +442,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'BLACKPINK vocalist & actress',
-    descriptionZh: 'BLACKPINK主唱及演员'
+    descriptionZh: 'BLACKPINK主唱及演员',
+    descriptionJa: 'BLACKPINKのボーカル兼女優',
+    descriptionKo: 'BLACKPINK 보컬 겸 배우',
+    descriptionEs: 'Vocalista y actriz de BLACKPINK'
   },
   {
     canonical: 'RM (BTS)',
@@ -375,7 +453,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'BTS leader & rapper',
-    descriptionZh: 'BTS队长及说唱歌手'
+    descriptionZh: 'BTS队长及说唱歌手',
+    descriptionJa: 'BTSのリーダー兼ラッパー',
+    descriptionKo: 'BTS 리더 겸 래퍼',
+    descriptionEs: 'Líder y rapero de BTS'
   },
   {
     canonical: 'Jin (BTS)',
@@ -383,7 +464,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'BTS vocalist',
-    descriptionZh: 'BTS主唱'
+    descriptionZh: 'BTS主唱',
+    descriptionJa: 'BTSのボーカル',
+    descriptionKo: 'BTS 보컬',
+    descriptionEs: 'Vocalista de BTS'
   },
   {
     canonical: 'Suga (BTS)',
@@ -391,7 +475,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'BTS rapper & producer',
-    descriptionZh: 'BTS说唱歌手及制作人'
+    descriptionZh: 'BTS说唱歌手及制作人',
+    descriptionJa: 'BTSのラッパー兼プロデューサー',
+    descriptionKo: 'BTS 래퍼 겸 프로듀서',
+    descriptionEs: 'Rapero y productor de BTS'
   },
   {
     canonical: 'J-Hope (BTS)',
@@ -399,7 +486,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'BTS rapper & dancer',
-    descriptionZh: 'BTS说唱歌手及舞者'
+    descriptionZh: 'BTS说唱歌手及舞者',
+    descriptionJa: 'BTSのラッパー兼ダンサー',
+    descriptionKo: 'BTS 래퍼 겸 댄서',
+    descriptionEs: 'Rapero y bailarín de BTS'
   },
   {
     canonical: 'Jimin (BTS)',
@@ -407,7 +497,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'BTS vocalist & dancer',
-    descriptionZh: 'BTS主唱及舞者'
+    descriptionZh: 'BTS主唱及舞者',
+    descriptionJa: 'BTSのボーカル兼ダンサー',
+    descriptionKo: 'BTS 보컬 겸 댄서',
+    descriptionEs: 'Vocalista y bailarín de BTS'
   },
   {
     canonical: 'V (BTS)',
@@ -415,7 +508,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'BTS vocalist & actor',
-    descriptionZh: 'BTS主唱及演员'
+    descriptionZh: 'BTS主唱及演员',
+    descriptionJa: 'BTSのボーカル兼俳優',
+    descriptionKo: 'BTS 보컬 겸 배우',
+    descriptionEs: 'Vocalista y actor de BTS'
   },
   {
     canonical: 'IU',
@@ -423,7 +519,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Korean singer-songwriter & actress',
-    descriptionZh: '韩国创作型歌手及演员'
+    descriptionZh: '韩国创作型歌手及演员',
+    descriptionJa: '韓国のシンガーソングライター兼女優',
+    descriptionKo: '한국 싱어송라이터 겸 배우',
+    descriptionEs: 'Cantautora y actriz surcoreana'
   },
   {
     canonical: 'Momo (TWICE)',
@@ -431,7 +530,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'TWICE member, main dancer',
-    descriptionZh: 'TWICE成员、主舞者'
+    descriptionZh: 'TWICE成员、主舞者',
+    descriptionJa: 'TWICEのメンバー、メインダンサー',
+    descriptionKo: 'TWICE 멤버, 메인 댄서',
+    descriptionEs: 'Miembro de TWICE, bailarina principal'
   },
   {
     canonical: 'Ikura (YOASOBI)',
@@ -439,7 +541,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'YOASOBI vocalist',
-    descriptionZh: 'YOASOBI主唱'
+    descriptionZh: 'YOASOBI主唱',
+    descriptionJa: 'YOASOBIのボーカル',
+    descriptionKo: 'YOASOBI 보컬',
+    descriptionEs: 'Vocalista de YOASOBI'
   },
   {
     canonical: 'Hatsune Miku',
@@ -447,7 +552,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Virtual singer, Vocaloid icon',
-    descriptionZh: '虚拟歌手、Vocaloid偶像'
+    descriptionZh: '虚拟歌手、Vocaloid偶像',
+    descriptionJa: 'バーチャルシンガー、Vocaloidのアイコン',
+    descriptionKo: '가상 가수, Vocaloid 아이콘',
+    descriptionEs: 'Cantante virtual, icono de Vocaloid'
   },
 
   // ── Western Musicians ──
@@ -457,7 +565,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Pop & R&B singer, actress',
-    descriptionZh: '流行及R&B歌手、演员'
+    descriptionZh: '流行及R&B歌手、演员',
+    descriptionJa: 'ポップ&R&Bシンガー、女優',
+    descriptionKo: '팝 및 R&B 가수, 배우',
+    descriptionEs: 'Cantante de pop y R&B, actriz'
   },
   {
     canonical: 'Ed Sheeran',
@@ -465,7 +576,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Singer-songwriter',
-    descriptionZh: '创作型歌手'
+    descriptionZh: '创作型歌手',
+    descriptionJa: 'シンガーソングライター',
+    descriptionKo: '싱어송라이터',
+    descriptionEs: 'Cantautor'
   },
   {
     canonical: 'Billie Eilish',
@@ -473,7 +587,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Singer-songwriter, Grammy winner',
-    descriptionZh: '创作型歌手、格莱美奖得主'
+    descriptionZh: '创作型歌手、格莱美奖得主',
+    descriptionJa: 'シンガーソングライター、グラミー受賞者',
+    descriptionKo: '싱어송라이터, 그래미 수상자',
+    descriptionEs: 'Cantautora, ganadora de un Grammy'
   },
   {
     canonical: 'Drake',
@@ -481,7 +598,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Rapper, singer, songwriter',
-    descriptionZh: '说唱歌手、创作型歌手'
+    descriptionZh: '说唱歌手、创作型歌手',
+    descriptionJa: 'ラッパー、シンガー、ソングライター',
+    descriptionKo: '래퍼, 가수, 송라이터',
+    descriptionEs: 'Rapero, cantante y compositor'
   },
   {
     canonical: 'Adele',
@@ -489,7 +609,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'British singer-songwriter',
-    descriptionZh: '英国创作型歌手'
+    descriptionZh: '英国创作型歌手',
+    descriptionJa: 'イギリスのシンガーソングライター',
+    descriptionKo: '영국 싱어송라이터',
+    descriptionEs: 'Cantautora británica'
   },
   {
     canonical: 'Bruno Mars',
@@ -497,7 +620,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Singer, songwriter, producer',
-    descriptionZh: '歌手、词曲作家、制作人'
+    descriptionZh: '歌手、词曲作家、制作人',
+    descriptionJa: 'シンガー、ソングライター、プロデューサー',
+    descriptionKo: '가수, 작곡가, 프로듀서',
+    descriptionEs: 'Cantante, compositor y productor'
   },
   {
     canonical: 'Lady Gaga',
@@ -505,7 +631,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Pop icon, singer, actress',
-    descriptionZh: '流行偶像、歌手、演员'
+    descriptionZh: '流行偶像、歌手、演员',
+    descriptionJa: 'ポップアイコン、シンガー、女優',
+    descriptionKo: '팝 아이콘, 가수, 배우',
+    descriptionEs: 'Icono del pop, cantante y actriz'
   },
   {
     canonical: 'Rihanna',
@@ -513,7 +642,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Singer, businesswoman, Fenty founder',
-    descriptionZh: '歌手、企业家、Fenty创始人'
+    descriptionZh: '歌手、企业家、Fenty创始人',
+    descriptionJa: 'シンガー、実業家、Fenty創業者',
+    descriptionKo: '가수, 사업가, Fenty 창업자',
+    descriptionEs: 'Cantante, empresaria y fundadora de Fenty'
   },
   {
     canonical: 'Justin Bieber',
@@ -521,7 +653,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Canadian pop singer',
-    descriptionZh: '加拿大流行歌手'
+    descriptionZh: '加拿大流行歌手',
+    descriptionJa: 'カナダのポップシンガー',
+    descriptionKo: '캐나다 팝 가수',
+    descriptionEs: 'Cantante de pop canadiense'
   },
   {
     canonical: 'Dua Lipa',
@@ -529,7 +664,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'British-Albanian pop singer',
-    descriptionZh: '英国-阿尔巴尼亚裔流行歌手'
+    descriptionZh: '英国-阿尔巴尼亚裔流行歌手',
+    descriptionJa: '英アルバニア系ポップシンガー',
+    descriptionKo: '영국-알바니아계 팝 가수',
+    descriptionEs: 'Cantante de pop británico-albanesa'
   },
   {
     canonical: 'The Weeknd',
@@ -537,7 +675,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'R&B singer, songwriter',
-    descriptionZh: 'R&B歌手、词曲作家'
+    descriptionZh: 'R&B歌手、词曲作家',
+    descriptionJa: 'R&Bシンガー、ソングライター',
+    descriptionKo: 'R&B 가수, 송라이터',
+    descriptionEs: 'Cantante de R&B, compositor'
   },
   {
     canonical: 'Eminem',
@@ -545,7 +686,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Rapper, Rap God',
-    descriptionZh: '说唱之神'
+    descriptionZh: '说唱之神',
+    descriptionJa: 'ラッパー、ラップゴッド',
+    descriptionKo: '래퍼, 랩 갓',
+    descriptionEs: 'Rapero, el Rap God'
   },
   {
     canonical: 'Kanye West',
@@ -553,7 +697,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Rapper, producer, fashion designer',
-    descriptionZh: '说唱歌手、制作人、时装设计师'
+    descriptionZh: '说唱歌手、制作人、时装设计师',
+    descriptionJa: 'ラッパー、プロデューサー、ファッションデザイナー',
+    descriptionKo: '래퍼, 프로듀서, 패션 디자이너',
+    descriptionEs: 'Rapero, productor y diseñador de moda'
   },
   {
     canonical: 'Jay-Z',
@@ -561,7 +708,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Rapper, entrepreneur, Roc Nation founder',
-    descriptionZh: '说唱歌手、企业家、Roc Nation创始人'
+    descriptionZh: '说唱歌手、企业家、Roc Nation创始人',
+    descriptionJa: 'ラッパー、実業家、Roc Nation創業者',
+    descriptionKo: '래퍼, 사업가, Roc Nation 창업자',
+    descriptionEs: 'Rapero, empresario y fundador de Roc Nation'
   },
   {
     canonical: 'Shakira',
@@ -569,7 +719,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Colombian singer-songwriter',
-    descriptionZh: '哥伦比亚创作型歌手'
+    descriptionZh: '哥伦比亚创作型歌手',
+    descriptionJa: 'コロンビアのシンガーソングライター',
+    descriptionKo: '콜롬비아 싱어송라이터',
+    descriptionEs: 'Cantautora colombiana'
   },
   {
     canonical: 'Selena Gomez',
@@ -577,7 +730,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Singer, actress, producer',
-    descriptionZh: '歌手、演员、制片人'
+    descriptionZh: '歌手、演员、制片人',
+    descriptionJa: 'シンガー、女優、プロデューサー',
+    descriptionKo: '가수, 배우, 프로듀서',
+    descriptionEs: 'Cantante, actriz y productora'
   },
 
   // ── Actors / Directors ──
@@ -587,7 +743,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Actor, environmentalist',
-    descriptionZh: '演员、环保主义者'
+    descriptionZh: '演员、环保主义者',
+    descriptionJa: '俳優、環境活動家',
+    descriptionKo: '배우, 환경운동가',
+    descriptionEs: 'Actor y ecologista'
   },
   {
     canonical: 'Tom Hanks',
@@ -595,7 +754,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Actor, filmmaker',
-    descriptionZh: '演员、电影人'
+    descriptionZh: '演员、电影人',
+    descriptionJa: '俳優、映画製作者',
+    descriptionKo: '배우, 영화 제작자',
+    descriptionEs: 'Actor y cineasta'
   },
   {
     canonical: 'Jackie Chan',
@@ -603,7 +765,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Martial artist, actor, stunt performer',
-    descriptionZh: '武术家、演员、特技表演者'
+    descriptionZh: '武术家、演员、特技表演者',
+    descriptionJa: '武術家、俳優、スタントマン',
+    descriptionKo: '무술가, 배우, 스턴트 배우',
+    descriptionEs: 'Artista marcial, actor y especialista'
   },
   {
     canonical: 'Scarlett Johansson',
@@ -611,7 +776,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Actress, Black Widow',
-    descriptionZh: '演员、黑寡妇'
+    descriptionZh: '演员、黑寡妇',
+    descriptionJa: '女優、ブラック・ウィドウ',
+    descriptionKo: '배우, 블랙 위도우',
+    descriptionEs: 'Actriz, Black Widow'
   },
   {
     canonical: 'Chris Hemsworth',
@@ -619,7 +787,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Actor, Thor in MCU',
-    descriptionZh: '演员、漫威雷神扮演者'
+    descriptionZh: '演员、漫威雷神扮演者',
+    descriptionJa: '俳優、MCUのソー',
+    descriptionKo: '배우, MCU 토르',
+    descriptionEs: 'Actor, Thor en el MCU'
   },
   {
     canonical: 'Robert Downey Jr.',
@@ -627,7 +798,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Actor, Iron Man in MCU',
-    descriptionZh: '演员、漫威钢铁侠扮演者'
+    descriptionZh: '演员、漫威钢铁侠扮演者',
+    descriptionJa: '俳優、MCUのアイアンマン',
+    descriptionKo: '배우, MCU 아이언맨',
+    descriptionEs: 'Actor, Iron Man en el MCU'
   },
   {
     canonical: 'Keanu Reeves',
@@ -635,7 +809,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Actor, The Matrix & John Wick',
-    descriptionZh: '演员、黑客帝国及疾速追杀主演'
+    descriptionZh: '演员、黑客帝国及疾速追杀主演',
+    descriptionJa: '俳優、マトリックス&John Wick',
+    descriptionKo: '배우, 매트릭스 및 존 윅',
+    descriptionEs: 'Actor, The Matrix y John Wick'
   },
   {
     canonical: 'Gal Gadot',
@@ -643,7 +820,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Actress, Wonder Woman',
-    descriptionZh: '演员、神奇女侠'
+    descriptionZh: '演员、神奇女侠',
+    descriptionJa: '女優、ワンダーウーマン',
+    descriptionKo: '배우, 원더 우먼',
+    descriptionEs: 'Actriz, Wonder Woman'
   },
   {
     canonical: 'Zendaya',
@@ -651,7 +831,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Actress, singer, Euphoria & Dune',
-    descriptionZh: '演员、歌手'
+    descriptionZh: '演员、歌手',
+    descriptionJa: '女優、歌手、ユーフォリア&デューン',
+    descriptionKo: '배우, 가수, 유포리아 및 듄',
+    descriptionEs: 'Actriz y cantante, Euphoria y Dune'
   },
   {
     canonical: 'Timothée Chalamet',
@@ -659,7 +842,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Actor, Dune & Call Me by Your Name',
-    descriptionZh: '演员、沙丘主演'
+    descriptionZh: '演员、沙丘主演',
+    descriptionJa: '俳優、デューン&君の名前で僕を呼んで',
+    descriptionKo: '배우, 듄 및 콜 미 바이 유어 네임',
+    descriptionEs: 'Actor, Dune y Call Me by Your Name'
   },
   {
     canonical: 'Christopher Nolan',
@@ -667,7 +853,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Film director, The Dark Knight & Inception',
-    descriptionZh: '电影导演、蝙蝠侠及盗梦空间导演'
+    descriptionZh: '电影导演、蝙蝠侠及盗梦空间导演',
+    descriptionJa: '映画監督、ダークナイト&インセプション',
+    descriptionKo: '영화 감독, 다크 나이트 및 인셉션',
+    descriptionEs: 'Director de cine, The Dark Knight e Inception'
   },
   {
     canonical: 'Steven Spielberg',
@@ -675,7 +864,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Film director & producer',
-    descriptionZh: '电影导演及制片人'
+    descriptionZh: '电影导演及制片人',
+    descriptionJa: '映画監督・プロデューサー',
+    descriptionKo: '영화 감독 및 제작자',
+    descriptionEs: 'Director y productor de cine'
   },
   {
     canonical: 'Quentin Tarantino',
@@ -683,7 +875,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Film director & screenwriter',
-    descriptionZh: '电影导演及编剧'
+    descriptionZh: '电影导演及编剧',
+    descriptionJa: '映画監督・脚本家',
+    descriptionKo: '영화 감독 및 각본가',
+    descriptionEs: 'Director y guionista'
   },
 
   // ── Athletes ──
@@ -693,7 +888,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Portuguese football legend',
-    descriptionZh: '葡萄牙足球传奇'
+    descriptionZh: '葡萄牙足球传奇',
+    descriptionJa: 'ポルトガルのサッカー界の伝説',
+    descriptionKo: '포르투갈 축구 전설',
+    descriptionEs: 'Leyenda del fútbol portugués'
   },
   {
     canonical: 'Lionel Messi',
@@ -708,8 +906,11 @@ const VERIFIED_PEOPLE: Array<{
     aliases: ['serena williams', 'serena', '塞雷娜·威廉姆斯', '小威'],
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
-    description: 'Tennis champion, 23 Grand Slams',
-    descriptionZh: '网球冠军、23届大满贯得主'
+    description: 'Football champion, 8 Ballon d\'Or',
+    descriptionZh: '足球冠军、8届金球奖得主',
+    descriptionJa: 'サッカーの伝説、8度のバロンドール',
+    descriptionKo: '축구 전설, 발롱도르 8회',
+    descriptionEs: 'Leyenda del fútbol, 8 Balones de Oro'
   },
   {
     canonical: 'Michael Jordan',
@@ -717,7 +918,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Basketball GOAT, 6x NBA champion',
-    descriptionZh: '篮球之神、6次NBA总冠军'
+    descriptionZh: '篮球之神、6次NBA总冠军',
+    descriptionJa: 'バスケットボールの神様、NBA6回優勝',
+    descriptionKo: '농구의 신, NBA 6회 우승',
+    descriptionEs: 'GOAT del baloncesto, 6 títulos de la NBA'
   },
   {
     canonical: 'Stephen Curry',
@@ -725,7 +929,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'NBA sharpshooter, Warriors star',
-    descriptionZh: 'NBA神射手、勇士队球星'
+    descriptionZh: 'NBA神射手、勇士队球星',
+    descriptionJa: 'NBAの神射手、ウォリアーズのスター',
+    descriptionKo: 'NBA 슈터, 워리어스 스타',
+    descriptionEs: 'Tirador de la NBA, estrella de los Warriors'
   },
   {
     canonical: 'Shohei Ohtani',
@@ -733,7 +940,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'MLB two-way player',
-    descriptionZh: 'MLB二刀流球员'
+    descriptionZh: 'MLB二刀流球员',
+    descriptionJa: 'MLBの二刀流選手',
+    descriptionKo: 'MLB 투웨이 플레이어',
+    descriptionEs: 'Jugador bidireccional de la MLB'
   },
   {
     canonical: 'Naomi Osaka',
@@ -741,7 +951,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Tennis champion, 4 Grand Slams',
-    descriptionZh: '网球冠军、4届大满贯得主'
+    descriptionZh: '网球冠军、4届大满贯得主',
+    descriptionJa: 'テニスチャンピオン、4度のグランドスラム',
+    descriptionKo: '테니스 챔피언, 그랜드슬램 4회',
+    descriptionEs: 'Campeona de tenis, 4 Grand Slams'
   },
   {
     canonical: 'Usain Bolt',
@@ -749,7 +962,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Fastest man ever, 8x Olympic gold',
-    descriptionZh: '史上最快的人、8枚奥运金牌'
+    descriptionZh: '史上最快的人、8枚奥运金牌',
+    descriptionJa: '史上最速の男、金メダル8個',
+    descriptionKo: '역사상 가장 빠른 사나이, 금메달 8개',
+    descriptionEs: 'El hombre más rápido, 8 oros olímpicos'
   },
   {
     canonical: 'Roger Federer',
@@ -757,7 +973,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Tennis legend, 20 Grand Slams',
-    descriptionZh: '网球传奇、20届大满贯得主'
+    descriptionZh: '网球传奇、20届大满贯得主',
+    descriptionJa: 'テニスの伝説、グランドスラム20回',
+    descriptionKo: '테니스 전설, 그랜드슬램 20회',
+    descriptionEs: 'Leyenda del tenis, 20 Grand Slams'
   },
   {
     canonical: 'Rafael Nadal',
@@ -765,7 +984,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Tennis legend, King of Clay',
-    descriptionZh: '网球传奇、红土之王'
+    descriptionZh: '网球传奇、红土之王',
+    descriptionJa: 'テニスの伝説、クレーの王者',
+    descriptionKo: '테니스 전설, 클레이의 왕',
+    descriptionEs: 'Leyenda del tenis, rey de la tierra batida'
   },
 
   // ── Tech / Business ──
@@ -775,7 +997,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Amazon founder',
-    descriptionZh: '亚马逊创始人'
+    descriptionZh: '亚马逊创始人',
+    descriptionJa: 'アマゾン創業者',
+    descriptionKo: '아마존 창업자',
+    descriptionEs: 'Fundador de Amazon'
   },
   {
     canonical: 'Mark Zuckerberg',
@@ -783,7 +1008,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Meta (Facebook) founder & CEO',
-    descriptionZh: 'Meta（Facebook）创始人及CEO'
+    descriptionZh: 'Meta（Facebook）创始人及CEO',
+    descriptionJa: 'Meta（Facebook）の創業者兼CEO',
+    descriptionKo: 'Meta(Facebook) 창업자 겸 CEO',
+    descriptionEs: 'Fundador y CEO de Meta (Facebook)'
   },
   {
     canonical: 'Tim Cook',
@@ -791,7 +1019,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Apple CEO',
-    descriptionZh: '苹果CEO'
+    descriptionZh: '苹果CEO',
+    descriptionJa: 'アップルのCEO',
+    descriptionKo: '애플 CEO',
+    descriptionEs: 'CEO de Apple'
   },
   {
     canonical: 'Jensen Huang',
@@ -799,7 +1030,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'NVIDIA founder & CEO',
-    descriptionZh: '英伟达创始人及CEO'
+    descriptionZh: '英伟达创始人及CEO',
+    descriptionJa: 'NVIDIAの創業者兼CEO',
+    descriptionKo: '엔비디아 창업자 겸 CEO',
+    descriptionEs: 'Fundador y CEO de NVIDIA'
   },
   {
     canonical: 'Sam Altman',
@@ -807,7 +1041,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'OpenAI CEO',
-    descriptionZh: 'OpenAI CEO'
+    descriptionZh: 'OpenAI CEO',
+    descriptionJa: 'OpenAIのCEO',
+    descriptionKo: 'OpenAI CEO',
+    descriptionEs: 'CEO de OpenAI'
   },
   {
     canonical: 'Larry Page',
@@ -815,7 +1052,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Google co-founder',
-    descriptionZh: '谷歌联合创始人'
+    descriptionZh: '谷歌联合创始人',
+    descriptionJa: 'Google共同創業者',
+    descriptionKo: '구글 공동 창업자',
+    descriptionEs: 'Cofundador de Google'
   },
   {
     canonical: 'Sundar Pichai',
@@ -823,7 +1063,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Google & Alphabet CEO',
-    descriptionZh: '谷歌及Alphabet CEO'
+    descriptionZh: '谷歌及Alphabet CEO',
+    descriptionJa: 'GoogleとAlphabetのCEO',
+    descriptionKo: '구글 및 Alphabet CEO',
+    descriptionEs: 'CEO de Google y Alphabet'
   },
   {
     canonical: 'Jack Ma',
@@ -831,7 +1074,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Alibaba co-founder',
-    descriptionZh: '阿里巴巴联合创始人'
+    descriptionZh: '阿里巴巴联合创始人',
+    descriptionJa: 'アリババ共同創業者',
+    descriptionKo: '알리바바 공동 창업자',
+    descriptionEs: 'Cofundador de Alibaba'
   },
   {
     canonical: 'Lei Jun',
@@ -839,7 +1085,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Xiaomi founder & CEO',
-    descriptionZh: '小米创始人及CEO'
+    descriptionZh: '小米创始人及CEO',
+    descriptionJa: 'シャオミの創業者兼CEO',
+    descriptionKo: '샤오미 창업자 겸 CEO',
+    descriptionEs: 'Fundador y CEO de Xiaomi'
   },
 
   // ── Historical / Science ──
@@ -849,7 +1098,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Theoretical physicist, theory of relativity',
-    descriptionZh: '理论物理学家、相对论创立者'
+    descriptionZh: '理论物理学家、相对论创立者',
+    descriptionJa: '理論物理学者、相対性理論の創始者',
+    descriptionKo: '이론 물리학자, 상대성 이론',
+    descriptionEs: 'Físico teórico, teoría de la relatividad'
   },
   {
     canonical: 'Isaac Newton',
@@ -857,7 +1109,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Physicist, mathematician, laws of motion',
-    descriptionZh: '物理学家、数学家、运动定律奠基人'
+    descriptionZh: '物理学家、数学家、运动定律奠基人',
+    descriptionJa: '物理学者、数学者、運動の法則の確立者',
+    descriptionKo: '물리학자, 수학자, 운동 법칙',
+    descriptionEs: 'Físico, matemático, leyes del movimiento'
   },
   {
     canonical: 'Marie Curie',
@@ -865,7 +1120,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Physicist, chemist, Nobel laureate',
-    descriptionZh: '物理学家、化学家、诺贝尔奖得主'
+    descriptionZh: '物理学家、化学家、诺贝尔奖得主',
+    descriptionJa: '物理学者、化学者、ノーベル賞受賞者',
+    descriptionKo: '물리학자, 화학자, 노벨상 수상자',
+    descriptionEs: 'Física, química, premio Nobel'
   },
   {
     canonical: 'Nikola Tesla',
@@ -873,7 +1131,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Inventor, electrical engineer',
-    descriptionZh: '发明家、电气工程师'
+    descriptionZh: '发明家、电气工程师',
+    descriptionJa: '発明家、電気技師',
+    descriptionKo: '발명가, 전기 엔지니어',
+    descriptionEs: 'Inventor, ingeniero eléctrico'
   },
   {
     canonical: 'Leonardo da Vinci',
@@ -881,7 +1142,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Renaissance polymath, artist & inventor',
-    descriptionZh: '文艺复兴博学家、画家及发明家'
+    descriptionZh: '文艺复兴博学家、画家及发明家',
+    descriptionJa: 'ルネサンスの万能人、画家兼発明家',
+    descriptionKo: '르네상스 만능인, 화가 겸 발명가',
+    descriptionEs: 'Polímata renacentista, artista e inventor'
   },
   {
     canonical: 'Stephen Hawking',
@@ -889,7 +1153,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Theoretical physicist, A Brief History of Time',
-    descriptionZh: '理论物理学家、《时间简史》作者'
+    descriptionZh: '理论物理学家、《时间简史》作者',
+    descriptionJa: '理論物理学者、『時間の歴史』の著者',
+    descriptionKo: '이론 물리학자, 시간의 역사의 저자',
+    descriptionEs: 'Físico teórico, autor de Breve historia del tiempo'
   },
   {
     canonical: 'Aristotle',
@@ -897,7 +1164,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Ancient Greek philosopher',
-    descriptionZh: '古希腊哲学家'
+    descriptionZh: '古希腊哲学家',
+    descriptionJa: '古代ギリシャの哲学者',
+    descriptionKo: '고대 그리스 철학자',
+    descriptionEs: 'Filósofo de la antigua Grecia'
   },
   {
     canonical: 'Confucius',
@@ -905,7 +1175,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Chinese philosopher, founder of Confucianism',
-    descriptionZh: '中国哲学家、儒家创始人'
+    descriptionZh: '中国哲学家、儒家创始人',
+    descriptionJa: '中国の哲学者、儒教の創始者',
+    descriptionKo: '중국 철학자, 유교 창시자',
+    descriptionEs: 'Filósofo chino, fundador del confucianismo'
   },
   {
     canonical: 'Sun Tzu',
@@ -913,7 +1186,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Military strategist, The Art of War',
-    descriptionZh: '军事家、《孙子兵法》作者'
+    descriptionZh: '军事家、《孙子兵法》作者',
+    descriptionJa: '軍事戦略家、『孫子』の著者',
+    descriptionKo: '군사 전략가, 손자병법의 저자',
+    descriptionEs: 'Estratega militar, autor de El arte de la guerra'
   },
   {
     canonical: 'Mahatma Gandhi',
@@ -921,7 +1197,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Indian independence leader, nonviolent activist',
-    descriptionZh: '印度独立运动领袖、非暴力运动倡导者'
+    descriptionZh: '印度独立运动领袖、非暴力运动倡导者',
+    descriptionJa: 'インド独立運動の指導者、非暴力主義者',
+    descriptionKo: '인도 독립운동 지도자, 비폭력주의자',
+    descriptionEs: 'Líder de la independencia india, activista no violento'
   },
   {
     canonical: 'Martin Luther King Jr.',
@@ -929,7 +1208,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Civil rights leader, I Have a Dream',
-    descriptionZh: '民权运动领袖'
+    descriptionZh: '民权运动领袖',
+    descriptionJa: '公民権運動のリーダー、I Have a Dream',
+    descriptionKo: '민권 운동 지도자',
+    descriptionEs: 'Líder de los derechos civiles'
   },
   {
     canonical: 'Nelson Mandela',
@@ -937,7 +1219,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Anti-apartheid leader, South African president',
-    descriptionZh: '反种族隔离领袖、南非总统'
+    descriptionZh: '反种族隔离领袖、南非总统',
+    descriptionJa: '反アパルトヘイトの指導者、南アフリカ大統領',
+    descriptionKo: '반아파르트헤이트 지도자, 남아프리카 대통령',
+    descriptionEs: 'Líder antiapartheid, presidente de Sudáfrica'
   },
   {
     canonical: 'Abraham Lincoln',
@@ -945,7 +1230,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: '16th U.S. President, abolished slavery',
-    descriptionZh: '美国第16任总统、废除奴隶制'
+    descriptionZh: '美国第16任总统、废除奴隶制',
+    descriptionJa: '第16代米大統領、奴隷制廃止',
+    descriptionKo: '미국 제16대 대통령, 노예제 폐지',
+    descriptionEs: '16.º presidente de EE. UU., abolición de la esclavitud'
   },
   {
     canonical: 'Napoleon Bonaparte',
@@ -953,7 +1241,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'French emperor & military commander',
-    descriptionZh: '法国皇帝及军事统帅'
+    descriptionZh: '法国皇帝及军事统帅',
+    descriptionJa: 'フランス皇帝、軍事司令官',
+    descriptionKo: '프랑스 황제, 군사 지휘관',
+    descriptionEs: 'Emperador francés y comandante militar'
   },
   {
     canonical: 'Cleopatra',
@@ -961,7 +1252,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Last pharaoh of ancient Egypt',
-    descriptionZh: '古埃及末代法老'
+    descriptionZh: '古埃及末代法老',
+    descriptionJa: '古代エジプト最後のファラオ',
+    descriptionKo: '고대 이집트의 마지막 파라오',
+    descriptionEs: 'Última faraona del antiguo Egipto'
   },
   {
     canonical: 'Queen Elizabeth II',
@@ -969,7 +1263,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Queen of the United Kingdom (1952–2022)',
-    descriptionZh: '英国女王（1952–2022）'
+    descriptionZh: '英国女王（1952–2022）',
+    descriptionJa: 'イギリス女王（1952–2022）',
+    descriptionKo: '영국 여왕(1952–2022)',
+    descriptionEs: 'Reina del Reino Unido (1952–2022)'
   },
 
   // ── Anime / Game Characters ──
@@ -979,7 +1276,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Magical girl anime protagonist',
-    descriptionZh: '美少女战士主角'
+    descriptionZh: '美少女战士主角',
+    descriptionJa: '美少女戦士セーラームーンの主人公',
+    descriptionKo: '미소녀 전사 세일러문 주인공',
+    descriptionEs: 'Protagonista de Sailor Moon'
   },
   {
     canonical: 'Totoro',
@@ -987,7 +1287,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Studio Ghibli forest spirit',
-    descriptionZh: '吉卜力森林精灵'
+    descriptionZh: '吉卜力森林精灵',
+    descriptionJa: 'スタジオジブリの森の精霊',
+    descriptionKo: '지브리 숲의 정령',
+    descriptionEs: 'Espíritu del bosque de Ghibli'
   },
   {
     canonical: 'Ash Ketchum',
@@ -995,7 +1298,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Pokémon trainer protagonist',
-    descriptionZh: '宝可梦训练师主角'
+    descriptionZh: '宝可梦训练师主角',
+    descriptionJa: 'ポケモントレーナーの主人公',
+    descriptionKo: '포켓몬 트레이너 주인공',
+    descriptionEs: 'Protagonista entrenador de Pokémon'
   },
   {
     canonical: 'Saitama',
@@ -1003,7 +1309,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'One Punch Man protagonist',
-    descriptionZh: '一拳超人主角'
+    descriptionZh: '一拳超人主角',
+    descriptionJa: 'ワンパンマンの主人公',
+    descriptionKo: '원펀맨 주인공',
+    descriptionEs: 'Protagonista de One Punch Man'
   },
   {
     canonical: 'Levi Ackerman',
@@ -1018,8 +1327,11 @@ const VERIFIED_PEOPLE: Array<{
     aliases: ['gojo satoru', 'gojo', '五条悟'],
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
-    description: 'Jujutsu Kaisen sorcerer',
-    descriptionZh: '咒术回战最强术师'
+    description: 'Attack on Titan Scout',
+    descriptionZh: '进击的巨人调查兵团士兵',
+    descriptionJa: '進撃の巨人の調査兵団',
+    descriptionKo: '진격의 거인 조사병단',
+    descriptionEs: 'Soldado de reconocimiento de Attack on Titan'
   },
   {
     canonical: 'Tanjiro Kamado',
@@ -1027,7 +1339,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Demon Slayer protagonist',
-    descriptionZh: '鬼灭之刃主角'
+    descriptionZh: '鬼灭之刃主角',
+    descriptionJa: '鬼滅の刃の主人公',
+    descriptionKo: '귀멸의 칼날 주인공',
+    descriptionEs: 'Protagonista de Demon Slayer'
   },
   {
     canonical: 'Hinata Shoyo',
@@ -1035,7 +1350,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Haikyuu!! volleyball protagonist',
-    descriptionZh: '排球少年主角'
+    descriptionZh: '排球少年主角',
+    descriptionJa: 'ハイキュー!!の主人公',
+    descriptionKo: '하이큐!! 주인공',
+    descriptionEs: 'Protagonista de Haikyuu!!'
   },
   {
     canonical: 'Sonic the Hedgehog',
@@ -1043,7 +1361,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'SEGA video game mascot',
-    descriptionZh: '世嘉游戏吉祥物'
+    descriptionZh: '世嘉游戏吉祥物',
+    descriptionJa: 'セガのゲームのマスコット',
+    descriptionKo: '세가 게임 마스코트',
+    descriptionEs: 'Mascota de los juegos de SEGA'
   },
   {
     canonical: 'Kirby',
@@ -1051,7 +1372,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Nintendo pink puffball hero',
-    descriptionZh: '任天堂粉色圆球英雄'
+    descriptionZh: '任天堂粉色圆球英雄',
+    descriptionJa: '任天堂のピンクの丸いヒーロー',
+    descriptionKo: '닌텐도 핑크 공 히어로',
+    descriptionEs: 'Héroe redondo rosado de Nintendo'
   },
   {
     canonical: 'Pac-Man',
@@ -1059,7 +1383,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Classic arcade game character',
-    descriptionZh: '经典街机游戏角色'
+    descriptionZh: '经典街机游戏角色',
+    descriptionJa: 'クラシックアーケードゲームのキャラクター',
+    descriptionKo: '클래식 아케이드 게임 캐릭터',
+    descriptionEs: 'Personaje clásico de los arcades'
   },
   {
     canonical: 'Princess Zelda',
@@ -1067,7 +1394,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Princess of Hyrule, Legend of Zelda',
-    descriptionZh: '海拉鲁公主、塞尔达传说'
+    descriptionZh: '海拉鲁公主、塞尔达传说',
+    descriptionJa: 'ハイラル王国の王女、ゼルダの伝説',
+    descriptionKo: '하이랄 왕국의 공주, 젤다의 전설',
+    descriptionEs: 'Princesa de Hyrule, The Legend of Zelda'
   },
   {
     canonical: 'Yoshi',
@@ -1075,7 +1405,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Nintendo dinosaur companion',
-    descriptionZh: '任天堂恐龙伙伴'
+    descriptionZh: '任天堂恐龙伙伴',
+    descriptionJa: '任天堂の恐竜の仲間',
+    descriptionKo: '닌텐도 공룡 동료',
+    descriptionEs: 'Compañero dinosaurio de Nintendo'
   },
   {
     canonical: 'Cloud Strife',
@@ -1083,7 +1416,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Final Fantasy VII protagonist',
-    descriptionZh: '最终幻想VII主角'
+    descriptionZh: '最终幻想VII主角',
+    descriptionJa: 'ファイナルファンタジーVIIの主人公',
+    descriptionKo: '파이널 판타지 VII 주인공',
+    descriptionEs: 'Protagonista de Final Fantasy VII'
   },
   {
     canonical: 'Kratos',
@@ -1091,7 +1427,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'God of War protagonist',
-    descriptionZh: '战神主角'
+    descriptionZh: '战神主角',
+    descriptionJa: 'ゴッド・オブ・ウォーの主人公',
+    descriptionKo: '갓 오브 워 주인공',
+    descriptionEs: 'Protagonista de God of War'
   },
 
   // ── Fictional / Movie Characters ──
@@ -1101,7 +1440,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'The Boy Who Lived, Hogwarts wizard',
-    descriptionZh: '霍格沃茨巫师、大难不死的男孩'
+    descriptionZh: '霍格沃茨巫师、大难不死的男孩',
+    descriptionJa: 'ホグワーツの魔法使い、生き残った少年',
+    descriptionKo: '호그와트 마법사, 살아남은 소년',
+    descriptionEs: 'El niño que sobrevivió, mago de Hogwarts'
   },
   {
     canonical: 'Darth Vader',
@@ -1109,7 +1451,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Star Wars Sith Lord',
-    descriptionZh: '星球大战西斯领主'
+    descriptionZh: '星球大战西斯领主',
+    descriptionJa: 'スター・ウォーズのシスの暗黒卿',
+    descriptionKo: '스타워즈 시스 군주',
+    descriptionEs: 'Lord Sith de Star Wars'
   },
   {
     canonical: 'Gandalf',
@@ -1117,7 +1462,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Wizard from Lord of the Rings',
-    descriptionZh: '魔戒巫师'
+    descriptionZh: '魔戒巫师',
+    descriptionJa: 'ロード・オブ・ザ・リングの魔法使い',
+    descriptionKo: '반지의 제왕 마법사',
+    descriptionEs: 'Mago de El Señor de los Anillos'
   },
   {
     canonical: 'Sherlock Holmes',
@@ -1125,7 +1473,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Fictional detective by Arthur Conan Doyle',
-    descriptionZh: '柯南·道尔笔下的侦探'
+    descriptionZh: '柯南·道尔笔下的侦探',
+    descriptionJa: 'アーサー・コナン・ドイルの名探偵',
+    descriptionKo: '아서 코난 도일의 명탐정',
+    descriptionEs: 'Detective de Arthur Conan Doyle'
   },
   {
     canonical: 'James Bond',
@@ -1133,7 +1484,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'British secret agent, 007',
-    descriptionZh: '英国特工007'
+    descriptionZh: '英国特工007',
+    descriptionJa: 'イギリスの秘密エージェント、007',
+    descriptionKo: '영국 비밀 요원 007',
+    descriptionEs: 'Agente secreto británico, 007'
   },
   {
     canonical: 'Elsa (Frozen)',
@@ -1141,7 +1495,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Ice queen from Frozen',
-    descriptionZh: '冰雪奇缘冰雪女王'
+    descriptionZh: '冰雪奇缘冰雪女王',
+    descriptionJa: 'アナと雪の女王のアイス・クイーン',
+    descriptionKo: '겨울왕국 얼음 여왕',
+    descriptionEs: 'Reina del hielo de Frozen'
   },
   {
     canonical: 'Buzz Lightyear',
@@ -1149,7 +1506,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Space ranger from Toy Story',
-    descriptionZh: '玩具总动员太空骑警'
+    descriptionZh: '玩具总动员太空骑警',
+    descriptionJa: 'トイ・ストーリーのスペースレンジャー',
+    descriptionKo: '토이 스토리 우주 레인저',
+    descriptionEs: 'Guardián espacial de Toy Story'
   },
   {
     canonical: 'Shrek',
@@ -1157,7 +1517,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Lovable green ogre',
-    descriptionZh: '可爱的绿色怪物'
+    descriptionZh: '可爱的绿色怪物',
+    descriptionJa: '愛される緑のオーガ',
+    descriptionKo: '사랑받는 초록 오거',
+    descriptionEs: 'Ogro verde adorable'
   },
   {
     canonical: 'SpongeBob SquarePants',
@@ -1165,7 +1528,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Bikini Bottom sea sponge',
-    descriptionZh: '比基尼海滩的海绵'
+    descriptionZh: '比基尼海滩的海绵',
+    descriptionJa: 'ビキニタウンの海綿',
+    descriptionKo: '비키니 시티 해면',
+    descriptionEs: 'Esponja marina de Fondo de Bikini'
   },
   {
     canonical: 'Mickey Mouse',
@@ -1173,7 +1539,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Disney mascot',
-    descriptionZh: '迪士尼吉祥物'
+    descriptionZh: '迪士尼吉祥物',
+    descriptionJa: 'ディズニーのマスコット',
+    descriptionKo: '디즈니 마스코트',
+    descriptionEs: 'Mascota de Disney'
   },
   {
     canonical: 'Winnie the Pooh',
@@ -1181,7 +1550,10 @@ const VERIFIED_PEOPLE: Array<{
     imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Honey-loving bear from Hundred Acre Wood',
-    descriptionZh: '百亩森林爱蜂蜜的小熊'
+    descriptionZh: '百亩森林爱蜂蜜的小熊',
+    descriptionJa: '100エーカーの森のハチミツ好きのクマ',
+    descriptionKo: '백 에이커 숲의 꿀을 사랑하는 곰',
+    descriptionEs: 'Oso amante de la miel del Bosque de los Cien Acres'
   }
 ];
 
