@@ -2124,10 +2124,11 @@ describe('resolveEffectiveLanguage', () => {
       { role: 'mentor', text: 'Some mentor text' },
       { role: 'user', text: '12345' }, // no detectable language
     ];
-    // 'auto' bypasses line 102; problem '12345' is undetectable; loop finds nothing
-    // normalizeLanguage('auto') → 'zh-CN' (anything not 'en' becomes 'zh-CN')
+    // 'auto' bypasses the explicit-language branch; problem '12345' is
+    // undetectable; the loop finds nothing; normalizeLanguage('auto') → 'en'
+    // (English is the product default since 2026-10).
     const result = resolveEffectiveLanguage('auto', '12345', history);
-    expect(result).toBe('zh-CN');
+    expect(result).toBe('en');
   });
 
   it('detects language from problem text when no explicit language given', () => {

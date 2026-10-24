@@ -1,6 +1,8 @@
 'use strict';
 
 const { sanitizeMentorField, sanitizeMentorFieldArray } = require('../../lib/security.js');
+const LANGUAGE_NAMES = { en: 'English', 'zh-CN': 'Chinese (Simplified)', ja: 'Japanese', ko: 'Korean', es: 'Spanish' };
+
 const {
   RESPONSE_SCHEMA_VERSION,
   defaultDisclaimer,
@@ -103,7 +105,7 @@ function buildUserPrompt(problem, language, mentors, compactedConversation) {
     openTag,
     safeProblem,
     closeTag,
-    `Response language: ${normalizeLanguage(language) === 'zh-CN' ? 'Chinese (Simplified)' : 'English'}`,
+    `Response language: ${LANGUAGE_NAMES[normalizeLanguage(language)] || LANGUAGE_NAMES.en}`,
     `schemaVersion must be: ${RESPONSE_SCHEMA_VERSION}`,
     '',
     'Mentors:',

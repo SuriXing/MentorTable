@@ -1,9 +1,13 @@
-export type AdviceLanguage = 'en' | 'zh-CN';
+export const ADVICE_LANGUAGES = ['en', 'zh-CN', 'ja', 'ko', 'es'] as const;
+
+export type AdviceLanguage = (typeof ADVICE_LANGUAGES)[number];
 
 export const ADVICE_LANGUAGE_STORE_KEY = 'mentorTableAdviceLanguage';
 
 export function parseAdviceLanguage(value: unknown): AdviceLanguage | null {
-  return value === 'en' || value === 'zh-CN' ? value : null;
+  return typeof value === 'string' && (ADVICE_LANGUAGES as readonly string[]).includes(value)
+    ? (value as AdviceLanguage)
+    : null;
 }
 
 export function loadAdviceLanguagePreference(

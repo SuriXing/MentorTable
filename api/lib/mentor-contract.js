@@ -12,7 +12,7 @@ const RESPONSE_SCHEMA = {
   additionalProperties: false,
   properties: {
     schemaVersion: { type: 'string', enum: [RESPONSE_SCHEMA_VERSION] },
-    language: { type: 'string', enum: ['en', 'zh-CN'] },
+    language: { type: 'string', enum: ['en', 'zh-CN', 'ja', 'ko', 'es'] },
     safety: {
       type: 'object',
       additionalProperties: false,
@@ -83,14 +83,22 @@ function mergeSafetyState(acc, next) {
   };
 }
 
+const SUPPORTED_LANGUAGES = ['en', 'zh-CN', 'ja', 'ko', 'es'];
+
 function normalizeLanguage(language) {
-  return language === 'en' ? 'en' : 'zh-CN';
+  return SUPPORTED_LANGUAGES.includes(language) ? language : 'en';
 }
 
+const DEFAULT_DISCLAIMERS = {
+  'zh-CN': '这是基于公开信息的AI模拟视角，不代表真实人物的观点。',
+  en: 'This is an AI-simulated perspective inspired by public information, not a real statement from the person.',
+  ja: 'これは公開情報に基づくAIシミュレーションの視点であり、本人の実際の発言ではありません。',
+  ko: '이것은 공개 정보를 바탕으로 한 AI 시뮬레이션 관점이며, 본인의 실제 발언이 아닙니다.',
+  es: 'Esta es una perspectiva simulada por IA basada en información pública, no una declaración real de la persona.',
+};
+
 function defaultDisclaimer(language) {
-  return normalizeLanguage(language) === 'zh-CN'
-    ? '这是基于公开信息的AI模拟视角，不代表真实人物的观点。'
-    : 'This is an AI-simulated perspective inspired by public information, not a real statement from the person.';
+  return DEFAULT_DISCLAIMERS[normalizeLanguage(language)] || DEFAULT_DISCLAIMERS.en;
 }
 
 function detectLanguageFromText(text) {
@@ -106,7 +114,7 @@ function detectLanguageFromText(text) {
 }
 
 function resolveEffectiveLanguage(requestedLanguage, problem, conversationHistory) {
-  if (requestedLanguage === 'zh-CN' || requestedLanguage === 'en') {
+  if (SUPPORTED_LANGUAGES.includes(requestedLanguage)) {
     return normalizeLanguage(requestedLanguage);
   }
 
@@ -330,16 +338,28 @@ function sanitizeFirstPerson(text) {
     .trim();
 }
 
+const DEFAULT_CONFIDENCE_NOTES = {
+  'zh-CN': '这是基于公开信息生成的AI模拟视角，不代表本人真实发言。',
+  en: 'This is an AI-simulated perspective based on public information, not an actual statement by the person.',
+  ja: 'これは公開情報に基づくAIシミュレーションの視点であり、本人の実際の発言ではありません。',
+  ko: '이것은 공개 정보를 바탕으로 한 AI 시뮬레이션 관점이며, 본인의 실제 발언이 아닙니다.',
+  es: 'Esta es una perspectiva simulada por IA basada en información pública, no una declaración real de la persona.',
+};
+
 function defaultConfidenceNote(language) {
-  return language === 'zh-CN'
-    ? '这是基于公开信息生成的AI模拟视角，不代表本人真实发言。'
-    : 'This is an AI-simulated perspective based on public information, not an actual statement by the person.';
+  return DEFAULT_CONFIDENCE_NOTES[normalizeLanguage(language)] || DEFAULT_CONFIDENCE_NOTES.en;
 }
 
+const DEFAULT_ACTION_STEPS = {
+  'zh-CN': '下一步：先写下今天能完成的一件小事，并在30分钟内执行。',
+  en: 'Next step: choose one small concrete action and complete it within 30 minutes today.',
+  ja: '次の一手：今日できる小さなことを一つ書き、30分以内に実行しましょう。',
+  ko: '다음 단계: 오늘 할 수 있는 작은 일 하나를 적고 30분 안에 실행하세요.',
+  es: 'Siguiente paso: elige una acción pequeña y concreta y complétala hoy en 30 minutos.',
+};
+
 function defaultActionStep(language) {
-  return language === 'zh-CN'
-    ? '下一步：先写下今天能完成的一件小事，并在30分钟内执行。'
-    : 'Next step: choose one small concrete action and complete it within 30 minutes today.';
+  return DEFAULT_ACTION_STEPS[normalizeLanguage(language)] || DEFAULT_ACTION_STEPS.en;
 }
 
 function normalizeProviderPayload(raw, { mentors, language }) {

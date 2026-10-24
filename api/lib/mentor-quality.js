@@ -13,24 +13,34 @@ function englishTokens(text) {
     .filter((token) => token.length > 1 && !ENGLISH_STOP_WORDS.has(token));
 }
 
-function chineseTokens(text) {
+function cjkTokens(text) {
   const normalized = String(text || '').normalize('NFKC').toLowerCase();
+  // Latin words survive in mixed text (names, years) — same as chineseTokens.
   const tokens = englishTokens(normalized);
-  const sequences = normalized.match(/[\u3400-\u9fff]+/g) || [];
-  for (const sequence of sequences) {
-    if (sequence.length === 1) {
-      tokens.push(sequence);
-      continue;
+  const sequence = [];
+  for (const char of normalized) {
+    const code = char.codePointAt(0) || 0;
+    if (
+      (code >= 0x3400 && code <= 0x9fff) || // CJK ideographs
+      (code >= 0x3040 && code <= 0x30ff) || // kana
+      (code >= 0xac00 && code <= 0xd7af)    // Hangul
+    ) {
+      sequence.push(char);
     }
-    for (let index = 0; index < sequence.length - 1; index += 1) {
-      tokens.push(sequence.slice(index, index + 2));
-    }
+  }
+  // Bigrams as strings (Array.slice would yield arrays, and Set compares
+  // arrays by identity — the bug the zh test caught immediately).
+  for (let index = 0; index < sequence.length - 1; index += 1) {
+    tokens.push(sequence[index] + sequence[index + 1]);
   }
   return tokens;
 }
 
 function tokenSet(text, language) {
-  return new Set(language === 'zh-CN' ? chineseTokens(text) : englishTokens(text));
+  if (language === 'zh-CN' || language === 'ja' || language === 'ko') {
+    return new Set(cjkTokens(text));
+  }
+  return new Set(englishTokens(text));
 }
 
 function jaccardSimilarity(left, right) {
@@ -46,8 +56,11 @@ function jaccardSimilarity(left, right) {
 function hasMeasurableAction(action, language) {
   const value = String(action || '').normalize('NFKC').toLowerCase();
   if (!value.trim()) return false;
-  if (language === 'zh-CN') {
-    return /(?:\d+|[一二三四五六七八九十两]+)(?:个|次|项|步|分钟|小时|天|周)|今天|明天|本周|截至|之前|以内|内完成/u.test(value);
+  if (language === 'zh-CN' || language === 'ja' || language === 'ko') {
+    return /(?:\d+|[一二三四五六七八九十两]+)(?:个|次|项|步|分钟|小时|天|周)|今天|明天|今日|明日|本周|今週|この週|截至|之前|以内|内完成|오늘|내일|이번\s*주/u.test(value);
+  }
+  if (language === 'es') {
+    return /\b(?:\d+|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b|\b(?:hoy|mañana|minuto|hora|día|semana|antes|dentro|plazo)\b/i.test(value);
   }
   return /\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b|\b(?:today|tomorrow|minute|hour|day|week|before|within|deadline)\b|\bby\s+\w+/i.test(value);
 }
