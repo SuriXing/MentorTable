@@ -118,5 +118,5 @@ export const getTranslation = (key: string, fallback: string = ''): string => {
  * Get a translation for the site name
  */
 export const getSiteName = (i18n: typeof i18next) => {
-  return i18n.t('siteName', 'Anon cafe');
+  return i18n.t('siteName', 'Mentor Table');
 };

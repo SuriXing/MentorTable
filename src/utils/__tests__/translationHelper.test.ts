@@ -277,7 +277,7 @@ describe('translationHelper', () => {
         t: vi.fn().mockReturnValue('My Site'),
       } as any;
       expect(getSiteName(fakeI18n)).toBe('My Site');
-      expect(fakeI18n.t).toHaveBeenCalledWith('siteName', 'Anon cafe');
+      expect(fakeI18n.t).toHaveBeenCalledWith('siteName', 'Mentor Table');
     });
 
     it('works with the mocked i18next default export too', () => {
