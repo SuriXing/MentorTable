@@ -1,5 +1,7 @@
 # MentorTable
 
+![MentorTable](docs/screenshots/mentor-table.png)
+
 Throw your problem onto a table of mentors — historical figures, MBTI
 types, game/film characters — and get each one's take in parallel: a
 likely response, why it fits, and one smallest executable next step.
