@@ -62,7 +62,7 @@ import { useSessionFlow, uniqueId } from '../mentorTable/hooks/useSessionFlow';
 import type { RitualPhase } from '../mentorTable/hooks/useSessionFlow';
 import mentorsContract from '../../../shared/mentors-contract.json';
 
-// F174: the ceiling is owned by shared/mentors-contract.json, the same file
+// the ceiling is owned by shared/mentors-contract.json, the same file
 // the API requires — parity is structural, not a regex over this file.
 const MAX_PEOPLE = mentorsContract.mentorsMax;
 const COORDINATE_PASS_NOTE_WITH_ALL = (import.meta.env.VITE_MENTOR_NOTE_COORDINATE_ALL ?? '1') !== '0';
@@ -85,7 +85,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   // Apply stored theme (primary color + light/dark mode) on mount
   useTheme();
   const [personQuery, setPersonQuery] = useState('');
-  // F162 (P13): search suggestions + spinner state live in usePersonSearch.
+  // : search suggestions + spinner state live in usePersonSearch.
   const { suggestions, isSearching } = usePersonSearch(personQuery);
   const [selectedPeople, setSelectedPeople] = useState<PersonOption[]>([]);
   const [adviceLanguagePreference, setAdviceLanguagePreference] = useState<AdviceLanguage | null>(
@@ -109,7 +109,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   // LEAK-2/3/4: unified timer bag — every setTimeout gets tracked and
   // cleared on unmount so no fire-and-forget timers leak.
   const pendingTimersRef = useRef<Set<number>>(new Set());
-  // RERENDER-5: rotation tick used to drive setState every 4.2s, forcing
+  // rotation tick used to drive setState every 4.2s, forcing
   // the whole tree to re-render just to toggle a class. Now the tick
   // walks mentorNodeRefs and toggles the active class imperatively.
   const activeIndexRef = useRef(0);
@@ -202,14 +202,14 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     getStarted: tI18n('mt.getStarted'),
     dontShowAgain: tI18n('mt.dontShowAgain'),
     keepShowing: tI18n('mt.keepShowing'),
-    // R3/F50: i18n-wire the onboarding Skip label (was hardcoded bilingual).
+    // R3/i18n-wire the onboarding Skip label (was hardcoded bilingual).
     skipOnboarding: tI18n('mt.skipOnboarding'),
     // ERR-2: retry-able error state for handleGenerate failures
     generateFailed: tI18n('mt.generateFailed'),
-    // F157: the banner stays human-readable; raw upstream text goes to the
+    // the banner stays human-readable; raw upstream text goes to the
     // console only — endpoint URLs / status bodies were leaking into the UI.
     generateFailedHint: tI18n('mt.generateFailedHint'),
-    // F160/F161: provider honesty — the server can answer 200 with fully
+    // /provider honesty — the server can answer 200 with fully
     // canned replies (meta.provider 'server-fallback') or a mix ('partial-
     // fallback'); the badge must not present those as live LLM output.
     cannedReplies: tI18n('mt.cannedReplies'),
@@ -225,7 +225,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     revealAll: tI18n('mt.revealAll'),
     // ERR-1: 0-mentor continue guard
     needAtLeastOne: tI18n('mt.needAtLeastOne'),
-    // R2/F39: empty-state copy via t map (was inline isZh ternaries — works
+    // R2/empty-state copy via t map (was inline isZh ternaries — works
     // but breaks DRY with the rest of the bilingual surface).
     emptyIntroTitle: tI18n('mt.emptyIntroTitle'),
     emptyIntroHint: tI18n('mt.emptyIntroHint'),
@@ -256,7 +256,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     [selectedPeople]
   );
 
-  // P15 second half: the session state machine (phase/mode/problem/result/
+  // second half: the session state machine (phase/mode/problem/result/
   // orchestrators/reveal heartbeat) lives in useSessionFlow now. Identity
   // helpers, notes, memories, and panel choreography stay page-side. The
   // history builder and auto-scroll live inside the hook (their inputs are
@@ -293,7 +293,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     setAdviceLanguagePreference(language);
     saveAdviceLanguagePreference(language);
   };
-  // RERENDER-5: activeResultIndex lives in a ref below — removed from state.
+  // activeResultIndex lives in a ref below — removed from state.
   // This component only runs client-side (the app has no SSR), so `window`
   // and `localStorage` are always available.
   const [showOnboarding, setShowOnboarding] = useState<boolean>(
@@ -322,14 +322,14 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const [candleLevel, setCandleLevel] = useState(1);
   const [tableRipple, setTableRipple] = useState<{ x: number; y: number; key: string } | null>(null);
   const [memoryDrawerOpen, setMemoryDrawerOpen] = useState(false);
-  // F163 (P16): memories survive refreshes — loaded once from localStorage
+  // : memories survive refreshes — loaded once from localStorage
   // (with schema migration) and persisted best-effort on every change.
   const [memories, setMemories] = useState<MemoryCard[]>(() => loadMemories());
   useEffect(() => {
     saveMemories(memories);
   }, [memories]);
   const [expandedReplyId, setExpandedReplyId] = useState('');
-  // R3/F44: inviteTouched was dead — the CTA is `disabled` (F38) so
+  // the inviteTouched flag was dead — the CTA is `disabled` so
   // onClick never fires to set it, and the error hint stayed hidden. Render
   // the hint unconditionally while selectedPeople.length === 0 so the user
   // understands *why* the button is disabled.
@@ -402,7 +402,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const ritualStep = phase === 'invite' ? 0 : phase === 'wish' ? 1 : 2;
   const localizedVibeTags = tI18n('mt.vibeTags', { returnObjects: true }) as string[];
 
-  // RERENDER-3: stabilize the string bundle so it doesn't get rebuilt
+  // stabilize the string bundle so it doesn't get rebuilt
   // on every render. Callers that capture `t` in closures / deps will
   // also stay stable across renders when language doesn't change.
 
@@ -440,13 +440,13 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const isLikelyFallbackAvatar = (src: string) =>
     src.startsWith('data:image/svg+xml') || src.includes('ui-avatars.com/api');
 
-  // F162 (P13): ladder progress lives in useImageChain; the page composes
+  // : ladder progress lives in useImageChain; the page composes
   // the chain itself (it owns selectedPeople + locale-aware initials).
   const { imageSrcFor, markImageBroken, clearImageProgressForKey } = useImageChain({
     buildChain: (name, imageUrl, candidateImageUrls) => {
       const person = selectedPeople.find((p) => normalizeNameKey(p.name) === normalizeNameKey(name));
 
-      // F154: the ladder itself lives in personLookup.buildMentorImageChain —
+      // the ladder itself lives in personLookup.buildMentorImageChain —
       // production is proxy → initials (CSP blocks every external host), dev
       // keeps the full ladder. This wrapper only merges component state
       // (selectedPeople images) into the external candidates.
@@ -475,7 +475,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
 
 
 
-  // F162 (P14): note threads + submit flow live in useMentorNotes; the page
+  // : note threads + submit flow live in useMentorNotes; the page
   // keeps the shared isRoundGenerating flag (reply-all also drives it) and
   // the conversation-history builder.
   const {
@@ -497,7 +497,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     formatNoteDeliveryFailure: (mentorName) => t.noteDeliveryFailed.replace('{name}', mentorName),
     formatNoteNoResponse: (mentorName) => t.noteNoResponse.replace('{name}', mentorName),
     reportGenerateError: (err) => {
-      // F157: full detail to console; banner shows stable copy only.
+      // full detail to console; banner shows stable copy only.
       console.error('[mentor-note] request failed:', err);
       setGenerateError(err instanceof Error ? err.message : String(err));
     },
@@ -509,7 +509,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   });
 
 
-  // P15: everything handleGenerate used to reset that is NOT machine state
+  // everything handleGenerate used to reset that is NOT machine state
   // — notes, memories, reply/debug panels, rotation cursor. The session
   // orchestrator calls this at session start; the page owns the targets.
   const beginSessionChoreography = () => {
@@ -778,7 +778,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
 
   const finishOnboarding = () => {
     setShowOnboarding(false);
-    // R3/F48: always persist ONBOARDING_KEY='1' on dismiss UNLESS the user
+    // R3/always persist ONBOARDING_KEY='1' on dismiss UNLESS the user
     // explicitly toggled "keep showing" on slide 3 (`dontShowOnboardingAgain`
     // is initialized from the stored key — so `false` means either
     // never-set or the user actively asked to keep seeing the tour).
@@ -796,7 +796,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   };
 
 
-  // RERENDER-5: activeReply/activeReplyName removed — the speaker class
+  // activeReply/activeReplyName removed — the speaker class
   // is now toggled imperatively inside the rotation effect and does not
   // need to flow through the render loop.
   const visibleReplies = (result?.mentorReplies || []).slice(0, visibleReplyCount);
@@ -923,7 +923,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     },
   ];
 
-  // RERENDER-2: memoize the deck entries so we don't rebuild the full
+  // memoize the deck entries so we don't rebuild the full
   // SuggestionDeckEntry array on every render. Keyed on the inputs the
   // map depends on.
   const suggestionDeckEntries: SuggestionDeckEntry[] = useMemo(() => selectedMentors
@@ -1228,7 +1228,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
 
                   <div className={styles.selectedPeopleGrid}>
                     {selectedPeople.length === 0 && (
-                      // U7.1: empty state — illustration + bilingual copy + CTA hint.
+                      // empty state — illustration + bilingual copy + CTA hint.
                       // Renders only when the user has not added any guests yet.
                       // The Add button above is the actual CTA target; this block
                       // makes the empty surface intentional rather than blank.
@@ -1320,7 +1320,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
 
                   {/* ERR-1: block the continue button when no mentors picked.
                       Inline error announces it to AT users. */}
-                  {/* R3/F44+F45: `disabled` silences onClick (R2/F38), so the
+                  {/* R3/+`disabled` silences onClick (R2/), so the
                       error hint is rendered unconditionally while the guest
                       list is empty — it tells the user *why* the CTA is
                       disabled. Inline opacity removed; the CSS
@@ -1402,7 +1402,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                       }}
                     >
                       <div>{t.generateFailed}</div>
-                      {/* F157: the raw upstream text (endpoint URL, status
+                      {/* the raw upstream text (endpoint URL, status
                           body) used to render here. It stays in state for
                           debugging and goes to console.error, but the UI
                           shows stable localized copy only. */}
@@ -1448,7 +1448,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                         source is labelled "Local Fallback" (offline / API
                         unreachable). ERR-4: visible badge surfacing the
                         pass-note silent fallback path.
-                        F160/F161: meta.provider honesty — a 200 response can
+                        /meta.provider honesty — a 200 response can
                         still carry server-fallback (fully canned) or
                         partial-fallback replies; the badge surfaces both. */}
                     <div
@@ -1856,7 +1856,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                     mentorReply &&
                     !visibleReplies.some((reply) => reply.mentorId === mentorReply.mentorId)
                   );
-                  // RERENDER-5: speaker highlight is toggled imperatively
+                  // speaker highlight is toggled imperatively
                   // by the rotation effect; the render loop no longer wires
                   // up an isSpeaker boolean at all.
                   const flipped = Boolean(flippedCards[displayName]);

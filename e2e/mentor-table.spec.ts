@@ -59,7 +59,7 @@ test.describe('Mentor Table E2E', () => {
 
     await page.getByTestId('mentor-preset-startup').click();
 
-    await expect(page.locator('text=/Guests.*3|人物数.*3/')).toBeVisible();
+    await expect(page.locator('[class*="guestCount"]', { hasText: /Guests.*3|人物数.*3/ })).toBeVisible();
     const problemInput = page.getByTestId('mentor-problem-input');
     await expect(problemInput).toBeVisible();
     await expect(problemInput).not.toHaveValue('');
@@ -79,7 +79,7 @@ test.describe('Mentor Table E2E', () => {
     await addMentor(page, 'Oprah');
 
     // Both should be present — check guest count shows 2
-    const guestCount = page.locator('text=/Guests.*2|人物数.*2/');
+    const guestCount = page.locator('[class*="guestCount"]', { hasText: /Guests.*2|人物数.*2/ });
     await expect(guestCount).toBeVisible();
   });
 

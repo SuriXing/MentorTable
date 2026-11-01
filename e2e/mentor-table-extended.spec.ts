@@ -191,12 +191,14 @@ test.describe('Mentor Table Extended E2E', () => {
 
     const group = freshPage.getByRole('group', { name: 'メンターの回答言語' });
     const english = freshPage.getByRole('radio', { name: '英語' });
+    const japanese = freshPage.getByRole('radio', { name: '日本語' });
     const chinese = freshPage.getByRole('radio', { name: '簡体字中国語' });
     const problem = freshPage.getByTestId('mentor-problem-input');
     await expect(group).toBeVisible();
-    await expect(english).toBeChecked();
+    // No stored advice preference yet: it falls back to the interface language.
+    await expect(japanese).toBeChecked();
     await expect(problem).toHaveValue(
-      'I have a product idea but no users yet. What should I do in the next seven days?'
+      'プロダクトのアイデアはありますが、まだユーザーがいません。次の7日間で何をすべきですか？'
     );
 
     await chinese.check();

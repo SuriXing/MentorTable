@@ -1,5 +1,5 @@
 /**
- * P21 / F173 — automated a11y scan (axe-core) across the page's renderable
+ * / — automated a11y scan (axe-core) across the page's renderable
  * phases in jsdom.
  *
  * SCOPE LIMIT (important): jsdom has no real layout engine, so axe cannot
@@ -107,7 +107,7 @@ async function scanAxe(container: HTMLElement) {
   return violations;
 }
 
-describe('axe-core a11y scan (P21/F173, jsdom rule families)', () => {
+describe('axe-core a11y scan (/, jsdom rule families)', () => {
   beforeEach(() => {
     generateMentorAdviceMock.mockReset();
     localStorage.clear();

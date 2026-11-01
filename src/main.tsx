@@ -16,7 +16,7 @@ import { initBrowserCompatibility } from './utils/browserDetection';
 // iOS --vh fix actually take effect.
 initBrowserCompatibility();
 
-// U4.1: split MentorTablePage off the entry chunk. It's the heaviest
+// split MentorTablePage off the entry chunk. It's the heaviest
 // component in the app (FontAwesome icons + mentor engine + person-lookup
 // + CSS modules); pulling it out of the initial JS lets the shell, theme
 // controls, and i18n boot first paint without waiting on it.
@@ -94,12 +94,12 @@ if (root) {
           <ThemeModeToggle />
           <ThemePicker />
           <LanguageSwitcher />
-          {/* U8.1: Vercel observability. Both components are no-ops when
+          {/* Vercel observability. Both components are no-ops when
            * not deployed on Vercel, so local dev is unaffected. Mounted
            * inside the router/boundary so their own render errors are
            * caught by ErrorBoundary too.
            *
-           * F60 (U8.1 R2): respect Do-Not-Track. The `beforeSend` filter
+           * : respect Do-Not-Track. The `beforeSend` filter
            * drops every event when the browser advertises DNT=1 — no
            * pageviews, no `client_error` from ErrorBoundary, no perf
            * beacons from Speed Insights. PIPL/GDPR posture documented

@@ -25,7 +25,7 @@ interface OnboardingModalProps {
 }
 
 /**
- * F162 (P12): the 3-slide onboarding tour, extracted verbatim from
+ * : the 3-slide onboarding tour, extracted verbatim from
  * MentorTablePage. The page keeps all state (slide index, dont-show flag,
  * persistence) — this component is the dialog surface only. Class names,
  * test hooks, and aria wiring are identical to the original inline block.
@@ -54,9 +54,9 @@ export function OnboardingModal({
       ref={trapRef}
     >
       <div className={styles.onboardingCard}>
-        {/* R2/F34: Skip button always visible — share-link visitors
+        {/* R2/Skip button always visible — share-link visitors
             must be able to bypass the 3-slide tour to reach the form.
-            R3/F50: label routed through the page's i18n bundle. */}
+            R3/label routed through the page's i18n bundle. */}
         <button
           type="button"
           className={styles.onboardingSkipBtn}

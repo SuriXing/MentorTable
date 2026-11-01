@@ -36,7 +36,7 @@ const state = (globalThis as any).__mentorRound2State;
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    // Faithful t(): resolve from the real resources (P18 moved the t map
+    // Faithful t(): resolve from the real resources (moved the t map
     // onto mt.* keys), fall back to defaultValue, then the key.
     t: (k: string, opts?: { defaultValue?: string }) => {
       const lang = (globalThis as any).__mentorRound2State.language as string;
@@ -192,7 +192,7 @@ describe('R2 a11y — KB-3 onboarding dialog', () => {
   it('has role=dialog, aria-modal=true, and Escape closes it', () => {
     // Pin the visible-modal state explicitly ('0' = user chose keep-showing).
     // Tests must never depend on the key being ABSENT — under a shared or
-    // leaked store, absence was whatever the last writer left behind (F151).
+    // leaked store, absence was whatever the last writer left behind.
     localStorage.setItem('mentorTableOnboardingHiddenV2', '0');
     render(<MentorTablePage standalone />);
     const dialog = document.querySelector('[role="dialog"]') as HTMLElement;
@@ -370,7 +370,7 @@ describe('R2 motion — MC-3 reveal-all button', () => {
 
 describe('R2 errors — ERR-1 continue blocks 0-mentor sessions', () => {
   it('continue button is disabled + inline error is present with 0 mentors', () => {
-    // R3/F44: button is truly disabled at 0 mentors (kills inverted-
+    // R3/button is truly disabled at 0 mentors (kills inverted-
     // hierarchy dead-end click) AND the inline error renders unconditionally
     // so users understand *why* the CTA is inactive. R2 silenced the
     // error — this test now asserts it's reachable.
@@ -395,7 +395,7 @@ describe('R2 errors — ERR-1 continue blocks 0-mentor sessions', () => {
 describe('R2 errors — ERR-2 handleGenerate catches + offers retry', () => {
   it('network failure shows error banner + retry button, drops back to wish phase', async () => {
     generateMentorAdviceMock.mockRejectedValueOnce(new Error('network down'));
-    // F157: the raw detail must land in console.error — spy BEFORE the call.
+    // the raw detail must land in console.error — spy BEFORE the call.
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     render(<MentorTablePage standalone />);
     await addPerson('Bill');
@@ -407,7 +407,7 @@ describe('R2 errors — ERR-2 handleGenerate catches + offers retry', () => {
     // Error banner should surface.
     const banner = await screen.findByTestId('mentor-generate-error');
     expect(banner.getAttribute('role')).toBe('alert');
-    // F157: the banner shows stable human copy — the raw failure text must
+    // the banner shows stable human copy — the raw failure text must
     // NOT reach the DOM (it used to leak endpoint URLs and status bodies).
     expect(banner.textContent).toMatch(/temporarily unavailable/i);
     expect(banner.textContent).not.toMatch(/network down/);
@@ -608,7 +608,7 @@ describe('R2 coverage — uncovered branches and handlers', () => {
     fireEvent.blur(wrap);
   });
 
-  it('ERR-2 non-Error throws still reach console.error, never the banner (F157)', async () => {
+  it('ERR-2 non-Error throws still reach console.error, never the banner', async () => {
     generateMentorAdviceMock.mockRejectedValueOnce('boom-string');
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     render(<MentorTablePage standalone />);
@@ -619,7 +619,7 @@ describe('R2 coverage — uncovered branches and handlers', () => {
       fireEvent.click(screen.getByTestId('mentor-begin-session'));
     });
     const banner = await screen.findByTestId('mentor-generate-error');
-    // F157: stable copy in the DOM, raw string only in the console.
+    // stable copy in the DOM, raw string only in the console.
     expect(banner.textContent).toMatch(/temporarily unavailable/i);
     expect(banner.textContent).not.toMatch(/boom-string/);
     try {
@@ -892,8 +892,8 @@ describe('R2 KB-4 — reply overlay Escape handlers', () => {
   });
 });
 
-// ================= F160/F161: provider honesty badge =================
-describe('R2 F160/F161 — source badge surfaces meta.provider honesty', () => {
+// ================= /provider honesty badge =================
+describe('source badge surfaces meta.provider honesty', () => {
   const getBadge = () => document.querySelector('[class*="sourceTag"]') as HTMLElement;
 
   it('fully-canned server response (provider=server-fallback) is NOT shown as live LLM output', async () => {

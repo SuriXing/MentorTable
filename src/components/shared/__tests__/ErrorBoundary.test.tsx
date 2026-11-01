@@ -111,7 +111,7 @@ describe('ErrorBoundary', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('reports client_error to window.va with truncated fields and no full stack (U8.1)', () => {
+  it('reports client_error to window.va with truncated fields and no full stack ', () => {
     // Ensure window.va is a mock BEFORE the boundary catches the error.
     const track = vi.fn();
     const origVa = (window as unknown as { va?: unknown }).va;

@@ -40,7 +40,7 @@ const mentorTestState = (globalThis as any).__mentorTestState;
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (k: string, opts?: { defaultValue?: string; lng?: string }) => {
-      // F162 (P18): the t map is now keyed into the real resources — the
+      // : the t map is now keyed into the real resources — the
       // mock resolves from them so tests assert actual shipped copy.
       const lang = (globalThis as any).__mentorTestState.language as string;
       const requestedLang = opts?.lng ?? lang;
@@ -788,7 +788,7 @@ describe('MentorTablePage (unit)', () => {
   });
 
   it('renders the onboarding overlay and lets the user navigate slides', () => {
-    // Pin visible-modal state explicitly; never depend on key absence (F151).
+    // Pin visible-modal state explicitly; never depend on key absence ().
     localStorage.setItem('mentorTableOnboardingHiddenV2', '0');
     render(<MentorTablePage standalone />);
 
@@ -817,7 +817,7 @@ describe('MentorTablePage (unit)', () => {
   });
 
   it('onboarding "keep showing" path persists 0 in localStorage', () => {
-    // Pin visible-modal state explicitly; never depend on key absence (F151).
+    // Pin visible-modal state explicitly; never depend on key absence ().
     localStorage.setItem('mentorTableOnboardingHiddenV2', '0');
     render(<MentorTablePage standalone />);
 
@@ -1031,7 +1031,7 @@ describe('MentorTablePage (unit)', () => {
 
   it('Chinese onboarding slides render when language is zh', () => {
     mentorTestState.language = 'zh-CN';
-    // Pin visible-modal state explicitly; never depend on key absence (F151).
+    // Pin visible-modal state explicitly; never depend on key absence ().
     localStorage.setItem('mentorTableOnboardingHiddenV2', '0');
     render(<MentorTablePage standalone />);
     expect(screen.getByText(/欢迎来到名人桌/)).toBeInTheDocument();
@@ -2727,7 +2727,7 @@ describe('MentorTablePage (branch closure — zh-CN + multi-mentor)', () => {
   });
 
   it('renders the onboarding overlay in Chinese and navigates slides', () => {
-    // Pin visible-modal state explicitly; never depend on key absence (F151).
+    // Pin visible-modal state explicitly; never depend on key absence ().
     localStorage.setItem('mentorTableOnboardingHiddenV2', '0');
     render(<MentorTablePage standalone />);
     // Chinese onboarding title

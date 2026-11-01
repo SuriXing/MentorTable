@@ -35,7 +35,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
      
     console.error('[ErrorBoundary] captured render error:', error, info);
-    // U8.1: report to Vercel Analytics as a custom event. Guarded so SSR /
+    // report to Vercel Analytics as a custom event. Guarded so SSR /
     // tests without window.va are no-ops. We intentionally truncate
     // message and component stack — full stacks can leak file paths and
     // user-authored strings, and Vercel Analytics caps event payload size.
@@ -44,7 +44,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
         const w = window as unknown as {
           va?: { track?: (event: string, props: Record<string, unknown>) => void };
         };
-        // F63 (U8.1 R2): scrub well-known secret shapes from error.message
+        // : scrub well-known secret shapes from error.message
         // BEFORE slicing. An upstream error echoing back a Bearer/sk-/LTAI
         // token in the first 200 chars would otherwise land verbatim in
         // analytics. Inline regex (no import from lib/security.js) so this
@@ -84,11 +84,11 @@ export default class ErrorBoundary extends React.Component<Props, State> {
     }
   };
 
-  // R2/F35: copy diagnostics to clipboard instead of mailto:?subject= with
+  // R2/copy diagnostics to clipboard instead of mailto:?subject= with
   // no recipient (was a fake feedback channel). KISS — no operational
   // dependency on a real inbox. Falls back to a hidden textarea + execCommand
   // for non-secure contexts where navigator.clipboard is undefined.
-  // R3/F46: surface an inline "Copied ✓ / 已复制" success state so the copy
+  // R3/surface an inline "Copied ✓ / 已复制" success state so the copy
   // isn't silent. Auto-clears after ~2s.
   private flashCopied = (): void => {
     this.setState({ copied: true });
@@ -148,7 +148,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback;
       const errMsg = this.state.error?.message || '';
-      // U7.1: positional ordering matters — ErrorBoundary.test.tsx clicks the
+      // positional ordering matters — ErrorBoundary.test.tsx clicks the
       // LAST button to assert handleReset fires. Keep "Try again" last.
       return (
         <div
@@ -237,7 +237,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
               {this.tr('errorBoundary.tryAgain', 'Try again / 重试')}
             </button>
           </div>
-          {/* R3/F46: tell users where to paste. Static bilingual hint —
+          {/* R3/tell users where to paste. Static bilingual hint —
               tech-debt placeholder until a real issue-tracker handle exists. */}
           <p style={{ opacity: 0.65, fontSize: '0.75rem', marginTop: 12 }}>
             {this.tr(

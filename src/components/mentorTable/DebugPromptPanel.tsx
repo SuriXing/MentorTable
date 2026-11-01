@@ -16,7 +16,7 @@ interface DebugPromptPanelProps {
 }
 
 /**
- * F162 (P12): the hover/click debug prompt panel (KB-5), extracted verbatim
+ * : the hover/click debug prompt panel (KB-5), extracted verbatim
  * from MentorTablePage. Fetching of the debug prompt stays in the page —
  * this is the presentation surface only.
  */
