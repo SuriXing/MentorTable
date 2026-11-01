@@ -39,7 +39,7 @@ const state = (globalThis as any).__mentorBugfixState;
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (k: string, opts?: { defaultValue?: string }) => {
-      // F162 (P18): the t map is now keyed into the real resources — the
+      // : the t map is now keyed into the real resources — the
       // mock resolves from them so tests assert actual shipped copy.
       const lang = (globalThis as any).__mentorBugfixState.language as string;
       return String((RESOURCES[lang] ?? RESOURCES.en)[k] ?? opts?.defaultValue ?? k);

@@ -16,7 +16,7 @@ interface ExpandedSuggestionOverlayProps {
 }
 
 /**
- * F162 (P15): the tap-a-card overlay showing one mentor's full suggestion,
+ * : the tap-a-card overlay showing one mentor's full suggestion,
  * extracted verbatim from MentorTablePage (KB-4 focus trap stays wired via
  * the page-owned trapRef).
  */

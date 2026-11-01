@@ -69,7 +69,7 @@ interface SuggestionDeckProps {
 }
 
 /**
- * F162 (P15): the floating suggestion deck over the round table, extracted
+ * : the floating suggestion deck over the round table, extracted
  * from MentorTablePage. Card previews, typing placeholders, and click
  * targets are presentation-only; deck entry derivation and expansion state
  * stay in the page.

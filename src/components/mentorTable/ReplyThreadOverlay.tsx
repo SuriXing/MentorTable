@@ -33,7 +33,7 @@ interface ReplyThreadOverlayProps {
 }
 
 /**
- * F162 (P15): the live-session reply overlay with the inline note thread
+ * : the live-session reply overlay with the inline note thread
  * (pass-a-note-to-this-mentor), extracted verbatim from MentorTablePage.
  * Note state and the submit flow stay in useMentorNotes / the page.
  */

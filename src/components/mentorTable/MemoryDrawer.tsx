@@ -22,7 +22,7 @@ interface MemoryDrawerProps {
 }
 
 /**
- * F162 (P12): the floating memories button, save notice (SR-3), and the
+ * : the floating memories button, save notice (SR-3), and the
  * memory drawer itself, extracted verbatim from MentorTablePage. State and
  * persistence stay in the page.
  */
