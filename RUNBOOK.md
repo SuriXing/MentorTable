@@ -583,9 +583,7 @@ by design and the run will read as an error storm.
 
 ## v1.0.0 Release Checklist 
 
-Verified locally before the tag was re-anchored onto the public-history
-restart snapshot (the working tree at tagging time is the 2026-05-17
-state; the 2026-04-30 root-commit date is the disclosed restart anchor):
+Verified locally for the v1.0.0 snapshot:
 
 - 986/986 unit tests (33 files), type-check (tsconfig + tsconfig.node),
   lint, production build — all green.
