@@ -254,6 +254,30 @@ describe('useFocusTrap', () => {
     expect(() => dispatchKey(getByTestId('dialog'), 'Escape')).not.toThrow();
   });
 
+  it('a new onClose identity does not steal focus back to the first control', () => {
+    const { rerender, getByTestId } = render(<Harness open={true} onClose={() => {}} />);
+    const middle = getByTestId('middle');
+    middle.focus();
+    expect(document.activeElement).toBe(middle);
+
+    // The page passes an inline arrow on every render; the effect must not
+    // re-run and re-focus the first button just because the identity changed.
+    rerender(<Harness open={true} onClose={() => {}} />);
+
+    expect(document.activeElement).toBe(middle);
+  });
+
+  it('Escape uses the latest onClose after a re-render', () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const { rerender, getByTestId } = render(<Harness open={true} onClose={first} />);
+    rerender(<Harness open={true} onClose={second} />);
+
+    dispatchKey(getByTestId('dialog'), 'Escape');
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledTimes(1);
+  });
+
   it('filters out disabled, aria-hidden, and hidden focusables', () => {
     // Custom dialog that includes excluded elements between first and last.
     function NoisyDialog() {

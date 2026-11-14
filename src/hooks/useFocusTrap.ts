@@ -75,6 +75,14 @@ export function useFocusTrap<T extends HTMLElement = HTMLElement>(
     restoreFocus = true,
   } = options;
   const containerRef = useRef<T | null>(null);
+  // onClose arrives as an inline arrow on every page render. Keeping it in a
+  // ref lets the trap read the latest handler without re-running the whole
+  // effect (which would re-focus the first focusable and fight the
+  // restore-focus rAF on every parent re-render).
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   useEffect(() => {
     if (!active) return;
@@ -103,9 +111,9 @@ export function useFocusTrap<T extends HTMLElement = HTMLElement>(
 
     // 3. Trap Tab / Shift+Tab at the container boundary.
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && closeOnEscape && onClose) {
+      if (event.key === 'Escape' && closeOnEscape && onCloseRef.current) {
         event.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (event.key !== 'Tab') return;
@@ -151,7 +159,7 @@ export function useFocusTrap<T extends HTMLElement = HTMLElement>(
         });
       }
     };
-  }, [active, onClose, closeOnEscape, autoFocus, restoreFocus]);
+  }, [active, closeOnEscape, autoFocus, restoreFocus]);
 
   return containerRef;
 }

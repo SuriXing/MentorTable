@@ -218,6 +218,38 @@ describe('translationHelper', () => {
       setNavigatorLanguage('de');
       expect(getCurrentLanguage()).toBe('en');
     });
+
+    it('falls back to browser detection when storage access throws', () => {
+      // Safari private mode / sandboxed iframe: getItem throws SecurityError.
+      const realStorage = window.localStorage;
+      Object.defineProperty(window, 'localStorage', {
+        value: { getItem() { throw new Error('SecurityError'); } },
+        configurable: true,
+      });
+      try {
+        setNavigatorLanguage('ja');
+        expect(getCurrentLanguage()).toBe('ja');
+      } finally {
+        Object.defineProperty(window, 'localStorage', { value: realStorage, configurable: true });
+      }
+    });
+
+    it('defaults to en when both storage and navigator are unavailable', () => {
+      const realStorage = window.localStorage;
+      Object.defineProperty(window, 'localStorage', {
+        value: { getItem() { throw new Error('SecurityError'); } },
+        configurable: true,
+      });
+      Object.defineProperty(window, 'navigator', {
+        value: { get language() { throw new Error('navigator unavailable'); } },
+        configurable: true,
+      });
+      try {
+        expect(getCurrentLanguage()).toBe('en');
+      } finally {
+        Object.defineProperty(window, 'localStorage', { value: realStorage, configurable: true });
+      }
+    });
   });
 
   // ------------------------------------------------------------------------

@@ -43,9 +43,20 @@ export const useTypeSafeTranslation = () => {
 
 /**
  * Get current language from localStorage or navigator
+ *
+ * Runs at module-init time from src/i18n.ts, so every storage/navigator
+ * access is guarded: some browsers (Safari private mode, sandboxed iframes)
+ * throw on localStorage access, and without this guard the i18n module —
+ * and with it the whole app — fails to evaluate, with the ErrorBoundary
+ * itself unable to recover because it imports i18n too.
  */
 export function getCurrentLanguage(): SupportedLanguages {
-  const savedLanguage = localStorage.getItem('language');
+  let savedLanguage: string | null = null;
+  try {
+    savedLanguage = localStorage.getItem('language');
+  } catch {
+    // Storage unavailable — fall through to browser detection.
+  }
   if (savedLanguage && isSupportedLanguage(savedLanguage)) {
     return savedLanguage as SupportedLanguages;
   }
@@ -54,7 +65,12 @@ export function getCurrentLanguage(): SupportedLanguages {
   // English is the product default: a zh browser falls through to the map
   // below and lands on 'en', like any unsupported language. Chinese is one
   // click away in the switcher — only a saved choice wins by default.
-  const browserLang = navigator.language;
+  let browserLang = '';
+  try {
+    browserLang = navigator.language || '';
+  } catch {
+    // navigator unavailable — fall through to the product default.
+  }
 
   // Map browser language codes to our supported languages. The comparison
   // uses the base language ('en-US' → 'en'), so a region suffix doesn't
