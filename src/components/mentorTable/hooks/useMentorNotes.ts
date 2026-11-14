@@ -22,8 +22,11 @@ interface UseMentorNotesOptions {
   appendConversationTurn: (turn: ConversationTurn) => void;
   uniqueId: (prefix: string) => string;
   coordinateWithAll: boolean;
-  /** Shared with reply-all; owned by the page. */
-  isRoundGenerating: boolean;
+  /**
+   * RACE: shared session generation counter (see useSessionFlow). A note
+   * accepted in one session must not land in a reset one.
+   */
+  generationSeqRef: React.MutableRefObject<number>;
   setIsRoundGenerating: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
@@ -57,6 +60,7 @@ export function useMentorNotes(options: UseMentorNotesOptions): {
     appendConversationTurn,
     uniqueId,
     coordinateWithAll,
+    generationSeqRef,
     setIsRoundGenerating,
   } = options;
 
@@ -73,6 +77,7 @@ export function useMentorNotes(options: UseMentorNotesOptions): {
     // The inline-note send button is disabled while isRoundGenerating, so a
     // re-entrant call is UI-unreachable. The belt-and-suspenders guard was
     // removed.
+    const seq = generationSeqRef.current;
 
     setIsRoundGenerating(true);
     let mentorReply: string | null = null;
@@ -116,6 +121,10 @@ export function useMentorNotes(options: UseMentorNotesOptions): {
     } finally {
       setIsRoundGenerating(false);
     }
+
+    // RACE: a reset moved the session on while the note was in flight —
+    // drop the stale exchange instead of appending it to the fresh thread.
+    if (seq !== generationSeqRef.current) return;
 
     if (!delivered) {
       // A failed or empty response never becomes mentor speech. The thread

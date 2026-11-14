@@ -102,6 +102,10 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   );
   const [isConversationHovered, setIsConversationHovered] = useState(false);
   const isMountedRef = useMountedGuard();
+  // RACE: session generation counter. Every begin-session and every reset
+  // (restart, edit, new table, phase pill) bumps it, so a late reply from an
+  // abandoned request can never resurrect the table the user just left.
+  const generationSeqRef = useRef(0);
   // Bridge to beginSessionChoreography — assigned after useMentorNotes
   // resolves resetNotes (the choreography reads note state; a direct
   // callback option would re-create the TDZ wrapper knot).
@@ -283,6 +287,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     resolveMentorName,
     youLabel: t.you,
     sessionStartRef,
+    generationSeqRef,
   });
   useEffect(() => {
     if (!seededQuestionKey) return;
@@ -505,7 +510,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     appendConversationTurn: (turn) => setConversationTurns((prev) => [...prev, turn]),
     uniqueId,
     coordinateWithAll: COORDINATE_PASS_NOTE_WITH_ALL,
-    isRoundGenerating,
+    generationSeqRef,
     setIsRoundGenerating,
   });
 
@@ -1018,6 +1023,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                         }
                         return;
                       }
+                      // RACE: leaving the session abandons any in-flight round.
+                      generationSeqRef.current += 1;
                       setPhase(p.id);
                       setResult(null);
                       setSessionMode('idle');
@@ -1039,6 +1046,9 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                 type="button"
                 className={styles.ghostBtn}
                 onClick={() => {
+                  // RACE: edit returns to the invite board and abandons any
+                  // in-flight generation for the session being edited.
+                  generationSeqRef.current += 1;
                   setPhase('invite');
                   setExpandedReplyId('');
                   setExpandedSuggestion(null);
@@ -1053,6 +1063,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                 type="button"
                 className={styles.ghostBtn}
                 onClick={() => {
+                  // RACE: restart abandons any in-flight round.
+                  generationSeqRef.current += 1;
                   setResult(null);
                   setPhase('invite');
                   setSessionMode('idle');
@@ -1774,6 +1786,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                           type="button"
                           className={styles.secondaryCta}
                           onClick={() => {
+                            // RACE: a new table abandons any in-flight round.
+                            generationSeqRef.current += 1;
                             setResult(null);
                             setPhase('invite');
                             setSessionMode('idle');

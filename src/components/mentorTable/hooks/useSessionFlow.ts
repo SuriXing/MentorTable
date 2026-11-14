@@ -50,6 +50,14 @@ export interface UseSessionFlowOptions {
    * rework removed. The page assigns the function; the hook calls it.
    */
   sessionStartRef: React.MutableRefObject<(() => void) | null>;
+  /**
+   * RACE: monotonically increasing "generation" counter shared with the
+   * page. Every session start and every reset (restart, edit, new table,
+   * phase pill) bumps it. An async round captures the value before
+   * awaiting and drops its result if the counter moved on — a late reply
+   * must never resurrect a session the user already left.
+   */
+  generationSeqRef: React.MutableRefObject<number>;
 }
 
 export interface MentorReplyTurn {
@@ -80,6 +88,7 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
     resolveMentorName,
     youLabel,
     sessionStartRef,
+    generationSeqRef,
   } = options;
 
   const [phase, setPhase] = useState<RitualPhase>('invite');
@@ -192,6 +201,11 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
     const text = replyAllDraft.trim();
     if (!text || isRoundGenerating || selectedMentors.length === 0) return;
 
+    // RACE: the round belongs to the session it was typed in. If the user
+    // resets the table while the request is in flight, the response must
+    // not land in the fresh session.
+    const seq = generationSeqRef.current;
+
     // USER-2 parity with handleGenerate: clamp by code points so a surrogate
     // pair is never split and the upstream payload stays bounded no matter
     // what the textarea accepted.
@@ -205,6 +219,8 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
         mentors: selectedMentors,
         conversationHistory: buildConversationHistory(safeText)
       });
+
+      if (seq !== generationSeqRef.current) return;
 
       const replies: MentorReplyTurn[] = selectedMentors.map((mentor) => {
         const matched =
@@ -251,6 +267,9 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
     // removed as unreachable.
     const language = adviceLanguage;
 
+    // RACE: this generation owns the table until a reset bumps the counter.
+    const seq = ++generationSeqRef.current;
+
     setGenerateError('');
     setIsGenerating(true);
     setPhase('session');
@@ -278,21 +297,22 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
         mentors: selectedMentors,
         conversationHistory: buildConversationHistory(safeProblem)
       });
-      // LEAK-1: only commit state if we're still mounted.
-      if (!isMountedRef.current) return;
+      // LEAK-1 + RACE: drop the reply if the component unmounted, or if the
+      // user reset the session while it was in flight — a stale reply must
+      // not yank the user back into a table they already left.
+      window.clearTimeout(bootTimer);
+      if (seq !== generationSeqRef.current || !isMountedRef.current) return;
       setResult(aiResult);
       activeIndexRef.current = 0;
       setVisibleReplyCount(Math.min(1, aiResult.mentorReplies.length));
-      window.clearTimeout(bootTimer);
       setIsGenerating(false);
       setSessionMode('live');
     } catch (err) {
-      // ERR-2: surface the failure instead of silently leaving the user
-      // with an empty conversation panel.
-      // full detail goes to console; the banner shows stable copy only.
-      if (!isMountedRef.current) return;
-      console.error('[mentor-generate] request failed:', err);
+      // ERR-2: safety net for a crash inside the local simulator (transport
+      // failures degrade to the fallback before they reach this catch).
       window.clearTimeout(bootTimer);
+      if (seq !== generationSeqRef.current || !isMountedRef.current) return;
+      console.error('[mentor-generate] request failed:', err);
       setIsGenerating(false);
       setGenerateError(err instanceof Error ? err.message : String(err));
       // Drop back to the wish phase so the Retry button is reachable.
