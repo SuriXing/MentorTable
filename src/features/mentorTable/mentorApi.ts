@@ -106,9 +106,21 @@ export async function generateMentorAdvice(input: MentorApiRequest): Promise<Men
       }
     }
 
+    // Contract, stated once: this function does not reject for transport
+    // failures. Every endpoint failure — a thrown fetch, an AbortError
+    // timeout, a non-2xx status, an invalid payload — is answered by the
+    // local deterministic simulator below, and the replies say where they
+    // came from via meta.source === 'fallback' (the page renders source
+    // badges from it). This is the documented degradation contract
+    // (README + e2e/degradation.spec.ts). The page's ERR-2 banner is a
+    // safety net for a crash INSIDE the simulator, not for a dead backend.
     throw lastError || new Error('All mentor API endpoints failed');
   } catch (error) {
     console.warn('Falling back to local mentor simulation:', error);
+    // Designed degradation path, not an error path: the table still works
+    // without a key or with the upstream down. debugMessage carries the
+    // transport cause to the page's console/debug surface — never to the
+    // user-visible copy.
     const fallback = simulateMentorTable(input.problem, input.mentors, input.language);
     return {
       ...fallback,

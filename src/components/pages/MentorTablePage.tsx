@@ -497,9 +497,10 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     formatNoteDeliveryFailure: (mentorName) => t.noteDeliveryFailed.replace('{name}', mentorName),
     formatNoteNoResponse: (mentorName) => t.noteNoResponse.replace('{name}', mentorName),
     reportGenerateError: (err) => {
-      // full detail to console; banner shows stable copy only.
+      // The note thread already shows an explicit delivery marker when the
+      // round fails; the wish-phase banner is not rendered mid-session, so
+      // writing generateError here would only be dead state. Keep the log.
       console.error('[mentor-note] request failed:', err);
-      setGenerateError(err instanceof Error ? err.message : String(err));
     },
     appendConversationTurn: (turn) => setConversationTurns((prev) => [...prev, turn]),
     uniqueId,

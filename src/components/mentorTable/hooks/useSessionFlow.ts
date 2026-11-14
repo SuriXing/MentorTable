@@ -233,12 +233,12 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
       setReplyAllDraft('');
       scrollConversationToBottom();
     } catch (err) {
-      // Bug-bash round 1: previously this try/finally had no catch — a
-      // malformed response from res.json() bubbled as SyntaxError and the
-      // user's message was silently dropped. Surface via generateError.
-      // full detail goes to console; the banner shows stable copy only.
+      // generateMentorAdvice never rejects on transport failure — it answers
+      // with the local simulator (meta.source === 'fallback'). So this only
+      // fires when the simulator itself crashes. The ERR-2 banner lives in
+      // the wish phase and is not rendered mid-session; keep the log and
+      // leave the draft untouched so the round can be retried.
       console.error('[mentor-reply-all] request failed:', err);
-      setGenerateError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsRoundGenerating(false);
     }
