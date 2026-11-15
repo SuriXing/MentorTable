@@ -137,7 +137,7 @@ const VERIFIED_PLACEHOLDER_IMAGE = createInlineAvatarDataUri('Mentor', '#e7efff'
 const VERIFIED_PEOPLE: Array<{
   canonical: string;
   aliases: string[];
-  imageUrl: string;
+  imageUrl?: string;
   candidateImageUrls?: string[];
   description?: string;
   descriptionZh?: string;
@@ -395,7 +395,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Lisa (BLACKPINK)',
     aliases: ['lisa blackpink', 'lalisa manoban', 'lalisa', '리사', '拉丽莎', 'lisa manoban'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Thai rapper & dancer, BLACKPINK member',
     descriptionZh: 'BLACKPINK成员、泰国说唱歌手及舞者',
@@ -406,7 +405,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Jungkook',
     aliases: ['jungkook', 'jeon jungkook', '전정국', '田柾国', 'jeon jeong-guk'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'BTS vocalist & performer',
     descriptionZh: 'BTS主唱及表演者',
@@ -417,7 +415,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Rosé (BLACKPINK)',
     aliases: ['rosé', 'rose blackpink', 'roseanne park', 'park chaeyoung', '로제', '朴彩英'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'BLACKPINK vocalist',
     descriptionZh: 'BLACKPINK主唱',
@@ -428,7 +425,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Jennie (BLACKPINK)',
     aliases: ['jennie', 'jennie kim', 'jennie blackpink', '제니', '金珍妮'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'BLACKPINK rapper & vocalist',
     descriptionZh: 'BLACKPINK说唱及主唱',
@@ -439,7 +435,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Jisoo (BLACKPINK)',
     aliases: ['jisoo', 'kim jisoo', 'jisoo blackpink', '지수', '金智秀'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'BLACKPINK vocalist & actress',
     descriptionZh: 'BLACKPINK主唱及演员',
@@ -450,7 +445,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'RM (BTS)',
     aliases: ['rm', 'rm bts', 'kim namjoon', '김남준', '金南俊', 'rap monster'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'BTS leader & rapper',
     descriptionZh: 'BTS队长及说唱歌手',
@@ -461,7 +455,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Jin (BTS)',
     aliases: ['jin', 'jin bts', 'kim seokjin', '김석진', '金硕珍'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'BTS vocalist',
     descriptionZh: 'BTS主唱',
@@ -472,7 +465,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Suga (BTS)',
     aliases: ['suga', 'suga bts', 'min yoongi', 'agust d', '민윤기', '闵玧其'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'BTS rapper & producer',
     descriptionZh: 'BTS说唱歌手及制作人',
@@ -483,7 +475,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'J-Hope (BTS)',
     aliases: ['j-hope', 'jhope', 'jung hoseok', '정호석', '郑号锡'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'BTS rapper & dancer',
     descriptionZh: 'BTS说唱歌手及舞者',
@@ -494,7 +485,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Jimin (BTS)',
     aliases: ['jimin', 'jimin bts', 'park jimin', '박지민', '朴智旻'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'BTS vocalist & dancer',
     descriptionZh: 'BTS主唱及舞者',
@@ -505,7 +495,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'V (BTS)',
     aliases: ['v bts', 'kim taehyung', 'taehyung', '김태형', '金泰亨'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'BTS vocalist & actor',
     descriptionZh: 'BTS主唱及演员',
@@ -516,7 +505,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'IU',
     aliases: ['iu', 'lee jieun', '이지은', '李知恩', '아이유'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Korean singer-songwriter & actress',
     descriptionZh: '韩国创作型歌手及演员',
@@ -527,7 +515,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Momo (TWICE)',
     aliases: ['momo', 'momo twice', 'hirai momo', '모모', '平井桃', '히라이 모모'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'TWICE member, main dancer',
     descriptionZh: 'TWICE成员、主舞者',
@@ -538,7 +525,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Ikura (YOASOBI)',
     aliases: ['ikura', 'ikura yoasobi', 'lilas ikuta', '幾田りら', 'ikuta lilas'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'YOASOBI vocalist',
     descriptionZh: 'YOASOBI主唱',
@@ -549,7 +535,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Hatsune Miku',
     aliases: ['hatsune miku', 'miku', '初音未来', '初音ミク'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Virtual singer, Vocaloid icon',
     descriptionZh: '虚拟歌手、Vocaloid偶像',
@@ -562,7 +547,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Ariana Grande',
     aliases: ['ariana grande', 'ariana', '爱莉安娜·格兰德', '大A'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Pop & R&B singer, actress',
     descriptionZh: '流行及R&B歌手、演员',
@@ -573,7 +557,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Ed Sheeran',
     aliases: ['ed sheeran', 'sheeran', '艾德·希兰', '黄老板'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Singer-songwriter',
     descriptionZh: '创作型歌手',
@@ -584,7 +567,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Billie Eilish',
     aliases: ['billie eilish', 'billie', '碧梨', '比莉·艾利什'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Singer-songwriter, Grammy winner',
     descriptionZh: '创作型歌手、格莱美奖得主',
@@ -595,7 +577,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Drake',
     aliases: ['drake', 'aubrey drake graham', '德雷克'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Rapper, singer, songwriter',
     descriptionZh: '说唱歌手、创作型歌手',
@@ -606,7 +587,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Adele',
     aliases: ['adele', 'adele adkins', '阿黛尔'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'British singer-songwriter',
     descriptionZh: '英国创作型歌手',
@@ -617,7 +597,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Bruno Mars',
     aliases: ['bruno mars', 'bruno', '布鲁诺·马尔斯', '火星哥'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Singer, songwriter, producer',
     descriptionZh: '歌手、词曲作家、制作人',
@@ -628,7 +607,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Lady Gaga',
     aliases: ['lady gaga', 'gaga', 'stefani germanotta', '嘎嘎', '女神卡卡', '嘎嘎小姐'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Pop icon, singer, actress',
     descriptionZh: '流行偶像、歌手、演员',
@@ -639,7 +617,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Rihanna',
     aliases: ['rihanna', 'riri', 'robyn fenty', '蕾哈娜'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Singer, businesswoman, Fenty founder',
     descriptionZh: '歌手、企业家、Fenty创始人',
@@ -650,7 +627,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Justin Bieber',
     aliases: ['justin bieber', 'bieber', '贾斯汀·比伯', '比伯'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Canadian pop singer',
     descriptionZh: '加拿大流行歌手',
@@ -661,7 +637,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Dua Lipa',
     aliases: ['dua lipa', 'dua', '杜阿·利帕'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'British-Albanian pop singer',
     descriptionZh: '英国-阿尔巴尼亚裔流行歌手',
@@ -672,7 +647,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'The Weeknd',
     aliases: ['the weeknd', 'weeknd', 'abel tesfaye', '威肯', '盆栽哥'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'R&B singer, songwriter',
     descriptionZh: 'R&B歌手、词曲作家',
@@ -683,7 +657,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Eminem',
     aliases: ['eminem', 'slim shady', 'marshall mathers', '阿姆', '埃米纳姆'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Rapper, Rap God',
     descriptionZh: '说唱之神',
@@ -694,7 +667,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Kanye West',
     aliases: ['kanye west', 'kanye', 'ye', '坎耶·韦斯特', '侃爷'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Rapper, producer, fashion designer',
     descriptionZh: '说唱歌手、制作人、时装设计师',
@@ -705,7 +677,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Jay-Z',
     aliases: ['jay-z', 'jay z', 'jayz', 'shawn carter', 'hov', '杰斯'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Rapper, entrepreneur, Roc Nation founder',
     descriptionZh: '说唱歌手、企业家、Roc Nation创始人',
@@ -716,7 +687,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Shakira',
     aliases: ['shakira', 'shakira ripoll', '夏奇拉'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Colombian singer-songwriter',
     descriptionZh: '哥伦比亚创作型歌手',
@@ -727,7 +697,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Selena Gomez',
     aliases: ['selena gomez', 'selena', '赛琳娜·戈麦斯'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Singer, actress, producer',
     descriptionZh: '歌手、演员、制片人',
@@ -740,7 +709,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Leonardo DiCaprio',
     aliases: ['leonardo dicaprio', 'dicaprio', 'leo dicaprio', '莱昂纳多·迪卡普里奥', '小李子'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Actor, environmentalist',
     descriptionZh: '演员、环保主义者',
@@ -751,7 +719,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Tom Hanks',
     aliases: ['tom hanks', 'hanks', '汤姆·汉克斯'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Actor, filmmaker',
     descriptionZh: '演员、电影人',
@@ -762,7 +729,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Jackie Chan',
     aliases: ['jackie chan', 'chan kong-sang', '成龙', '陈港生'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Martial artist, actor, stunt performer',
     descriptionZh: '武术家、演员、特技表演者',
@@ -773,7 +739,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Scarlett Johansson',
     aliases: ['scarlett johansson', 'scarjo', '斯嘉丽·约翰逊', '寡姐'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Actress, Black Widow',
     descriptionZh: '演员、黑寡妇',
@@ -784,7 +749,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Chris Hemsworth',
     aliases: ['chris hemsworth', 'hemsworth', '克里斯·海姆斯沃斯', '锤哥'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Actor, Thor in MCU',
     descriptionZh: '演员、漫威雷神扮演者',
@@ -795,7 +759,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Robert Downey Jr.',
     aliases: ['robert downey jr', 'robert downey', 'rdj', '小罗伯特·唐尼', '唐尼'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Actor, Iron Man in MCU',
     descriptionZh: '演员、漫威钢铁侠扮演者',
@@ -806,7 +769,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Keanu Reeves',
     aliases: ['keanu reeves', 'keanu', '基努·里维斯'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Actor, The Matrix & John Wick',
     descriptionZh: '演员、黑客帝国及疾速追杀主演',
@@ -817,7 +779,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Gal Gadot',
     aliases: ['gal gadot', 'gadot', '盖尔·加朵', '加朵', '神奇女侠'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Actress, Wonder Woman',
     descriptionZh: '演员、神奇女侠',
@@ -828,7 +789,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Zendaya',
     aliases: ['zendaya', 'zendaya coleman', '赞达亚'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Actress, singer, Euphoria & Dune',
     descriptionZh: '演员、歌手',
@@ -839,7 +799,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Timothée Chalamet',
     aliases: ['timothee chalamet', 'timothée chalamet', 'chalamet', '蒂莫西·柴勒梅德', '甜茶'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Actor, Dune & Call Me by Your Name',
     descriptionZh: '演员、沙丘主演',
@@ -850,7 +809,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Christopher Nolan',
     aliases: ['christopher nolan', 'nolan', '克里斯托弗·诺兰', '诺兰'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Film director, The Dark Knight & Inception',
     descriptionZh: '电影导演、蝙蝠侠及盗梦空间导演',
@@ -861,7 +819,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Steven Spielberg',
     aliases: ['steven spielberg', 'spielberg', '史蒂文·斯皮尔伯格', '斯皮尔伯格'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Film director & producer',
     descriptionZh: '电影导演及制片人',
@@ -872,7 +829,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Quentin Tarantino',
     aliases: ['quentin tarantino', 'tarantino', '昆汀·塔伦蒂诺', '昆汀'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Film director & screenwriter',
     descriptionZh: '电影导演及编剧',
@@ -885,7 +841,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Cristiano Ronaldo',
     aliases: ['cristiano ronaldo', 'ronaldo', 'cr7', '克里斯蒂亚诺·罗纳尔多', 'C罗'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Portuguese football legend',
     descriptionZh: '葡萄牙足球传奇',
@@ -896,26 +851,26 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Lionel Messi',
     aliases: ['lionel messi', 'messi', 'leo messi', '利昂内尔·梅西', '梅西'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Argentine football legend, 8x Ballon d\'Or',
-    descriptionZh: '阿根廷足球传奇、8次金球奖得主'
+    descriptionZh: '阿根廷足球传奇、8次金球奖得主',
+    descriptionJa: 'アルゼンチンのサッカー界の伝説、バロンドール8回',
+    descriptionKo: '아르헨티나 축구의 전설, 발롱도르 8회',
+    descriptionEs: 'Leyenda del fútbol argentino, 8 Balones de Oro'
   },
   {
     canonical: 'Serena Williams',
     aliases: ['serena williams', 'serena', '塞雷娜·威廉姆斯', '小威'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
-    description: 'Football champion, 8 Ballon d\'Or',
-    descriptionZh: '足球冠军、8届金球奖得主',
-    descriptionJa: 'サッカーの伝説、8度のバロンドール',
-    descriptionKo: '축구 전설, 발롱도르 8회',
-    descriptionEs: 'Leyenda del fútbol, 8 Balones de Oro'
+    description: 'Tennis champion, 23 Grand Slam singles titles',
+    descriptionZh: '网球冠军、23座大满贯单打冠军',
+    descriptionJa: 'テニスの女王、グランドスラム23回優勝',
+    descriptionKo: '테니스 챔피언, 메이저 23회 우승',
+    descriptionEs: 'Campeona de tenis, 23 títulos de Grand Slam'
   },
   {
     canonical: 'Michael Jordan',
     aliases: ['michael jordan', 'jordan', 'mj', '迈克尔·乔丹', '乔丹'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Basketball GOAT, 6x NBA champion',
     descriptionZh: '篮球之神、6次NBA总冠军',
@@ -926,7 +881,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Stephen Curry',
     aliases: ['stephen curry', 'steph curry', 'curry', '斯蒂芬·库里', '库里'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'NBA sharpshooter, Warriors star',
     descriptionZh: 'NBA神射手、勇士队球星',
@@ -937,7 +891,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Shohei Ohtani',
     aliases: ['shohei ohtani', 'ohtani', '大谷翔平'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'MLB two-way player',
     descriptionZh: 'MLB二刀流球员',
@@ -948,7 +901,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Naomi Osaka',
     aliases: ['naomi osaka', 'osaka', '大坂直美'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Tennis champion, 4 Grand Slams',
     descriptionZh: '网球冠军、4届大满贯得主',
@@ -959,7 +911,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Usain Bolt',
     aliases: ['usain bolt', 'bolt', '尤塞恩·博尔特', '博尔特', '闪电侠'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Fastest man ever, 8x Olympic gold',
     descriptionZh: '史上最快的人、8枚奥运金牌',
@@ -970,7 +921,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Roger Federer',
     aliases: ['roger federer', 'federer', '罗杰·费德勒', '费德勒'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Tennis legend, 20 Grand Slams',
     descriptionZh: '网球传奇、20届大满贯得主',
@@ -981,7 +931,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Rafael Nadal',
     aliases: ['rafael nadal', 'nadal', 'rafa', '拉斐尔·纳达尔', '纳达尔'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Tennis legend, King of Clay',
     descriptionZh: '网球传奇、红土之王',
@@ -994,7 +943,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Jeff Bezos',
     aliases: ['jeff bezos', 'bezos', '杰夫·贝索斯', '贝索斯'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Amazon founder',
     descriptionZh: '亚马逊创始人',
@@ -1005,7 +953,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Mark Zuckerberg',
     aliases: ['mark zuckerberg', 'zuckerberg', 'zuck', '马克·扎克伯格', '扎克伯格', '小扎'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Meta (Facebook) founder & CEO',
     descriptionZh: 'Meta（Facebook）创始人及CEO',
@@ -1016,7 +963,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Tim Cook',
     aliases: ['tim cook', 'cook', '蒂姆·库克', '库克'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Apple CEO',
     descriptionZh: '苹果CEO',
@@ -1027,7 +973,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Jensen Huang',
     aliases: ['jensen huang', 'huang', '黄仁勋'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'NVIDIA founder & CEO',
     descriptionZh: '英伟达创始人及CEO',
@@ -1038,7 +983,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Sam Altman',
     aliases: ['sam altman', 'altman', '山姆·奥特曼', '奥特曼'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'OpenAI CEO',
     descriptionZh: 'OpenAI CEO',
@@ -1049,7 +993,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Larry Page',
     aliases: ['larry page', 'page', '拉里·佩奇', '佩奇'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Google co-founder',
     descriptionZh: '谷歌联合创始人',
@@ -1060,7 +1003,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Sundar Pichai',
     aliases: ['sundar pichai', 'pichai', '桑达尔·皮查伊', '皮查伊'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Google & Alphabet CEO',
     descriptionZh: '谷歌及Alphabet CEO',
@@ -1071,7 +1013,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Jack Ma',
     aliases: ['jack ma', 'ma yun', '马云'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Alibaba co-founder',
     descriptionZh: '阿里巴巴联合创始人',
@@ -1082,7 +1023,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Lei Jun',
     aliases: ['lei jun', '雷军'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Xiaomi founder & CEO',
     descriptionZh: '小米创始人及CEO',
@@ -1095,7 +1035,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Albert Einstein',
     aliases: ['albert einstein', 'einstein', '阿尔伯特·爱因斯坦', '爱因斯坦'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Theoretical physicist, theory of relativity',
     descriptionZh: '理论物理学家、相对论创立者',
@@ -1106,7 +1045,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Isaac Newton',
     aliases: ['isaac newton', 'newton', '艾萨克·牛顿', '牛顿'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Physicist, mathematician, laws of motion',
     descriptionZh: '物理学家、数学家、运动定律奠基人',
@@ -1117,7 +1055,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Marie Curie',
     aliases: ['marie curie', 'curie', '玛丽·居里', '居里夫人'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Physicist, chemist, Nobel laureate',
     descriptionZh: '物理学家、化学家、诺贝尔奖得主',
@@ -1128,7 +1065,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Nikola Tesla',
     aliases: ['nikola tesla', 'tesla', '尼古拉·特斯拉', '特斯拉'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Inventor, electrical engineer',
     descriptionZh: '发明家、电气工程师',
@@ -1139,7 +1075,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Leonardo da Vinci',
     aliases: ['leonardo da vinci', 'da vinci', '列奥纳多·达·芬奇', '达芬奇'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Renaissance polymath, artist & inventor',
     descriptionZh: '文艺复兴博学家、画家及发明家',
@@ -1150,7 +1085,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Stephen Hawking',
     aliases: ['stephen hawking', 'hawking', '斯蒂芬·霍金', '霍金'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Theoretical physicist, A Brief History of Time',
     descriptionZh: '理论物理学家、《时间简史》作者',
@@ -1161,7 +1095,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Aristotle',
     aliases: ['aristotle', '亚里士多德'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Ancient Greek philosopher',
     descriptionZh: '古希腊哲学家',
@@ -1172,7 +1105,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Confucius',
     aliases: ['confucius', 'kong qiu', '孔子', '孔丘'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Chinese philosopher, founder of Confucianism',
     descriptionZh: '中国哲学家、儒家创始人',
@@ -1183,7 +1115,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Sun Tzu',
     aliases: ['sun tzu', '孙子', '孙武'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Military strategist, The Art of War',
     descriptionZh: '军事家、《孙子兵法》作者',
@@ -1194,7 +1125,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Mahatma Gandhi',
     aliases: ['mahatma gandhi', 'gandhi', 'mohandas gandhi', '圣雄甘地', '甘地'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Indian independence leader, nonviolent activist',
     descriptionZh: '印度独立运动领袖、非暴力运动倡导者',
@@ -1205,7 +1135,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Martin Luther King Jr.',
     aliases: ['martin luther king', 'martin luther king jr', 'mlk', '马丁·路德·金'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Civil rights leader, I Have a Dream',
     descriptionZh: '民权运动领袖',
@@ -1216,7 +1145,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Nelson Mandela',
     aliases: ['nelson mandela', 'mandela', '纳尔逊·曼德拉', '曼德拉'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Anti-apartheid leader, South African president',
     descriptionZh: '反种族隔离领袖、南非总统',
@@ -1227,7 +1155,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Abraham Lincoln',
     aliases: ['abraham lincoln', 'lincoln', '亚伯拉罕·林肯', '林肯'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: '16th U.S. President, abolished slavery',
     descriptionZh: '美国第16任总统、废除奴隶制',
@@ -1238,7 +1165,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Napoleon Bonaparte',
     aliases: ['napoleon', 'napoleon bonaparte', '拿破仑', '拿破仑·波拿巴'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'French emperor & military commander',
     descriptionZh: '法国皇帝及军事统帅',
@@ -1249,7 +1175,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Cleopatra',
     aliases: ['cleopatra', 'cleopatra vii', '克利奥帕特拉', '埃及艳后'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Last pharaoh of ancient Egypt',
     descriptionZh: '古埃及末代法老',
@@ -1260,7 +1185,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Queen Elizabeth II',
     aliases: ['queen elizabeth ii', 'queen elizabeth', 'elizabeth ii', '伊丽莎白二世', '英国女王'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Queen of the United Kingdom (1952–2022)',
     descriptionZh: '英国女王（1952–2022）',
@@ -1273,7 +1197,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Sailor Moon',
     aliases: ['sailor moon', 'usagi tsukino', '月野兔', '美少女战士'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Magical girl anime protagonist',
     descriptionZh: '美少女战士主角',
@@ -1284,7 +1207,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Totoro',
     aliases: ['totoro', 'my neighbor totoro', '龙猫', 'トトロ'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Studio Ghibli forest spirit',
     descriptionZh: '吉卜力森林精灵',
@@ -1295,7 +1217,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Ash Ketchum',
     aliases: ['ash ketchum', 'ash', 'satoshi', '小智'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Pokémon trainer protagonist',
     descriptionZh: '宝可梦训练师主角',
@@ -1306,7 +1227,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Saitama',
     aliases: ['saitama', 'one punch man', '埼玉', '一拳超人'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'One Punch Man protagonist',
     descriptionZh: '一拳超人主角',
@@ -1317,26 +1237,26 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Levi Ackerman',
     aliases: ['levi ackerman', 'levi', 'captain levi', '利威尔', '兵长'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Attack on Titan soldier, humanity\'s strongest',
-    descriptionZh: '进击的巨人兵长、人类最强士兵'
+    descriptionZh: '进击的巨人兵长、人类最强士兵',
+    descriptionJa: '進撃の巨人の兵長、人類最強の兵士',
+    descriptionKo: '진격의 거인 병장, 인류 최강의 병사',
+    descriptionEs: 'Capitán de Attack on Titan, el soldado más fuerte de la humanidad'
   },
   {
     canonical: 'Gojo Satoru',
     aliases: ['gojo satoru', 'gojo', '五条悟'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
-    description: 'Attack on Titan Scout',
-    descriptionZh: '进击的巨人调查兵团士兵',
-    descriptionJa: '進撃の巨人の調査兵団',
-    descriptionKo: '진격의 거인 조사병단',
-    descriptionEs: 'Soldado de reconocimiento de Attack on Titan'
+    description: 'Strongest sorcerer of Jujutsu Kaisen',
+    descriptionZh: '咒术回战最强咒术师',
+    descriptionJa: '呪術廻戦の最強呪術師',
+    descriptionKo: '주술회전 최강 주술사',
+    descriptionEs: 'El hechicero más fuerte de Jujutsu Kaisen'
   },
   {
     canonical: 'Tanjiro Kamado',
     aliases: ['tanjiro kamado', 'tanjiro', '灶门炭治郎', '炭治郎'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Demon Slayer protagonist',
     descriptionZh: '鬼灭之刃主角',
@@ -1347,7 +1267,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Hinata Shoyo',
     aliases: ['hinata shoyo', 'hinata', '日向翔阳'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Haikyuu!! volleyball protagonist',
     descriptionZh: '排球少年主角',
@@ -1358,7 +1277,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Sonic the Hedgehog',
     aliases: ['sonic', 'sonic the hedgehog', '索尼克', '刺猬索尼克'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'SEGA video game mascot',
     descriptionZh: '世嘉游戏吉祥物',
@@ -1369,7 +1287,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Kirby',
     aliases: ['kirby', '卡比', '星之卡比'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Nintendo pink puffball hero',
     descriptionZh: '任天堂粉色圆球英雄',
@@ -1380,7 +1297,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Pac-Man',
     aliases: ['pac-man', 'pacman', 'pac man', '吃豆人'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Classic arcade game character',
     descriptionZh: '经典街机游戏角色',
@@ -1391,7 +1307,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Princess Zelda',
     aliases: ['zelda', 'princess zelda', '塞尔达公主', '塞尔达'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Princess of Hyrule, Legend of Zelda',
     descriptionZh: '海拉鲁公主、塞尔达传说',
@@ -1402,7 +1317,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Yoshi',
     aliases: ['yoshi', '耀西'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Nintendo dinosaur companion',
     descriptionZh: '任天堂恐龙伙伴',
@@ -1413,7 +1327,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Cloud Strife',
     aliases: ['cloud strife', 'cloud', '克劳德', '克劳德·斯特莱夫'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Final Fantasy VII protagonist',
     descriptionZh: '最终幻想VII主角',
@@ -1424,7 +1337,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Kratos',
     aliases: ['kratos', 'god of war', '奎托斯'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'God of War protagonist',
     descriptionZh: '战神主角',
@@ -1437,7 +1349,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Harry Potter',
     aliases: ['harry potter', 'potter', '哈利·波特', '哈利波特'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'The Boy Who Lived, Hogwarts wizard',
     descriptionZh: '霍格沃茨巫师、大难不死的男孩',
@@ -1448,7 +1359,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Darth Vader',
     aliases: ['darth vader', 'vader', 'anakin skywalker', '达斯·维达', '黑武士'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Star Wars Sith Lord',
     descriptionZh: '星球大战西斯领主',
@@ -1459,7 +1369,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Gandalf',
     aliases: ['gandalf', 'gandalf the grey', 'gandalf the white', '甘道夫'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Wizard from Lord of the Rings',
     descriptionZh: '魔戒巫师',
@@ -1470,7 +1379,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Sherlock Holmes',
     aliases: ['sherlock holmes', 'sherlock', 'holmes', '夏洛克·福尔摩斯', '福尔摩斯'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Fictional detective by Arthur Conan Doyle',
     descriptionZh: '柯南·道尔笔下的侦探',
@@ -1481,7 +1389,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'James Bond',
     aliases: ['james bond', 'bond', '007', '詹姆斯·邦德'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'British secret agent, 007',
     descriptionZh: '英国特工007',
@@ -1492,7 +1399,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Elsa (Frozen)',
     aliases: ['elsa', 'elsa frozen', 'queen elsa', '艾莎', '冰雪女王'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Ice queen from Frozen',
     descriptionZh: '冰雪奇缘冰雪女王',
@@ -1503,7 +1409,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Buzz Lightyear',
     aliases: ['buzz lightyear', 'buzz', '巴斯光年'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Space ranger from Toy Story',
     descriptionZh: '玩具总动员太空骑警',
@@ -1514,7 +1419,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Shrek',
     aliases: ['shrek', '史莱克', '怪物史莱克'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Lovable green ogre',
     descriptionZh: '可爱的绿色怪物',
@@ -1525,7 +1429,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'SpongeBob SquarePants',
     aliases: ['spongebob', 'spongebob squarepants', '海绵宝宝'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Bikini Bottom sea sponge',
     descriptionZh: '比基尼海滩的海绵',
@@ -1536,7 +1439,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Mickey Mouse',
     aliases: ['mickey mouse', 'mickey', '米奇', '米老鼠'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Disney mascot',
     descriptionZh: '迪士尼吉祥物',
@@ -1547,7 +1449,6 @@ const VERIFIED_PEOPLE: Array<{
   {
     canonical: 'Winnie the Pooh',
     aliases: ['winnie the pooh', 'pooh', 'pooh bear', '小熊维尼', '维尼'],
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/placeholder.jpg',
     candidateImageUrls: [],
     description: 'Honey-loving bear from Hundred Acre Wood',
     descriptionZh: '百亩森林爱蜂蜜的小熊',
@@ -1949,7 +1850,7 @@ export function getChineseDisplayName(name: string): string {
   return name;
 }
 
-export function findVerifiedPerson(name: string): { canonical: string; imageUrl: string; candidateImageUrls?: string[] } | undefined {
+export function findVerifiedPerson(name: string): { canonical: string; imageUrl?: string; candidateImageUrls?: string[] } | undefined {
   const key = normalizeName(name).replace(/_/g, ' ');
   const makeResult = (person: typeof VERIFIED_PEOPLE[number]) => {
     const local = getLocalImagePath(person.canonical);
@@ -2067,7 +1968,10 @@ export function searchVerifiedPeopleLocal(query: string, limit = 8): PersonOptio
       imageUrl: person.imageUrl,
       candidateImageUrls: person.candidateImageUrls,
       description: person.description,
-      descriptionZh: person.descriptionZh
+      descriptionZh: person.descriptionZh,
+      descriptionJa: person.descriptionJa,
+      descriptionKo: person.descriptionKo,
+      descriptionEs: person.descriptionEs
     };
   });
 }
@@ -2193,7 +2097,9 @@ export async function fetchPersonImageCandidates(name: string): Promise<string[]
   const verified = findVerifiedPerson(name);
   if (verified) {
     // findVerifiedPerson always sets candidateImageUrls (possibly empty array).
-    const combined = [verified.imageUrl, ...verified.candidateImageUrls!, fallback].filter(Boolean);
+    const combined = [verified.imageUrl, ...verified.candidateImageUrls!, fallback].filter(
+      (item): item is string => Boolean(item)
+    );
     return Array.from(new Set(combined));
   }
   // Try exact Wikipedia title lookup first
@@ -2226,7 +2132,10 @@ export async function searchPeopleWithPhotos(query: string, limit = 6): Promise<
       imageUrl: entry.person.imageUrl,
       candidateImageUrls: entry.person.candidateImageUrls,
       description: entry.person.description,
-      descriptionZh: entry.person.descriptionZh
+      descriptionZh: entry.person.descriptionZh,
+      descriptionJa: entry.person.descriptionJa,
+      descriptionKo: entry.person.descriptionKo,
+      descriptionEs: entry.person.descriptionEs
     }));
 
   const mbtiMatches = MBTI_TYPES

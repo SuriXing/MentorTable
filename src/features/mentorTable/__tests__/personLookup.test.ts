@@ -260,6 +260,16 @@ describe('personLookup', () => {
     expect(results[0].imageUrl).toBeTruthy();
   });
 
+  it('searchVerifiedPeopleLocal passes the ja/ko/es descriptions through', async () => {
+    const { searchVerifiedPeopleLocal } = await import('../personLookup');
+
+    const results = searchVerifiedPeopleLocal('bill', 1);
+    expect(results[0].name).toBe('Bill Gates');
+    expect(results[0].descriptionJa).toContain('マイクロソフト');
+    expect(results[0].descriptionKo).toBeTruthy();
+    expect(results[0].descriptionEs).toBeTruthy();
+  });
+
   it('searchVerifiedPeopleLocal returns empty for empty query', async () => {
     const { searchVerifiedPeopleLocal } = await import('../personLookup');
 
@@ -649,14 +659,14 @@ describe('personLookup', () => {
   });
 
   it('findVerifiedPerson: verified person without local cache falls through local || imageUrl (line 1410)', async () => {
-    // Jeff Bezos is in VERIFIED_PEOPLE but not in LOCAL_IMAGE_EXTENSIONS.
-    // `local` is undefined → `|| person.imageUrl` branch fires.
+    // Jeff Bezos is in VERIFIED_PEOPLE but not in LOCAL_IMAGE_EXTENSIONS and
+    // has no bundled/remote image URL — the placeholder URLs are gone, so the
+    // caller falls through to the initials avatar.
     const { findVerifiedPerson } = await import('../personLookup');
     const result = findVerifiedPerson('Jeff Bezos');
     expect(result).toBeTruthy();
     expect(result!.canonical).toBe('Jeff Bezos');
-    // imageUrl should be the person.imageUrl (not a local /assets/ path)
-    expect(result!.imageUrl).not.toMatch(/^\/assets\//);
+    expect(result!.imageUrl).toBeUndefined();
   });
 
   it('findVerifiedPerson partial reverse match: key includes text', async () => {
