@@ -55,14 +55,19 @@ export const THEMES: Record<ThemeId, Theme> = {
   },
 };
 
-const STORAGE_KEY = 'anoncafe_theme';
-const MODE_KEY = 'anoncafe_theme_mode';
+const STORAGE_KEY = 'mentorTable_theme';
+const MODE_KEY = 'mentorTable_theme_mode';
+// Pre-rename keys (the app was forked from a sibling project). Kept as a
+// read fallback so returning users keep their palette; writes go to the new
+// keys only.
+const LEGACY_STORAGE_KEY = 'anoncafe_theme';
+const LEGACY_MODE_KEY = 'anoncafe_theme_mode';
 const DEFAULT_THEME: ThemeId = 'blue';
 const DEFAULT_MODE: ThemeMode = 'dark';
 
 function readStoredTheme(): ThemeId {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY);
     if (stored && stored in THEMES) return stored as ThemeId;
   } catch {
     // localStorage unavailable, fall through
@@ -72,7 +77,7 @@ function readStoredTheme(): ThemeId {
 
 function readStoredMode(): ThemeMode {
   try {
-    const stored = localStorage.getItem(MODE_KEY);
+    const stored = localStorage.getItem(MODE_KEY) ?? localStorage.getItem(LEGACY_MODE_KEY);
     if (stored === 'light' || stored === 'dark') return stored;
   } catch {
     // ignore

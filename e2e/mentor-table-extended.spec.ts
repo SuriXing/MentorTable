@@ -390,6 +390,30 @@ test.describe('Mentor Table Extended E2E', () => {
     await expect(drawer.locator('[class*="memoryCard"]')).toHaveCount(1);
   });
 
+  test('saved memories survive starting another session', async ({ page }) => {
+    await runFullSession(page, ['Bill Gates'], MOCK_RESPONSE_1_MENTOR);
+    const showWrapBtn = page.locator('button').filter({ hasText: /Show session wrap|显示总结/ });
+    await showWrapBtn.click();
+    await page.getByTestId('mentor-save-chat').click();
+    await expect(page.getByTestId('mentor-save-notice')).toBeVisible({ timeout: 3000 });
+
+    const drawer = page.getByTestId('mentor-memory-drawer');
+    await expect(drawer.locator('[class*="memoryCard"]')).toHaveCount(1);
+
+    // Saving auto-opens the drawer; close it before leaving the table.
+    await page.getByTestId('mentor-memory-fab').click();
+    await expect(drawer).not.toBeVisible();
+
+    // Start a brand-new table. The saved card must survive the reset —
+    // clearing it here made the drawer's whole point unattainable.
+    const restartBtn = page.locator('[class*="ghostBtn"]').filter({ hasText: /Restart|重新开始/ });
+    await restartBtn.click();
+    await runFullSession(page, ['Oprah Winfrey'], MOCK_RESPONSE_1_MENTOR);
+
+    await page.getByTestId('mentor-memory-fab').click();
+    await expect(drawer.locator('[class*="memoryCard"]')).toHaveCount(1);
+  });
+
   // ---- 9. Restart button ----
   test('restart button returns to invite phase', async ({ page }) => {
     await addMentor(page, 'Bill Gates');

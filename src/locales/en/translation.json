@@ -341,5 +341,11 @@
   ],
   "mt.adviceLanguageJapanese": "日本語",
   "mt.adviceLanguageKorean": "한국어",
-  "mt.adviceLanguageSpanish": "Español"
+  "mt.adviceLanguageSpanish": "Español",
+  "mt.cannedRepliesTitle": "The LLM was unavailable for this request — the replies below are local preset templates.",
+  "mt.partialFallbackTitle": "Some guests' replies were filled in from local preset templates (the LLM did not return them).",
+  "mt.backendUnavailableTitle": "Backend unavailable — using the local fallback template.",
+  "errorBoundary.copied": "Copied ✓",
+  "errorBoundary.copyDiagnostics": "Copy diagnostics",
+  "errorBoundary.pasteHint": "Paste this into your issue report."
 }

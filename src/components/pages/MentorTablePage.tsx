@@ -1,4 +1,3 @@
-// TODO: 73 more isZh ternaries to migrate, see .bugbash/mt-ux.md
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -57,7 +56,7 @@ import { AdviceLanguageSelector } from '../mentorTable/AdviceLanguageSelector';
 import { usePersonSearch } from '../mentorTable/hooks/usePersonSearch';
 import { useImageChain } from '../mentorTable/hooks/useImageChain';
 import { useMentorNotes } from '../mentorTable/hooks/useMentorNotes';
-import { MemoryCard, clearMemories, loadMemories, saveMemories } from '../../lib/memoryStore';
+import { MemoryCard, loadMemories, saveMemories } from '../../lib/memoryStore';
 import { useSessionFlow, uniqueId } from '../mentorTable/hooks/useSessionFlow';
 import type { RitualPhase } from '../mentorTable/hooks/useSessionFlow';
 import mentorsContract from '../../../shared/mentors-contract.json';
@@ -68,9 +67,6 @@ const MAX_PEOPLE = mentorsContract.mentorsMax;
 const COORDINATE_PASS_NOTE_WITH_ALL = (import.meta.env.VITE_MENTOR_NOTE_COORDINATE_ALL ?? '1') !== '0';
 const ONBOARDING_KEY = 'mentorTableOnboardingHiddenV2';
 
-
-
-// Bug #22: Date.now() alone can collide within the same millisecond when
 function getMentorCategory(name: string): 'tech' | 'sports' | 'artist' | 'leader' {
   const normalized = name.toLowerCase();
   if (normalized.includes('kobe')) return 'sports';
@@ -217,13 +213,10 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
     // canned replies (meta.provider 'server-fallback') or a mix ('partial-
     // fallback'); the badge must not present those as live LLM output.
     cannedReplies: tI18n('mt.cannedReplies'),
-    cannedRepliesTitle: isZh
-      ? 'LLM 服务本次不可用，展示的是本地预设回复模板'
-      : 'The LLM was unavailable for this request — replies below are local preset templates',
+    cannedRepliesTitle: tI18n('mt.cannedRepliesTitle'),
+    backendUnavailableTitle: tI18n('mt.backendUnavailableTitle'),
     partialFallback: tI18n('mt.partialFallback'),
-    partialFallbackTitle: isZh
-      ? '部分嘉宾的回复由本地预设模板补充（LLM 未返回）'
-      : 'Some guests\' replies were filled in from local preset templates (the LLM did not return them)',
+    partialFallbackTitle: tI18n('mt.partialFallbackTitle'),
     retry: tI18n('mt.retry'),
     // MC-3: jump past the reveal timer
     revealAll: tI18n('mt.revealAll'),
@@ -515,13 +508,14 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   });
 
 
-  // everything handleGenerate used to reset that is NOT machine state
-  // — notes, memories, reply/debug panels, rotation cursor. The session
-  // orchestrator calls this at session start; the page owns the targets.
+  // Everything handleGenerate resets that is NOT machine state — notes,
+  // reply/debug panels, rotation cursor. Saved memories are deliberately
+  // NOT reset: the drawer's contract is that they survive refreshes, and
+  // wiping them on session start made the feature useless across tables.
+  // The session orchestrator calls this at session start; the page owns
+  // the targets.
   const beginSessionChoreography = () => {
     resetNotes();
-    setMemories([]);
-    clearMemories();
     setExpandedReplyId('');
     setExpandedSuggestion(null);
     setOpenDebugMentorId('');
@@ -1468,9 +1462,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                       className={styles.sourceTag}
                       title={
                         result?.meta.source !== 'llm'
-                          ? (isZh
-                              ? '后端不可用，已使用本地回退模板'
-                              : 'Backend unavailable — using a local fallback template')
+                          ? t.backendUnavailableTitle
                           : result?.meta.provider === 'server-fallback'
                             ? t.cannedRepliesTitle
                             : result?.meta.provider === 'partial-fallback'
@@ -1961,8 +1953,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                     card={expandedSuggestion}
                     trapRef={expandedSuggestionTrapRef}
                     onClose={() => setExpandedSuggestion(null)}
-                    labels={{ backToTable: t.backToTable, nextMove: '' }}
-                    lang={adviceLanguage === 'zh-CN' ? 'zh' : 'en'}
+                    labels={{ backToTable: t.backToTable, nextMove: tI18n('mt.nextMove') }}
                   />
                 )}
 
@@ -1995,8 +1986,8 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                       typing: t.typing,
                       send: t.send,
                       you: t.you,
+                      nextMove: tI18n('mt.nextMove'),
                     }}
-                    lang={adviceLanguage === 'zh-CN' ? 'zh' : 'en'}
                   />
                 )}
 

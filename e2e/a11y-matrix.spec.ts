@@ -23,8 +23,8 @@ for (const theme of themes) {
       test(`axe: theme=${theme} mode=${mode} lang=${lang}`, async ({ page }) => {
         await page.addInitScript(
           ({ theme, mode, lang }) => {
-            localStorage.setItem('anoncafe_theme', theme);
-            localStorage.setItem('anoncafe_theme_mode', mode);
+            localStorage.setItem('mentorTable_theme', theme);
+            localStorage.setItem('mentorTable_theme_mode', mode);
             localStorage.setItem('language', lang);
             localStorage.setItem('mentorTableOnboardingHiddenV2', '1');
           },

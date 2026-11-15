@@ -341,5 +341,11 @@
   ],
   "mt.adviceLanguageJapanese": "日本語",
   "mt.adviceLanguageKorean": "한국어",
-  "mt.adviceLanguageSpanish": "Español"
+  "mt.adviceLanguageSpanish": "Español",
+  "mt.cannedRepliesTitle": "LLM 服务本次不可用，下方展示的是本地预设回复模板。",
+  "mt.partialFallbackTitle": "部分嘉宾的回复由本地预设模板补充（LLM 未返回）。",
+  "mt.backendUnavailableTitle": "后端不可用，已使用本地回退模板。",
+  "errorBoundary.copied": "已复制 ✓",
+  "errorBoundary.copyDiagnostics": "复制错误信息",
+  "errorBoundary.pasteHint": "可粘贴到你的反馈帖。"
 }

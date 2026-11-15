@@ -12,7 +12,6 @@ interface ExpandedSuggestionOverlayProps {
     backToTable: string;
     nextMove: string;
   };
-  lang: 'zh' | 'en';
 }
 
 /**
@@ -25,7 +24,6 @@ export function ExpandedSuggestionOverlay({
   trapRef,
   onClose,
   labels,
-  lang,
 }: ExpandedSuggestionOverlayProps) {
   return (
     <div
@@ -53,7 +51,7 @@ export function ExpandedSuggestionOverlay({
       >
         <header>{card.mentorName}</header>
         <p>{card.likelyResponse}</p>
-        <footer>{lang === 'zh' ? '下一步：' : 'Next move: '} {card.oneActionStep}</footer>
+        <footer>{labels.nextMove}{card.oneActionStep}</footer>
       </article>
     </div>
   );

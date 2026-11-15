@@ -336,7 +336,9 @@ export function useSessionFlow(options: UseSessionFlowOptions) {
   // the lifecycle so it's obvious at a glance which phase they're in
   // (useful when multitasking across browser tabs).
   useEffect(() => {
-    const base = '名人桌 — Mentor Table';
+    // Brand comes from the locale bundle (siteName), not a hard-coded
+    // bilingual literal — non-Chinese tabs used to get the Chinese brand.
+    const base = phaseLabelFor('siteName');
     const phaseLabel =
       phase === 'invite' ? phaseLabelFor('mt.phaseInvite')
       : phase === 'wish' ? phaseLabelFor('mt.phaseAsk')

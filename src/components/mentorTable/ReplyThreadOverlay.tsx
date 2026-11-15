@@ -28,8 +28,8 @@ interface ReplyThreadOverlayProps {
     typing: string;
     send: string;
     you: string;
+    nextMove: string;
   };
-  lang: 'zh' | 'en';
 }
 
 /**
@@ -52,7 +52,6 @@ export function ReplyThreadOverlay({
   onSubmitNote,
   isRoundGenerating,
   labels,
-  lang,
 }: ReplyThreadOverlayProps) {
   return (
     <div
@@ -80,7 +79,7 @@ export function ReplyThreadOverlay({
       >
         <header>{displayName}</header>
         <p>{reply.likelyResponse}</p>
-        <footer>{lang === 'zh' ? '下一步：' : 'Next move: '} {reply.oneActionStep}</footer>
+        <footer>{labels.nextMove}{reply.oneActionStep}</footer>
         <button
           type="button"
           className={styles.passNoteBtn}

@@ -341,5 +341,11 @@
   ],
   "mt.adviceLanguageJapanese": "日本語",
   "mt.adviceLanguageKorean": "한국어",
-  "mt.adviceLanguageSpanish": "Español"
+  "mt.adviceLanguageSpanish": "Español",
+  "mt.cannedRepliesTitle": "今回のリクエストでは LLM を利用できなかったため、以下の返信はローカルのプリセットテンプレートです。",
+  "mt.partialFallbackTitle": "一部のゲストの返信はローカルのプリセットテンプレートで補完されました（LLM は返信しませんでした）。",
+  "mt.backendUnavailableTitle": "バックエンドが利用できないため、ローカルのフォールバックテンプレートを使用しています。",
+  "errorBoundary.copied": "コピーしました ✓",
+  "errorBoundary.copyDiagnostics": "エラー情報をコピー",
+  "errorBoundary.pasteHint": "フィードバックに貼り付けてください。"
 }

@@ -17,11 +17,11 @@
     };
     var theme = 'blue';
     var mode = 'dark';
-    var lang = 'zh-CN';
-    try { var t = localStorage.getItem('anoncafe_theme'); if (t && THEMES[t]) theme = t; } catch (e) {}
-    try { var m = localStorage.getItem('anoncafe_theme_mode'); if (m === 'light' || m === 'dark') mode = m; } catch (e) {}
+    var lang = 'en';
+    try { var t = localStorage.getItem('mentorTable_theme') || localStorage.getItem('anoncafe_theme'); if (t && THEMES[t]) theme = t; } catch (e) {}
+    try { var m = localStorage.getItem('mentorTable_theme_mode') || localStorage.getItem('anoncafe_theme_mode'); if (m === 'light' || m === 'dark') mode = m; } catch (e) {}
     try { var l = localStorage.getItem('language'); if (l) lang = l; } catch (e) {}
-    if (mode === 'dark' && !localStorage.getItem('anoncafe_theme_mode')) {
+    if (mode === 'dark' && !localStorage.getItem('mentorTable_theme_mode')) {
       // honor system preference when nothing persisted
       try {
         if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) mode = 'light';

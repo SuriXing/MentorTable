@@ -341,5 +341,11 @@
   ],
   "mt.adviceLanguageJapanese": "日本語",
   "mt.adviceLanguageKorean": "한국어",
-  "mt.adviceLanguageSpanish": "Español"
+  "mt.adviceLanguageSpanish": "Español",
+  "mt.cannedRepliesTitle": "이번 요청에서는 LLM을 사용할 수 없어 아래 답변은 로컬 프리셋 템플릿입니다.",
+  "mt.partialFallbackTitle": "일부 게스트의 답변은 로컬 프리셋 템플릿으로 보완되었습니다(LLM이 응답하지 않음).",
+  "mt.backendUnavailableTitle": "백엔드를 사용할 수 없어 로컬 폴백 템플릿을 사용합니다.",
+  "errorBoundary.copied": "복사됨 ✓",
+  "errorBoundary.copyDiagnostics": "오류 정보 복사",
+  "errorBoundary.pasteHint": "피드백에 붙여넣어 주세요."
 }

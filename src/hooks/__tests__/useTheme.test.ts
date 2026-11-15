@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useTheme, THEMES } from '../useTheme';
 
-const STORAGE_KEY = 'anoncafe_theme';
-const MODE_KEY = 'anoncafe_theme_mode';
+const STORAGE_KEY = 'mentorTable_theme';
+const MODE_KEY = 'mentorTable_theme_mode';
 
 describe('useTheme', () => {
   beforeEach(() => {
@@ -27,6 +27,14 @@ describe('useTheme', () => {
     localStorage.setItem(STORAGE_KEY, 'purple');
     const { result } = renderHook(() => useTheme());
     expect(result.current.themeId).toBe('purple');
+  });
+
+  it('falls back to the legacy anoncafe_theme key when the new one is absent', () => {
+    localStorage.setItem('anoncafe_theme', 'teal');
+    localStorage.setItem('anoncafe_theme_mode', 'light');
+    const { result } = renderHook(() => useTheme());
+    expect(result.current.themeId).toBe('teal');
+    expect(result.current.mode).toBe('light');
   });
 
   it('reads stored mode from localStorage', () => {

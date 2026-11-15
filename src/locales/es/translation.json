@@ -341,5 +341,11 @@
   ],
   "mt.adviceLanguageJapanese": "日本語",
   "mt.adviceLanguageKorean": "한국어",
-  "mt.adviceLanguageSpanish": "Español"
+  "mt.adviceLanguageSpanish": "Español",
+  "mt.cannedRepliesTitle": "El LLM no estuvo disponible para esta solicitud: las respuestas siguientes son plantillas preseteas locales.",
+  "mt.partialFallbackTitle": "Algunas respuestas se completaron con plantillas preseteas locales (el LLM no respondió).",
+  "mt.backendUnavailableTitle": "Backend no disponible: se usa la plantilla de respaldo local.",
+  "errorBoundary.copied": "Copiado ✓",
+  "errorBoundary.copyDiagnostics": "Copiar diagnóstico",
+  "errorBoundary.pasteHint": "Pega esto en tu informe de incidencias."
 }
