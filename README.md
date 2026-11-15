@@ -10,9 +10,8 @@ the mentors and prefill an editable question. Search can also create an
 unlisted person, role, or character as a clearly labeled custom mentor.
 Multi-round follow-ups, per-mentor private notes, a reply-all round table,
 a structured roundup of every mentor's next action, and saved memories
-that survive refreshes. Five UI languages (en / zh-CN / ja / ko / es);
-mentor reply language is selected independently and currently supports
-English or Simplified Chinese.
+that survive refreshes. Five UI languages (en / zh-CN / ja / ko / es); the mentor reply language
+is selected independently and supports all five.
 
 **The mentors are AI-simulated perspectives inspired by public figures.
 They are not real statements from real people.**
@@ -61,10 +60,11 @@ with 400 (body) or fall back with a warning (env). See
 
 ## Gates
 
-Every push runs lint (ESLint 9 flat config, frontend + backend), type
-check, the unit suite with a 95% coverage floor, build, and Playwright
-e2e — locally enforced by husky `pre-commit` (lint-staged) and
-`pre-push` (full gate).
+CI (every push and pull request) runs lint (ESLint 9 flat config,
+frontend + backend), type check, the performance suite, the unit suite
+with a 95% coverage floor, build, Playwright e2e, and a compiled-header
+parity check. Locally, husky `pre-commit` runs lint-staged and `pre-push`
+runs lint + type-check + the perf and unit suites.
 
 ## License
 

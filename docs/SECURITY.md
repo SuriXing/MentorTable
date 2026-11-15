@@ -144,5 +144,5 @@ outside the deployment domain.
 See the comment block above `getClientIp` in `lib/security.js`. The TL;DR:
 Vercel terminates TLS and prepends its edge IP to the chain. Only the
 **last** entry of `x-forwarded-for` is trustworthy. The first entry is
-client-claimed. We use the first entry as a rate-limit key (best-effort
-UX), not as an authentication signal.
+client-claimed. We key the rate limiter on the last (edge-written) entry
+as a best-effort UX signal, never as an authentication signal.

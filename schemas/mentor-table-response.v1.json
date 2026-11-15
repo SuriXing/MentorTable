@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://anoncafe.life/schemas/mentor-table-response.v1.json",
+  "$id": "https://mentor-table.vercel.app/schemas/mentor-table-response.v1.json",
   "title": "MentorTableResponseV1",
   "type": "object",
   "additionalProperties": false,

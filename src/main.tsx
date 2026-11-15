@@ -75,7 +75,7 @@ function PageSkeleton() {
         <div style={{ ...block, ...pulse, minHeight: 360 }} />
         <div style={{ ...block, ...pulse, minHeight: 360 }} />
       </div>
-      <span style={{ position: 'absolute', left: -9999 }}>Loading…</span>
+      <span style={{ position: 'absolute', left: '-9999px' }}>Loading…</span>
     </div>
   );
 }

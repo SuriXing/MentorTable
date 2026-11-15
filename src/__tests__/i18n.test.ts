@@ -49,12 +49,6 @@ vi.mock('react-i18next', () => ({
   initReactI18next: { type: '3rdParty', name: 'reactI18next' },
 }));
 
-vi.mock('i18next-http-backend', () => ({
-  default: class {
-    static type = 'backend';
-  },
-}));
-
 vi.mock('i18next-browser-languagedetector', () => ({
   default: class {
     static type = 'languageDetector';
@@ -118,10 +112,11 @@ describe('i18n setup', () => {
     expect(opts.resources.es).toBeUndefined();
   });
 
-  it('wires up http backend, language detector and initReactI18next via use()', async () => {
+  it('wires up the language detector and initReactI18next via use()', async () => {
     await import('../i18n');
-    // Three use() calls: backend, detector, initReactI18next
-    expect(useSpy).toHaveBeenCalledTimes(3);
+    // Two use() calls: detector, initReactI18next. Locale bundles are
+    // static/lazy imports now — there is no HTTP backend to fetch them.
+    expect(useSpy).toHaveBeenCalledTimes(2);
   });
 
   it('registers a languageChanged listener', async () => {

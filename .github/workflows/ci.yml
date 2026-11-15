@@ -120,17 +120,3 @@ jobs:
             console.log('compiled config carries', block.headers.length, 'security headers');
           "
 
-      # F101: the webserver above is shared via reuseExistingServer; the
-      # prod-headers assertion runs against the compiled Vercel config.
-      - name: Verify production security headers (compiled config parity)
-        run: |
-          npx @vercel/config compile > /tmp/vercel-compiled.json
-          node -e "
-            const compiled = require('/tmp/vercel-compiled.json');
-            const block = compiled.headers.find((h) => h.source === '/(.*)');
-            if (!block || block.headers.length === 0) {
-              console.error('compiled vercel config lost the security header block');
-              process.exit(1);
-            }
-            console.log('compiled config carries', block.headers.length, 'security headers');
-          "
