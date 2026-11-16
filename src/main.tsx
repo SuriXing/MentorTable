@@ -99,8 +99,8 @@ if (root) {
            * inside the router/boundary so their own render errors are
            * caught by ErrorBoundary too.
            *
-           * : respect Do-Not-Track. The `beforeSend` filter
-           * drops every event when the browser advertises DNT=1 — no
+           * : respect Do-Not-Track. Both SDKs get the same
+           * `beforeSend` gate when the browser advertises DNT=1 — no
            * pageviews, no `client_error` from ErrorBoundary, no perf
            * beacons from Speed Insights. PIPL/GDPR posture documented
            * in RUNBOOK.md → "Analytics & Privacy". */}
@@ -110,7 +110,12 @@ if (root) {
               return event;
             }}
           />
-          <SpeedInsights />
+          <SpeedInsights
+            beforeSend={(event) => {
+              if (typeof navigator !== 'undefined' && navigator.doNotTrack === '1') return null;
+              return event;
+            }}
+          />
         </ErrorBoundary>
     </React.StrictMode>
   );

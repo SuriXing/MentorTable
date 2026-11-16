@@ -281,9 +281,8 @@ browser advertises `navigator.doNotTrack === '1'`:
 ```
 
 Users who enable DNT in their browser send no pageview, no `client_error`,
-no perf beacon. (Speed Insights does not currently expose `beforeSend`; if
-strict DNT compliance for perf beacons is required, also remove the
-`<SpeedInsights />` mount.)
+no perf beacon. `<SpeedInsights />` mounts with the same `beforeSend` gate,
+so Core Web Vitals beacons are dropped under DNT too.
 
 **Kill switch (disable entirely).** To remove all client-side telemetry on
 the next deploy:
