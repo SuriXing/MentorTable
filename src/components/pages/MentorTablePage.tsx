@@ -83,6 +83,10 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
   const [personQuery, setPersonQuery] = useState('');
   // : search suggestions + spinner state live in usePersonSearch.
   const { suggestions, isSearching } = usePersonSearch(personQuery);
+  // KB-6: highlighted option for the combobox (arrow-key navigation +
+  // aria-activedescendant). -1 means "no option highlighted — Enter falls
+  // back to the add-from-query path".
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const [selectedPeople, setSelectedPeople] = useState<PersonOption[]>([]);
   const [adviceLanguagePreference, setAdviceLanguagePreference] = useState<AdviceLanguage | null>(
     () => loadAdviceLanguagePreference()
@@ -1088,11 +1092,38 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                     <input
                       data-testid="mentor-person-input"
                       value={personQuery}
-                      onChange={(e) => setPersonQuery(e.target.value)}
+                      onChange={(e) => {
+                        setPersonQuery(e.target.value);
+                        setActiveSuggestionIndex(-1);
+                      }}
                       onKeyDown={(e) => {
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          setActiveSuggestionIndex((index) =>
+                            Math.min(index + 1, verifiedSuggestions.length - 1)
+                          );
+                          return;
+                        }
+                        if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          setActiveSuggestionIndex((index) => Math.max(index - 1, -1));
+                          return;
+                        }
+                        if (e.key === 'Escape') {
+                          e.preventDefault();
+                          setActiveSuggestionIndex(-1);
+                          setPersonQuery('');
+                          return;
+                        }
                         if (e.key === 'Enter') {
                           e.preventDefault();
-                          addPersonFromQuery();
+                          const active = verifiedSuggestions[activeSuggestionIndex];
+                          if (activeSuggestionIndex >= 0 && active) {
+                            setActiveSuggestionIndex(-1);
+                            void addPerson(active);
+                          } else {
+                            addPersonFromQuery();
+                          }
                         }
                       }}
                       placeholder={t.invitePlaceholder}
@@ -1107,6 +1138,11 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                       aria-expanded={Boolean(personQuery.trim())}
                       aria-controls="mentor-suggestion-menu"
                       aria-autocomplete="list"
+                      aria-activedescendant={
+                        activeSuggestionIndex >= 0 && verifiedSuggestions[activeSuggestionIndex]
+                          ? `mentor-suggestion-${activeSuggestionIndex}`
+                          : undefined
+                      }
                       aria-describedby="mentor-custom-helper"
                     />
                     <button
@@ -1129,7 +1165,7 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                         role="listbox"
                         aria-label={t.invitePlaceholder}
                       >
-                        {verifiedSuggestions.map((s) => {
+                        {verifiedSuggestions.map((s, index) => {
                           const desc =
                             i18n.language === 'zh-CN'
                               ? s.descriptionZh || s.description
@@ -1144,10 +1180,12 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                             <button
                               type="button"
                               key={s.name}
+                              id={`mentor-suggestion-${index}`}
+                              tabIndex={-1}
                               className={styles.suggestionItem}
                               onClick={() => addPerson(s)}
                               role="option"
-                              aria-selected={false}
+                              aria-selected={activeSuggestionIndex === index}
                             >
                               <img
                                 src={imageSrcFor(s.name, s.imageUrl, s.candidateImageUrls)}
@@ -1347,9 +1385,12 @@ const MentorTablePage: React.FC<{ standalone?: boolean }> = ({ standalone = fals
                     {t.continueToWish}
                   </button>
                   {selectedPeople.length === 0 && (
+                    // Static guidance, not an assertive alert: an
+                    // role="alert" region announced on first paint, before
+                    // the user had done anything. The copy explains the
+                    // disabled CTA; no live region needed.
                     <p
                       id="mentor-continue-error"
-                      role="alert"
                       style={{ color: '#9b2121', fontSize: '0.85rem', margin: '6px 0 0' }}
                     >
                       {t.needAtLeastOne}

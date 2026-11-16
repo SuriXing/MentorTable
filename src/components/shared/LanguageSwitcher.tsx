@@ -15,6 +15,9 @@ const LanguageSwitcher: React.FC = () => {
   const { i18n, t } = useTranslation();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  // Arrow-key navigation for the listbox: focus lives on the option buttons.
+  const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const current = (i18n.language || 'en').toLowerCase();
   const activeCode: Lang =
@@ -30,6 +33,32 @@ const LanguageSwitcher: React.FC = () => {
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [open]);
+
+  // Move focus into the listbox when it opens (WAI-ARIA listbox pattern).
+  useEffect(() => {
+    if (!open) return;
+    const first = optionRefs.current[0];
+    if (first) first.focus();
+  }, [open]);
+
+  const handleMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const count = LANGS.length;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const current = optionRefs.current.findIndex((el) => el === document.activeElement);
+      const next =
+        event.key === 'ArrowDown'
+          ? (current + 1) % count
+          : (current - 1 + count) % count;
+      optionRefs.current[next]?.focus();
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setOpen(false);
+      triggerRef.current?.focus();
+    }
+  };
 
   const changeLang = (lng: Lang) => {
     void i18n.changeLanguage(lng);
@@ -53,6 +82,7 @@ const LanguageSwitcher: React.FC = () => {
     >
       <button
         type="button"
+        ref={triggerRef}
         onClick={() => setOpen((v) => !v)}
         aria-label={label}
         aria-haspopup="listbox"
@@ -79,6 +109,7 @@ const LanguageSwitcher: React.FC = () => {
         <div
           role="listbox"
           aria-label={label}
+          onKeyDown={handleMenuKeyDown}
           style={{
             position: 'absolute',
             right: 0,
@@ -93,7 +124,7 @@ const LanguageSwitcher: React.FC = () => {
             fontSize: 14,
           }}
         >
-          {LANGS.map((lng) => {
+          {LANGS.map((lng, idx) => {
             const name = String(
               t(`languageNames.${lng}`, { defaultValue: lng })
             );
@@ -104,6 +135,9 @@ const LanguageSwitcher: React.FC = () => {
                 type="button"
                 role="option"
                 aria-selected={active}
+                ref={(el) => {
+                  optionRefs.current[idx] = el;
+                }}
                 onClick={() => changeLang(lng)}
                 style={{
                   display: 'block',

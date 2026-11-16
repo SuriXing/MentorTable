@@ -254,6 +254,43 @@ describe('MentorTablePage (unit)', () => {
     expect(screen.queryByText('Custom mentor')).not.toBeInTheDocument();
   });
 
+  it('combobox keyboard: ArrowDown highlights a suggestion and Enter seats it', async () => {
+    render(<MentorTablePage standalone />);
+    const input = screen.getByTestId('mentor-person-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'bill' } });
+
+    await waitFor(() =>
+      expect(screen.getByRole('option', { name: /Bill Gates/ })).toBeInTheDocument()
+    );
+    const option = screen.getByRole('option', { name: /Bill Gates/ });
+    expect(option).toHaveAttribute('id', 'mentor-suggestion-0');
+
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect(input.getAttribute('aria-activedescendant')).toBe('mentor-suggestion-0');
+    expect(option).toHaveAttribute('aria-selected', 'true');
+
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(input.value).toBe(''));
+    expect(getGuestStrong()).toContain('Bill Gates');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
+  it('combobox keyboard: Escape clears the query and the highlight', async () => {
+    render(<MentorTablePage standalone />);
+    const input = screen.getByTestId('mentor-person-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'bill' } });
+    await waitFor(() =>
+      expect(screen.getByRole('option', { name: /Bill Gates/ })).toBeInTheDocument()
+    );
+
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'Escape' });
+
+    expect(input.value).toBe('');
+    expect(input.getAttribute('aria-activedescendant')).toBeNull();
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
   it('makes custom mentor creation explicit and labels the seated mentor', async () => {
     render(<MentorTablePage standalone />);
     expect(

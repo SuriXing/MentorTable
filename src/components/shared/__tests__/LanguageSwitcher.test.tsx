@@ -125,6 +125,42 @@ describe('LanguageSwitcher', () => {
     expect(enOpt).toHaveAttribute('aria-selected', 'true');
   });
 
+  it('focuses the first option when the listbox opens', () => {
+    render(<LanguageSwitcher />);
+    fireEvent.click(screen.getByRole('button', { name: 'Language' }));
+    const options = screen.getAllByRole('option');
+    expect(document.activeElement).toBe(options[0]);
+  });
+
+  it('ArrowDown / ArrowUp move focus through the options and wrap', () => {
+    render(<LanguageSwitcher />);
+    fireEvent.click(screen.getByRole('button', { name: 'Language' }));
+    const options = screen.getAllByRole('option');
+    const listbox = screen.getByRole('listbox');
+
+    expect(document.activeElement).toBe(options[0]);
+    fireEvent.keyDown(listbox, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(options[1]);
+    fireEvent.keyDown(listbox, { key: 'ArrowUp' });
+    expect(document.activeElement).toBe(options[0]);
+    // Wrap backwards from the first option to the last.
+    fireEvent.keyDown(listbox, { key: 'ArrowUp' });
+    expect(document.activeElement).toBe(options[options.length - 1]);
+    // Wrap forwards from the last option to the first.
+    fireEvent.keyDown(listbox, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(options[0]);
+  });
+
+  it('Escape closes the listbox and returns focus to the trigger', () => {
+    render(<LanguageSwitcher />);
+    const toggle = screen.getByRole('button', { name: 'Language' });
+    fireEvent.click(toggle);
+    const listbox = screen.getByRole('listbox');
+    fireEvent.keyDown(listbox, { key: 'Escape' });
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(document.activeElement).toBe(toggle);
+  });
+
   it('toggles closed when the trigger button is clicked twice', () => {
     render(<LanguageSwitcher />);
     const btn = screen.getByRole('button', { name: 'Language' });

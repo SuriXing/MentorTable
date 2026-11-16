@@ -380,7 +380,9 @@ describe('R2 errors — ERR-1 continue blocks 0-mentor sessions', () => {
     expect(btn.getAttribute('aria-disabled')).toBe('true');
     const hint = document.getElementById('mentor-continue-error');
     expect(hint).not.toBeNull();
-    expect(hint?.getAttribute('role')).toBe('alert');
+    // Static guidance (an aria-describedby target), NOT a live region —
+    // role=alert announced on first paint before any user action.
+    expect(hint?.hasAttribute('role')).toBe(false);
   });
 
   it('continue button enables once a mentor is added', async () => {
