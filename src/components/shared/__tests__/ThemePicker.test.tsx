@@ -14,7 +14,7 @@ vi.mock('../../../hooks/useTheme', async () => {
   const THEMES = {
     blue: {
       id: 'blue',
-      name: 'Blue Theme',
+      name: 'Blue',
       swatch: '#5B7BFA',
       primary: '#5B7BFA',
       primaryDark: '#4360D3',
@@ -22,7 +22,7 @@ vi.mock('../../../hooks/useTheme', async () => {
     },
     purple: {
       id: 'purple',
-      name: 'Purple Theme',
+      name: 'Purple',
       swatch: '#9F6BFF',
       primary: '#9F6BFF',
       primaryDark: '#7C3AED',
@@ -30,7 +30,7 @@ vi.mock('../../../hooks/useTheme', async () => {
     },
     teal: {
       id: 'teal',
-      name: 'Teal Theme',
+      name: 'Teal',
       swatch: '#2DD4BF',
       primary: '#2DD4BF',
       primaryDark: '#0D9488',
@@ -49,6 +49,24 @@ vi.mock('../../../hooks/useTheme', async () => {
   };
 });
 
+const labels = vi.hoisted(() => ({
+  'theme.light': 'Light',
+  'theme.dark': 'Dark',
+  'theme.themeColor': 'Theme color',
+  'theme.changeTheme': 'Change theme',
+  'theme.blue': 'Blue',
+  'theme.purple': 'Purple',
+  'theme.teal': 'Teal',
+}));
+
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string, options?: { defaultValue?: string }) =>
+      (labels as Record<string, string>)[key] ?? options?.defaultValue ?? key,
+    i18n: { language: 'en' },
+  }),
+}));
+
 import ThemePicker from '../ThemePicker';
 
 describe('ThemePicker', () => {
@@ -61,24 +79,24 @@ describe('ThemePicker', () => {
 
   it('renders the toggle button initially and the panel is hidden', () => {
     render(<ThemePicker />);
-    expect(screen.getByLabelText('Change theme color')).toBeInTheDocument();
+    expect(screen.getByLabelText('Change theme')).toBeInTheDocument();
     // Panel content is not in the document when closed
-    expect(screen.queryByText('Blue Theme')).not.toBeInTheDocument();
+    expect(screen.queryByText('Blue')).not.toBeInTheDocument();
     cleanup();
   });
 
   it('opens the panel when the toggle button is clicked', () => {
     render(<ThemePicker />);
-    fireEvent.click(screen.getByLabelText('Change theme color'));
-    expect(screen.getByText('Blue Theme')).toBeInTheDocument();
-    expect(screen.getByText('Purple Theme')).toBeInTheDocument();
-    expect(screen.getByText('Teal Theme')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Change theme'));
+    expect(screen.getByText('Blue')).toBeInTheDocument();
+    expect(screen.getByText('Purple')).toBeInTheDocument();
+    expect(screen.getByText('Teal')).toBeInTheDocument();
     cleanup();
   });
 
   it('renders light and dark mode buttons when panel is open', () => {
     render(<ThemePicker />);
-    fireEvent.click(screen.getByLabelText('Change theme color'));
+    fireEvent.click(screen.getByLabelText('Change theme'));
     expect(screen.getByText(/Light/)).toBeInTheDocument();
     expect(screen.getByText(/Dark/)).toBeInTheDocument();
     cleanup();
@@ -86,7 +104,7 @@ describe('ThemePicker', () => {
 
   it('calls setMode when light/dark buttons are clicked', () => {
     render(<ThemePicker />);
-    fireEvent.click(screen.getByLabelText('Change theme color'));
+    fireEvent.click(screen.getByLabelText('Change theme'));
     fireEvent.click(screen.getByText(/Light/));
     expect(setMode).toHaveBeenCalledWith('light');
     fireEvent.click(screen.getByText(/Dark/));
@@ -96,42 +114,42 @@ describe('ThemePicker', () => {
 
   it('calls setTheme and closes panel when a theme is selected', () => {
     render(<ThemePicker />);
-    fireEvent.click(screen.getByLabelText('Change theme color'));
-    fireEvent.click(screen.getByText('Purple Theme'));
+    fireEvent.click(screen.getByLabelText('Change theme'));
+    fireEvent.click(screen.getByText('Purple'));
     expect(setTheme).toHaveBeenCalledWith('purple');
     // After click, panel closes: the theme name is gone from DOM
-    expect(screen.queryByText('Purple Theme')).not.toBeInTheDocument();
+    expect(screen.queryByText('Purple')).not.toBeInTheDocument();
     cleanup();
   });
 
   it('closes the panel on outside click', () => {
     render(<ThemePicker />);
-    fireEvent.click(screen.getByLabelText('Change theme color'));
-    expect(screen.getByText('Blue Theme')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Change theme'));
+    expect(screen.getByText('Blue')).toBeInTheDocument();
 
     // Simulate an outside mousedown on document.body
     fireEvent.mouseDown(document.body);
 
-    expect(screen.queryByText('Blue Theme')).not.toBeInTheDocument();
+    expect(screen.queryByText('Blue')).not.toBeInTheDocument();
     cleanup();
   });
 
   it('does NOT close the panel on inside click (mousedown on a button)', () => {
     render(<ThemePicker />);
-    fireEvent.click(screen.getByLabelText('Change theme color'));
+    fireEvent.click(screen.getByLabelText('Change theme'));
     // mousedown on a theme button – inside container
-    fireEvent.mouseDown(screen.getByText('Blue Theme'));
+    fireEvent.mouseDown(screen.getByText('Blue'));
     // Panel still visible
-    expect(screen.getByText('Blue Theme')).toBeInTheDocument();
+    expect(screen.getByText('Blue')).toBeInTheDocument();
     cleanup();
   });
 
   it('highlights the current theme when open vs non-active themes', () => {
     mockThemeId = 'purple';
     render(<ThemePicker />);
-    fireEvent.click(screen.getByLabelText('Change theme color'));
-    const purpleButton = screen.getByText('Purple Theme').closest('button')!;
-    const blueButton = screen.getByText('Blue Theme').closest('button')!;
+    fireEvent.click(screen.getByLabelText('Change theme'));
+    const purpleButton = screen.getByText('Purple').closest('button')!;
+    const blueButton = screen.getByText('Blue').closest('button')!;
 
     // The active button and non-active buttons should have different
     // inline style strings (background + border branch differ).
@@ -145,8 +163,8 @@ describe('ThemePicker', () => {
 
   it('applies hover background on non-active theme buttons and resets on mouse leave', () => {
     render(<ThemePicker />);
-    fireEvent.click(screen.getByLabelText('Change theme color'));
-    const purpleButton = screen.getByText('Purple Theme').closest('button')!;
+    fireEvent.click(screen.getByLabelText('Change theme'));
+    const purpleButton = screen.getByText('Purple').closest('button')!;
     fireEvent.mouseEnter(purpleButton);
     expect(purpleButton.style.background).not.toBe('transparent');
     fireEvent.mouseLeave(purpleButton);
@@ -157,8 +175,8 @@ describe('ThemePicker', () => {
   it('does not change background on mouse enter/leave for the active theme', () => {
     mockThemeId = 'blue';
     render(<ThemePicker />);
-    fireEvent.click(screen.getByLabelText('Change theme color'));
-    const blueButton = screen.getByText('Blue Theme').closest('button')!;
+    fireEvent.click(screen.getByLabelText('Change theme'));
+    const blueButton = screen.getByText('Blue').closest('button')!;
     const before = blueButton.style.background;
     fireEvent.mouseEnter(blueButton);
     // Handler early-returns for active button
@@ -170,7 +188,7 @@ describe('ThemePicker', () => {
 
   it('scales the toggle button on hover and resets on mouse leave', () => {
     render(<ThemePicker />);
-    const toggle = screen.getByLabelText('Change theme color') as HTMLButtonElement;
+    const toggle = screen.getByLabelText('Change theme') as HTMLButtonElement;
     fireEvent.mouseEnter(toggle);
     expect(toggle.style.transform).toBe('scale(1.08)');
     fireEvent.mouseLeave(toggle);
@@ -178,32 +196,44 @@ describe('ThemePicker', () => {
     cleanup();
   });
 
+  it('renders localized theme names from the translation bundle', () => {
+    labels['theme.blue'] = '深蓝';
+    try {
+      render(<ThemePicker />);
+      fireEvent.click(screen.getByLabelText('Change theme'));
+      expect(screen.getByText('深蓝')).toBeInTheDocument();
+    } finally {
+      labels['theme.blue'] = 'Blue';
+    }
+    cleanup();
+  });
+
   it('toggles panel closed when clicking the toggle button twice', () => {
     render(<ThemePicker />);
-    const toggle = screen.getByLabelText('Change theme color');
+    const toggle = screen.getByLabelText('Change theme');
     fireEvent.click(toggle);
-    expect(screen.getByText('Blue Theme')).toBeInTheDocument();
+    expect(screen.getByText('Blue')).toBeInTheDocument();
     fireEvent.click(toggle);
-    expect(screen.queryByText('Blue Theme')).not.toBeInTheDocument();
+    expect(screen.queryByText('Blue')).not.toBeInTheDocument();
     cleanup();
   });
 
   it('renders in light mode variant when mode is light', () => {
     mockMode = 'light';
     render(<ThemePicker />);
-    fireEvent.click(screen.getByLabelText('Change theme color'));
+    fireEvent.click(screen.getByLabelText('Change theme'));
     // Light mode branch was exercised; the theme label text remains visible
-    expect(screen.getByText(/主题色/)).toBeInTheDocument();
+    expect(screen.getByText(/Theme color/)).toBeInTheDocument();
     cleanup();
   });
 
   it('applies light-mode hover background on non-active theme buttons (line 125 branch)', () => {
     mockMode = 'light';
     render(<ThemePicker />);
-    fireEvent.click(screen.getByLabelText('Change theme color'));
+    fireEvent.click(screen.getByLabelText('Change theme'));
     // In light mode, current theme is blue (active) — purple is non-active.
     // Mouse-enter should set background to the LIGHT-mode rgba value.
-    const purpleButton = screen.getByText('Purple Theme').closest('button')!;
+    const purpleButton = screen.getByText('Purple').closest('button')!;
     fireEvent.mouseEnter(purpleButton);
     // Light mode uses rgba(0, 0, 0, 0.04), dark mode would use rgba(255, 255, 255, 0.05)
     expect(purpleButton.style.background).toContain('rgba(0, 0, 0');
@@ -213,7 +243,7 @@ describe('ThemePicker', () => {
   it('active mode button differs from inactive mode button style', () => {
     mockMode = 'dark';
     render(<ThemePicker />);
-    fireEvent.click(screen.getByLabelText('Change theme color'));
+    fireEvent.click(screen.getByLabelText('Change theme'));
     const darkButton = screen.getByText(/Dark/).closest('button')!;
     const lightButton = screen.getByText(/Light/).closest('button')!;
     // Active (dark) vs inactive (light) should render different styles

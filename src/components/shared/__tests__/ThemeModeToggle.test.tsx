@@ -10,6 +10,18 @@ vi.mock('../../../hooks/useTheme', () => ({
   useTheme: () => ({ mode: mockMode, setMode }),
 }));
 
+const translations = vi.hoisted(() => ({
+  'theme.switchToLight': 'Switch to light mode',
+  'theme.switchToDark': 'Switch to dark mode',
+}));
+
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => translations[key as keyof typeof translations] ?? key,
+    i18n: { language: 'en' },
+  }),
+}));
+
 import ThemeModeToggle from '../ThemeModeToggle';
 
 describe('ThemeModeToggle', () => {
@@ -73,5 +85,17 @@ describe('ThemeModeToggle', () => {
     render(<ThemeModeToggle />);
     const btn = screen.getByRole('button') as HTMLButtonElement;
     expect(btn.style.background).toContain('18, 20, 34');
+  });
+
+  it('renders the localized label from the translation bundle', () => {
+    translations['theme.switchToLight'] = 'ライトモードに切り替え';
+    try {
+      render(<ThemeModeToggle />);
+      expect(
+        screen.getByRole('button', { name: 'ライトモードに切り替え' })
+      ).toBeInTheDocument();
+    } finally {
+      translations['theme.switchToLight'] = 'Switch to light mode';
+    }
   });
 });

@@ -141,5 +141,16 @@
   "mt.backendUnavailableTitle": "Backend no disponible: se usa la plantilla de respaldo local.",
   "errorBoundary.copied": "Copiado ✓",
   "errorBoundary.copyDiagnostics": "Copiar diagnóstico",
-  "errorBoundary.pasteHint": "Pega esto en tu informe de incidencias."
+  "errorBoundary.pasteHint": "Pega esto en tu informe de incidencias.",
+  "theme.switchToLight": "Cambiar a modo claro",
+  "theme.switchToDark": "Cambiar a modo oscuro",
+  "theme.light": "Claro",
+  "theme.dark": "Oscuro",
+  "theme.themeColor": "Color del tema",
+  "theme.changeTheme": "Cambiar tema",
+  "theme.blue": "Azul",
+  "theme.purple": "Morado",
+  "theme.teal": "Verde azulado",
+  "theme.sunset": "Atardecer",
+  "theme.forest": "Bosque"
 }

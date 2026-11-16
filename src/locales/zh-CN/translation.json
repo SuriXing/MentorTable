@@ -141,5 +141,16 @@
   "mt.backendUnavailableTitle": "后端不可用，已使用本地回退模板。",
   "errorBoundary.copied": "已复制 ✓",
   "errorBoundary.copyDiagnostics": "复制错误信息",
-  "errorBoundary.pasteHint": "可粘贴到你的反馈帖。"
+  "errorBoundary.pasteHint": "可粘贴到你的反馈帖。",
+  "theme.switchToLight": "切换到浅色模式",
+  "theme.switchToDark": "切换到深色模式",
+  "theme.light": "浅色",
+  "theme.dark": "深色",
+  "theme.themeColor": "主题色",
+  "theme.changeTheme": "更换主题",
+  "theme.blue": "深蓝",
+  "theme.purple": "暗紫",
+  "theme.teal": "深青",
+  "theme.sunset": "夕阳",
+  "theme.forest": "暗林"
 }

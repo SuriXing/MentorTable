@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../hooks/useTheme';
 
 /**
@@ -8,11 +9,12 @@ import { useTheme } from '../../hooks/useTheme';
  * don't have to discover it inside the theme popover.
  */
 const ThemeModeToggle: React.FC = () => {
+  const { t } = useTranslation();
   const { mode, setMode } = useTheme();
   const nextMode = mode === 'dark' ? 'light' : 'dark';
   const icon = mode === 'dark' ? '☀️' : '🌙';
   const label =
-    mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+    mode === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark');
 
   return (
     <button

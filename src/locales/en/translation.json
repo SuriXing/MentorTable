@@ -141,5 +141,16 @@
   "mt.backendUnavailableTitle": "Backend unavailable — using the local fallback template.",
   "errorBoundary.copied": "Copied ✓",
   "errorBoundary.copyDiagnostics": "Copy diagnostics",
-  "errorBoundary.pasteHint": "Paste this into your issue report."
+  "errorBoundary.pasteHint": "Paste this into your issue report.",
+  "theme.switchToLight": "Switch to light mode",
+  "theme.switchToDark": "Switch to dark mode",
+  "theme.light": "Light",
+  "theme.dark": "Dark",
+  "theme.themeColor": "Theme color",
+  "theme.changeTheme": "Change theme",
+  "theme.blue": "Blue",
+  "theme.purple": "Purple",
+  "theme.teal": "Teal",
+  "theme.sunset": "Sunset",
+  "theme.forest": "Forest"
 }

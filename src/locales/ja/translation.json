@@ -141,5 +141,16 @@
   "mt.backendUnavailableTitle": "バックエンドが利用できないため、ローカルのフォールバックテンプレートを使用しています。",
   "errorBoundary.copied": "コピーしました ✓",
   "errorBoundary.copyDiagnostics": "エラー情報をコピー",
-  "errorBoundary.pasteHint": "フィードバックに貼り付けてください。"
+  "errorBoundary.pasteHint": "フィードバックに貼り付けてください。",
+  "theme.switchToLight": "ライトモードに切り替え",
+  "theme.switchToDark": "ダークモードに切り替え",
+  "theme.light": "ライト",
+  "theme.dark": "ダーク",
+  "theme.themeColor": "テーマカラー",
+  "theme.changeTheme": "テーマを変更",
+  "theme.blue": "ブルー",
+  "theme.purple": "パープル",
+  "theme.teal": "ティール",
+  "theme.sunset": "サンセット",
+  "theme.forest": "フォレスト"
 }

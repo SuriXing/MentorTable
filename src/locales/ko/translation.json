@@ -141,5 +141,16 @@
   "mt.backendUnavailableTitle": "백엔드를 사용할 수 없어 로컬 폴백 템플릿을 사용합니다.",
   "errorBoundary.copied": "복사됨 ✓",
   "errorBoundary.copyDiagnostics": "오류 정보 복사",
-  "errorBoundary.pasteHint": "피드백에 붙여넣어 주세요."
+  "errorBoundary.pasteHint": "피드백에 붙여넣어 주세요.",
+  "theme.switchToLight": "라이트 모드로 전환",
+  "theme.switchToDark": "다크 모드로 전환",
+  "theme.light": "라이트",
+  "theme.dark": "다크",
+  "theme.themeColor": "테마 색상",
+  "theme.changeTheme": "테마 변경",
+  "theme.blue": "블루",
+  "theme.purple": "퍼플",
+  "theme.teal": "틸",
+  "theme.sunset": "선셋",
+  "theme.forest": "포레스트"
 }
