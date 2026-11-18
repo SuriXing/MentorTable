@@ -68,4 +68,7 @@ runs lint + type-check + the perf and unit suites.
 
 ## License
 
-[MIT](./LICENSE)
+[MIT](./LICENSE) — code only. The bundled mentor portraits in
+`public/assets/mentors/` are separate media; see
+[docs/IMAGE-SOURCES.md](./docs/IMAGE-SOURCES.md) for provenance and the
+checklist before redistributing them.

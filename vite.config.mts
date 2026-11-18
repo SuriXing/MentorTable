@@ -54,6 +54,12 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3001,
       open: true,
+      // e2e and coverage runs write into the repo root while the dev server
+      // is watching; without this ignore list those writes look like source
+      // changes and Vite full-reloads the pages the tests are driving.
+      watch: {
+        ignored: ['**/test-results/**', '**/coverage/**', '**/playwright-report/**'],
+      },
       proxy: {
         '/api': {
           target: 'http://127.0.0.1:8787',

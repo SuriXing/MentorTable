@@ -3,7 +3,8 @@
 // `unsafe-inline` in script-src CSP. Vite copies public/* to dist root
 // unchanged at build, so the served path stays /theme-bootstrap.js in
 // production. Coordinates with src/hooks/useTheme.ts (keys:
-// anoncafe_theme, anoncafe_theme_mode) and src/i18n.ts (key: language).
+// mentorTable_theme, mentorTable_theme_mode; the legacy anoncafe_* keys
+// are still read as a fallback) and src/i18n.ts (key: language).
 // All wrapped in try/catch — Safari Private Browsing throws SecurityError
 // on localStorage access.
 (function () {
