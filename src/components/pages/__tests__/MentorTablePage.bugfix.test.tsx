@@ -106,7 +106,6 @@ vi.mock('../../../features/mentorTable/personLookup', async (importOriginal) => 
       (globalThis as any).__mentorBugfixState.findVerifiedPerson(name),
     getChineseDisplayName: (name: string) =>
       (globalThis as any).__mentorBugfixState.getChineseDisplayName(name),
-    getVerifiedPlaceholderImage: () => 'data:image/svg+xml;utf8,placeholder',
     searchPeopleWithPhotos: (q: string) =>
       (globalThis as any).__mentorBugfixState.searchPeopleWithPhotos(q),
     searchVerifiedPeopleLocal: (query: string) =>

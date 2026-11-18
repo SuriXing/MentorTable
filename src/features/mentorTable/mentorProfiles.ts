@@ -163,14 +163,6 @@ export const MENTOR_PROFILES: Record<BuiltinMentorId, MentorProfile> = {
   }
 };
 
-export function getMentorProfile(id: BuiltinMentorId): MentorProfile {
-  return MENTOR_PROFILES[id];
-}
-
-export function getMentorProfiles(ids: BuiltinMentorId[]): MentorProfile[] {
-  return ids.map((id) => MENTOR_PROFILES[id]);
-}
-
 export function getSuggestedPeople(query: string, limit = 6): MentorProfile[] {
   const normalized = query.trim().toLowerCase();
   if (!normalized) return [];

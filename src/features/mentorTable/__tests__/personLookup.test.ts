@@ -277,14 +277,6 @@ describe('personLookup', () => {
     expect(searchVerifiedPeopleLocal('   ')).toEqual([]);
   });
 
-  it('getVerifiedPlaceholderImage returns a string', async () => {
-    const { getVerifiedPlaceholderImage } = await import('../personLookup');
-
-    const placeholder = getVerifiedPlaceholderImage();
-    expect(typeof placeholder).toBe('string');
-    expect(placeholder).toMatch(/^data:image\/svg/);
-  });
-
   it('fetchPersonImageCandidates handles verified person with no candidateImageUrls (line 1513)', async () => {
     // Hayao Miyazaki has no candidateImageUrls → `|| []` fallback. The
     // result must still surface a real image (the primary imageUrl from

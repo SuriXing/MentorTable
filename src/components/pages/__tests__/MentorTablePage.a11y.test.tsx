@@ -77,7 +77,6 @@ vi.mock('../../../features/mentorTable/personLookup', async (importOriginal) => 
     fetchPersonImageCandidates: async () => undefined,
     findVerifiedPerson: () => undefined,
     getChineseDisplayName: (name: string) => name,
-    getVerifiedPlaceholderImage: () => 'data:image/svg+xml;utf8,placeholder',
     searchPeopleWithPhotos: async () => [],
     searchVerifiedPeopleLocal: () => [],
   };

@@ -1,45 +1,8 @@
-import { useTranslation } from 'react-i18next';
 import i18next, { TOptions } from 'i18next';
 
 const FALLBACK_LANGUAGES = ['en', 'zh-CN'] as const;
 type SupportedLanguages = 'zh-CN' | 'en' | 'ja' | 'ko' | 'es';
 
-/**
- * A helper function to properly type translations with parameter support
- */
-export const useTypeSafeTranslation = () => {
-  const { t, i18n } = useTranslation();
-  
-  const typeSafeT = (key: string, options?: TOptions): string => {
-    try {
-      // First try with current language
-      const translation = t(key, { ...options, defaultValue: '' });
-      if (translation && translation !== key) {
-        return translation;
-      }
-
-      // Try fallback languages in order
-      for (const lang of FALLBACK_LANGUAGES) {
-        const fallbackT = i18next.getFixedT(lang);
-        const fallbackTranslation = fallbackT(key, { ...options, defaultValue: '' });
-        if (fallbackTranslation && fallbackTranslation !== key) {
-          return fallbackTranslation;
-        }
-      }
-
-      // If still no translation found, log warning and return key
-      if (process.env.NODE_ENV === 'development') {
-        console.warn(`Translation missing for key "${key}" in language "${i18n.language}" and fallbacks`);
-      }
-      return key;
-    } catch (error) {
-      console.error(`Error translating key: ${key}`, error);
-      return key;
-    }
-  };
-  
-  return { t: typeSafeT, i18n };
-};
 
 /**
  * Get current language from localStorage or navigator
@@ -119,20 +82,3 @@ export function translate(key: string, options?: TOptions): string {
     return key;
   }
 }
-
-/**
- * Get a translation with fallback.
- * translate() has its own try/catch (line 81) and never throws, so no
- * outer catch is needed here.
- */
-export const getTranslation = (key: string, fallback: string = ''): string => {
-  const translation = translate(key);
-  return translation === key ? fallback : translation;
-};
-
-/**
- * Get a translation for the site name
- */
-export const getSiteName = (i18n: typeof i18next) => {
-  return i18n.t('siteName', 'Mentor Table');
-};

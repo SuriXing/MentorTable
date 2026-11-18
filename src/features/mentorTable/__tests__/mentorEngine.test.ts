@@ -1,4 +1,4 @@
-import { createCustomMentorProfile, getMentorProfiles } from '../mentorProfiles';
+import { createCustomMentorProfile, MENTOR_PROFILES } from '../mentorProfiles';
 import { simulateMentorTable } from '../mentorEngine';
 
 describe('mentorEngine', () => {
@@ -113,7 +113,7 @@ describe('mentorEngine', () => {
 
   describe('all 5 builtin mentors in English', () => {
     const builtinIds = ['bill_gates', 'oprah_winfrey', 'kobe_bryant', 'miyazaki_hayao', 'elon_musk'] as const;
-    const mentors = getMentorProfiles([...builtinIds]);
+    const mentors = builtinIds.map((id) => MENTOR_PROFILES[id]);
     const problem = 'I am stuck and cannot figure out my next career move.';
 
     it('generates distinct responses for each mentor', () => {
@@ -165,7 +165,7 @@ describe('mentorEngine', () => {
 
   describe('all 5 builtin mentors in zh-CN', () => {
     const builtinIds = ['bill_gates', 'oprah_winfrey', 'kobe_bryant', 'miyazaki_hayao', 'elon_musk'] as const;
-    const mentors = getMentorProfiles([...builtinIds]);
+    const mentors = builtinIds.map((id) => MENTOR_PROFILES[id]);
     const problem = '我卡住了，不知道下一步该做什么。';
 
     it('bill_gates zh-CN response contains Chinese content', () => {

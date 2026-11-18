@@ -62,7 +62,6 @@ vi.mock('../../../features/mentorTable/personLookup', async (importOriginal) => 
       (globalThis as any).__mentorTestState.fetchPersonImageCandidates(name),
     findVerifiedPerson: (name: string) => (globalThis as any).__mentorTestState.findVerifiedPerson(name),
     getChineseDisplayName: (name: string) => (globalThis as any).__mentorTestState.getChineseDisplayName(name),
-    getVerifiedPlaceholderImage: () => 'data:image/svg+xml;utf8,placeholder',
     searchPeopleWithPhotos: (q: string) => (globalThis as any).__mentorTestState.searchPeopleWithPhotos(q),
   };
 });

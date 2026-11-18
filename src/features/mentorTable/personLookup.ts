@@ -133,8 +133,6 @@ function createInlineAvatarDataUri(label: string, backgroundHex: string, colorHe
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
-const VERIFIED_PLACEHOLDER_IMAGE = createInlineAvatarDataUri('Mentor', '#e7efff', '#2a4f90');
-
 const VERIFIED_PEOPLE: Array<{
   canonical: string;
   aliases: string[];
@@ -1975,10 +1973,6 @@ export function searchVerifiedPeopleLocal(query: string, limit = 8): PersonOptio
       descriptionEs: person.descriptionEs
     };
   });
-}
-
-export function getVerifiedPlaceholderImage(): string {
-  return VERIFIED_PLACEHOLDER_IMAGE;
 }
 
 export interface MentorImageChainOptions {

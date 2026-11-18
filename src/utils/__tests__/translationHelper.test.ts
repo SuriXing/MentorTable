@@ -1,5 +1,4 @@
-/* eslint-disable local/no-missing-i18n-key -- this file contains test fixtures with
- * synthetic keys that intentionally don't exist in the canonical EN catalog. */
+ 
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 // --- Mocks ---------------------------------------------------------------
@@ -13,8 +12,6 @@ const state = {
   fixedTranslations: {} as Record<string, Record<string, string>>,
   // when true, i18next.t throws
   throwOnCurrent: false,
-  // when true, useTranslation().t throws
-  throwOnHookCurrent: false,
 };
 
 function makeTFn(table: Record<string, string>) {
@@ -45,31 +42,7 @@ vi.mock('i18next', () => {
   };
 });
 
-vi.mock('react-i18next', () => {
-  return {
-    useTranslation: () => ({
-      t: (key: string, options?: any) => {
-        if (state.throwOnHookCurrent) throw new Error('boom');
-        const val = state.currentTranslations[key];
-        if (val !== undefined) return val;
-        if (options && 'defaultValue' in options) return options.defaultValue;
-        return key;
-      },
-      i18n: {
-        language: state.language,
-      },
-    }),
-  };
-});
-
-import {
-  useTypeSafeTranslation,
-  getCurrentLanguage,
-  translate,
-  getTranslation,
-  getSiteName,
-} from '../translationHelper';
-import i18next from 'i18next';
+import { getCurrentLanguage, translate } from '../translationHelper';
 
 // Helper to reset state between tests
 function resetState() {
@@ -77,7 +50,6 @@ function resetState() {
   state.currentTranslations = {};
   state.fixedTranslations = {};
   state.throwOnCurrent = false;
-  state.throwOnHookCurrent = false;
 }
 
 describe('translationHelper', () => {
@@ -90,69 +62,6 @@ describe('translationHelper', () => {
   afterEach(() => {
     resetState();
     localStorage.clear();
-  });
-
-  // ------------------------------------------------------------------------
-  describe('useTypeSafeTranslation (hook)', () => {
-    it('returns translation from current language when available', () => {
-      state.currentTranslations = { hello: 'Hello' };
-      const { t } = useTypeSafeTranslation();
-      expect(t('hello')).toBe('Hello');
-    });
-
-    it('falls back to en when current language has no value', () => {
-      state.currentTranslations = {}; // current empty
-      state.fixedTranslations = {
-        'zh-CN': { hello: '你好' },
-        en: { hello: 'Hello' },
-      };
-      const { t } = useTypeSafeTranslation();
-      expect(t('hello')).toBe('Hello');
-    });
-
-    it('falls back to zh-CN when en is also missing', () => {
-      state.fixedTranslations = {
-        'zh-CN': { hello: '你好' },
-        en: {},
-      };
-      const { t } = useTypeSafeTranslation();
-      expect(t('hello')).toBe('你好');
-    });
-
-    it('returns key when all fallbacks fail and warns in development', () => {
-      const prev = process.env.NODE_ENV;
-      process.env.NODE_ENV = 'development';
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      const { t } = useTypeSafeTranslation();
-      expect(t('missing.key')).toBe('missing.key');
-      expect(warnSpy).toHaveBeenCalled();
-      process.env.NODE_ENV = prev;
-    });
-
-    it('does not warn when not in development and key is missing', () => {
-      const prev = process.env.NODE_ENV;
-      process.env.NODE_ENV = 'production';
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      const { t } = useTypeSafeTranslation();
-      expect(t('missing.key')).toBe('missing.key');
-      expect(warnSpy).not.toHaveBeenCalled();
-      process.env.NODE_ENV = prev;
-    });
-
-    it('catches errors and returns the key', () => {
-      state.throwOnHookCurrent = true;
-      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const { t } = useTypeSafeTranslation();
-      expect(t('some.key')).toBe('some.key');
-      expect(errSpy).toHaveBeenCalled();
-    });
-
-    it('passes options through to the t function', () => {
-      state.currentTranslations = { greet: 'Hi {{name}}' };
-      const { t } = useTypeSafeTranslation();
-      // Our mock does not interpolate; still, the mock returns the raw value.
-      expect(t('greet', { name: 'Suri' })).toBe('Hi {{name}}');
-    });
   });
 
   // ------------------------------------------------------------------------
@@ -283,39 +192,6 @@ describe('translationHelper', () => {
       const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       expect(translate('some.key')).toBe('some.key');
       expect(errSpy).toHaveBeenCalled();
-    });
-  });
-
-  // ------------------------------------------------------------------------
-  describe('getTranslation', () => {
-    it('returns translation when present', () => {
-      state.currentTranslations = { a: 'A' };
-      expect(getTranslation('a', 'fallback')).toBe('A');
-    });
-
-    it('returns fallback when translation is missing', () => {
-      expect(getTranslation('missing', 'fallback value')).toBe('fallback value');
-    });
-
-    it('returns empty string when no fallback provided and key missing', () => {
-      expect(getTranslation('missing')).toBe('');
-    });
-  });
-
-  // ------------------------------------------------------------------------
-  describe('getSiteName', () => {
-    it('calls i18n.t with siteName key and default', () => {
-      const fakeI18n = {
-        t: vi.fn().mockReturnValue('My Site'),
-      } as any;
-      expect(getSiteName(fakeI18n)).toBe('My Site');
-      expect(fakeI18n.t).toHaveBeenCalledWith('siteName', 'Mentor Table');
-    });
-
-    it('works with the mocked i18next default export too', () => {
-      state.currentTranslations = { siteName: 'Anon Cafe Local' };
-      // getSiteName uses whatever i18n you pass in. Use mocked i18next.
-      expect(getSiteName(i18next as any)).toBe('Anon Cafe Local');
     });
   });
 });

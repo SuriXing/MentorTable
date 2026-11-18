@@ -1,40 +1,11 @@
 import {
   createCustomMentorProfile,
   getCartoonAvatarUrl,
-  getMentorProfile,
-  getMentorProfiles,
   getSuggestedPeople,
   MENTOR_PROFILES
 } from '../mentorProfiles';
 
 describe('mentorProfiles', () => {
-  describe('getMentorProfile', () => {
-    it('returns the correct profile for each builtin ID', () => {
-      const ids = ['bill_gates', 'oprah_winfrey', 'kobe_bryant', 'miyazaki_hayao', 'elon_musk'] as const;
-      for (const id of ids) {
-        const profile = getMentorProfile(id);
-        expect(profile.id).toBe(id);
-        expect(profile.displayName).toBeTruthy();
-        expect(profile.speakingStyle.length).toBeGreaterThan(0);
-        expect(profile.coreValues.length).toBeGreaterThan(0);
-        expect(profile.decisionPatterns.length).toBeGreaterThan(0);
-      }
-    });
-  });
-
-  describe('getMentorProfiles', () => {
-    it('returns profiles in order for given IDs', () => {
-      const profiles = getMentorProfiles(['kobe_bryant', 'bill_gates']);
-      expect(profiles).toHaveLength(2);
-      expect(profiles[0].id).toBe('kobe_bryant');
-      expect(profiles[1].id).toBe('bill_gates');
-    });
-
-    it('returns empty array for empty input', () => {
-      expect(getMentorProfiles([])).toEqual([]);
-    });
-  });
-
   describe('getSuggestedPeople', () => {
     it('maps a builtin person name back to the builtin mentor persona', () => {
       const profile = createCustomMentorProfile('Bill Gates');
